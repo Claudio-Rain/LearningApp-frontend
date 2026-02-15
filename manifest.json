@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Repeating Timer",
+  "version": "1.0",
+  "description": "A timer that repeats when finished",
+  "action": {
+    "default_popup": "index.html",
+    "default_title": "Timer"
+  },
+  "permissions": []
+}
