@@ -1,5 +1,3 @@
-
-//could you convert them into an array with  this format? Or one that you consider readable
 const questions = [
   {
     question: "Bear",
@@ -2219,34 +2217,6 @@ const questions = [
   }
 ];
 
-chrome.runtime.onMessage.addListener((message) => {
-  if (message.type === "START_TIMER") {
-    const minutes = message.minutes
-    const endTime = Date.now() + minutes * 60 * 1000
-
-    const intervalSeconds = 60  // 👈 X tiempo
-    const intervalMinutes = intervalSeconds / 60
-
-
-    chrome.storage.local.set({
-      endTime,
-      lastMinutes: minutes,
-      intervalSeconds
-    })
-
-    chrome.alarms.create("timerAlarm", {
-      periodInMinutes: intervalMinutes
-    })
-  }
-
-  if (message.type === "STOP_TIMER") {
-    chrome.alarms.clear("timerAlarm")
-    chrome.storage.local.remove("endTime")
-    chrome.notifications.clearAll?.() // opcional
-    console.log("Timer detenido")
-  }
-})
-
 let sessionActive = false
 
 // Crear alarmas al iniciar la extensión
@@ -2340,22 +2310,3 @@ function stopSessionManually() {
   chrome.notifications.clearAll?.()
   console.log("Sesión detenida manualmente")
 }
-
-
-chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
-  if (notificationId === "timerFinished" && buttonIndex === 0) {
-    chrome.storage.local.get("lastMinutes", (data) => {
-      const minutes = data.lastMinutes
-      const endTime = Date.now() + minutes * 60 * 1000
-
-      chrome.storage.local.set({
-        endTime,
-        lastMinutes: minutes
-      })
-
-      chrome.alarms.create("timerAlarm", {
-        when: endTime
-      })
-    })
-  }
-})
