@@ -1,5 +1,3 @@
-
-//could you convert them into an array with  this format? Or one that you consider readable
 const questions = [
   {
     question: "Bear",
@@ -170,10 +168,6 @@ const questions = [
     answer: "(Hung/Hanged) (Hung/Hanged) [To suspend from a support]"
   },
   {
-    question: "Have",
-    answer: "(Had) (Had) [To possess]"
-  },
-  {
     question: "Hear",
     answer: "(Heard) (Heard) [To detect or perceive sound]"
   },
@@ -282,14 +276,6 @@ const questions = [
     answer: "(Pent/Penned) (Pent/Penned) [To shut up or enclose in a cage, etc]"
   },
   {
-    question: "will",
-    answer: "(not) (become) [smaller when washed]"
-  },
-  {
-    question: "Put",
-    answer: "(Put) (Put) [To place something in a specific position]"
-  },
-  {
     question: "Quit",
     answer: "(Quit) (Quit) [To stop doing something ; To resign from a job]"
   },
@@ -378,10 +364,6 @@ const questions = [
     answer: "(Shewed) (Shewn/Shewed) [Show]"
   },
   {
-    question: "Shit",
-    answer: "(Shat/Shit) (Shat/Shit) [To get rid of solid body waste]"
-  },
-  {
     question: "Shoe",
     answer: "(Shod) (Shod) [To provide with shoes, especially horses]"
   },
@@ -446,14 +428,6 @@ const questions = [
     answer: "(Tint/Tined) (Tint/Tined) [To shut]"
   },
   {
-    question: "Not",
-    answer: "(to) (cook) [enough]"
-  },
-  {
-    question: "Not",
-    answer: "(to) (reach) [a traget]"
-  },
-  {
     question: "Undo",
     answer: "(Undid) (Undone) [To ruin somebody's reputation]"
   },
@@ -480,10 +454,6 @@ const questions = [
   {
     question: "Wend",
     answer: "(Wended/Went) (Wended/Went) [To go, make your way]"
-  },
-  {
-    question: "Wet",
-    answer: "(Wet/Wetted) (Wet/Wetted) [To make something wet by applying a liquid]"
   },
   {
     question: "Win",
@@ -540,11 +510,7 @@ const questions = [
   {
     question: "Beget",
     answer: "(Begot/Begat) (Begotten) [To cause something to happen]"
-  },
-  {
-    question: "Begin",
-    answer: "(Began) (Begun) [To start something]"
-  },
+  },,
   {
     question: "Begird",
     answer: "(Begirt/Begirded) (Begirt) [To encircle]"
@@ -594,10 +560,6 @@ const questions = [
     answer: "(Brought) (Brought) [To carry or convey something to the place]"
   },
   {
-    question: "where",
-    answer: "(you) (are) [going]"
-  },
-  {
     question: "Build",
     answer: "(Built) (Built) [To construct]"
   },
@@ -636,10 +598,6 @@ const questions = [
   {
     question: "Creep",
     answer: "(Crept) (Crept) [To move along the ground lying down]"
-  },
-  {
-    question: "knife",
-    answer: "(or) (similar) [tool]"
   },
   {
     question: "Dight",
@@ -716,14 +674,6 @@ const questions = [
   {
     question: "Hoist",
     answer: "(Hoist/Hoisted) (Hoist/Hoisted) [To raise or lift using ropes, etc]"
-  },
-  {
-    question: "while",
-    answer: "(they) (are) [away]"
-  },
-  {
-    question: "sexual",
-    answer: "(relations) (between) [close relatives]"
   },
   {
     question: "Inhold",
@@ -1778,20 +1728,12 @@ const questions = [
     answer: "(Reground) (Reground) [To grind again ; To smooth worn engine parts]"
   },
   {
-    question: "replaced",
-    answer: "(as) (they) [become used or tired]"
-  },
-  {
     question: "Relearn",
     answer: "(Relearnt/Relearned) (Relearnt/Relearned) [To learn again]"
   },
   {
     question: "Relight",
     answer: "(Relit/Relighted) (Relit/Relighted) [To light or start something burning again]"
-  },
-  {
-    question: "version",
-    answer: "(of) (a) [film]"
   },
   {
     question: "Reshoot",
@@ -1832,10 +1774,6 @@ const questions = [
   {
     question: "Shortcut",
     answer: "(Shortcut) (Shortcut) [To use a shorter or quicker way of going]"
-  },
-  {
-    question: "somehere",
-    answer: "(or) (doing) [something]"
   },
   {
     question: "Sidewind",
@@ -2086,10 +2024,6 @@ const questions = [
     answer: "(Linebred) (Linebred) [Breed animals from a particular family]"
   },
   {
-    question: "movements",
-    answer: "(of) (their) [mouth]"
-  },
-  {
     question: "Misbecome",
     answer: "(Misbecame) (Misbecome) [Not to suit]"
   },
@@ -2154,10 +2088,6 @@ const questions = [
     answer: "(Overstood) (Overstood) [Lose a sale of deal by sticking to a price or]"
   },
   {
-    question: "conditions",
-    answer: "(unacceptable) (to) [the other party]"
-  },
-  {
     question: "Overstrew",
     answer: "(Overstrewed) (Overstrewed/Overstrewn) [To sprinkle or strew something onto another]"
   },
@@ -2186,10 +2116,6 @@ const questions = [
     answer: "(Overwrote) (Overwritten) [To record data on top of existing data, erasing]"
   },
   {
-    question: "especially",
-    answer: "(when) (a) [hit is needed]"
-  },
-  {
     question: "Preshrink",
     answer: "(Preshrank) (Preshrunk) [To shrink a fabric before selling it so that it]"
   },
@@ -2212,10 +2138,6 @@ const questions = [
   {
     question: "Spoonfeed",
     answer: "(Spoonfed) (Spoonfed) [To give someone information in small and]"
-  },
-  {
-    question: "Straphang",
-    answer: "(Straphung) (Straphung) [To hold a strap for support]"
   },
   {
     question: "Typewrite",
@@ -2252,10 +2174,6 @@ const questions = [
   {
     question: "Underwrite",
     answer: "(Underwrote) (Underwritten) [To accept part or all of a financial risk,]"
-  },
-  {
-    question: "something",
-    answer: "(that) (had) [been learned]"
   },
   {
     question: "Winterfeed",
@@ -2299,34 +2217,6 @@ const questions = [
   }
 ];
 
-chrome.runtime.onMessage.addListener((message) => {
-  if (message.type === "START_TIMER") {
-    const minutes = message.minutes
-    const endTime = Date.now() + minutes * 60 * 1000
-
-    const intervalSeconds = 60  // 👈 X tiempo
-    const intervalMinutes = intervalSeconds / 60
-
-
-    chrome.storage.local.set({
-      endTime,
-      lastMinutes: minutes,
-      intervalSeconds
-    })
-
-    chrome.alarms.create("timerAlarm", {
-      periodInMinutes: intervalMinutes
-    })
-  }
-
-  if (message.type === "STOP_TIMER") {
-    chrome.alarms.clear("timerAlarm")
-    chrome.storage.local.remove("endTime")
-    chrome.notifications.clearAll?.() // opcional
-    console.log("Timer detenido")
-  }
-})
-
 let sessionActive = false
 
 // Crear alarmas al iniciar la extensión
@@ -2359,8 +2249,6 @@ function createAlarms() {
   })
 }
 
-
-// Listener global de alarmas
 chrome.alarms.onAlarm.addListener((alarm) => {
 
   if (alarm.name === "sessionAlarm") {
@@ -2369,14 +2257,11 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
   if (alarm.name === "notificationAlarm") {
     if (sessionActive) {
-      console.log("sending notification")
       sendNotification()
     }
   }
 })
 
-
-// 🔐 Control de sesión (ej: 18:00 inicia, 19:00 termina)
 function checkSessionTime() {
   const now = new Date()
   const hour = now.getHours()
@@ -2392,8 +2277,6 @@ function checkSessionTime() {
   }
 }
 
-
-// 🔔 Notificación periódica
 function sendNotification() {
   const randomQuestion = questions[Math.floor(Math.random() * questions.length)];
 
@@ -2420,22 +2303,3 @@ function stopSessionManually() {
   chrome.notifications.clearAll?.()
   console.log("Sesión detenida manualmente")
 }
-
-
-chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
-  if (notificationId === "timerFinished" && buttonIndex === 0) {
-    chrome.storage.local.get("lastMinutes", (data) => {
-      const minutes = data.lastMinutes
-      const endTime = Date.now() + minutes * 60 * 1000
-
-      chrome.storage.local.set({
-        endTime,
-        lastMinutes: minutes
-      })
-
-      chrome.alarms.create("timerAlarm", {
-        when: endTime
-      })
-    })
-  }
-})
