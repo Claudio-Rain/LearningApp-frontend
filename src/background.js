@@ -2249,8 +2249,6 @@ function createAlarms() {
   })
 }
 
-
-// Listener global de alarmas
 chrome.alarms.onAlarm.addListener((alarm) => {
 
   if (alarm.name === "sessionAlarm") {
@@ -2259,14 +2257,11 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
   if (alarm.name === "notificationAlarm") {
     if (sessionActive) {
-      console.log("sending notification")
       sendNotification()
     }
   }
 })
 
-
-// 🔐 Control de sesión (ej: 18:00 inicia, 19:00 termina)
 function checkSessionTime() {
   const now = new Date()
   const hour = now.getHours()
@@ -2282,8 +2277,6 @@ function checkSessionTime() {
   }
 }
 
-
-// 🔔 Notificación periódica
 function sendNotification() {
   const randomQuestion = questions[Math.floor(Math.random() * questions.length)];
 

@@ -1,8 +1,8 @@
 <template>
-  <div class="border border-2 rounded-lg p-4">
+  <v-list-item class="p-4">
     <p>Who is The queen of england?</p>
     <p>The queen of england is madonna</p>
-  </div>
+  </v-list-item>
 </template>
 <script setup lang="ts">
 </script>
