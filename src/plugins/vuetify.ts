@@ -27,6 +27,12 @@ export const vuetify = createVuetify({
           error: '#CF6679',
         },
       },
+      light: {
+        colors: {
+          darkColor: '#2e2b29',
+          lightColor: '#ffffff', 
+        }
+      }
     },
   },
 })
