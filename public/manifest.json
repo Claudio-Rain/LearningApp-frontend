@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Repeating Timer",
+  "name": "Learning App",
   "version": "1.0",
-  "description": "A timer that repeats when finished",
+  "description": "Recurrent Notifications to Study",
   "action": {
     "default_popup": "index.html",
     "default_title": "Timer"

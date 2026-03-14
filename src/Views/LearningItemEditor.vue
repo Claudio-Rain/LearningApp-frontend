@@ -5,29 +5,25 @@
     <div v-if="editor" class="container">
       <!-- Toolbar -->
       <div class="editor-menu control-group">
-        <button @click="toggleBold" :class="{ 'is-active': editor.isActive('bold') }">
+        <v-btn @click="toggleBold" :class="{ 'is-active': editor.isActive('bold') }">
           Bold
-        </button>
-        <button @click="toggleItalic" :class="{ 'is-active': editor.isActive('italic') }">
+        </v-btn>
+        <v-btn @click="toggleItalic" :class="{ 'is-active': editor.isActive('italic') }">
           Italic
-        </button>
-        <button @click="toggleUnderline" :class="{ 'is-active': editor.isActive('underline') }">
+        </v-btn>
+        <v-btn @click="toggleUnderline" :class="{ 'is-active': editor.isActive('underline') }">
           Underline
-        </button>
-        <button @click="toggleHighlight" :class="{ 'is-active': editor.isActive('highlight') }">
+        </v-btn>
+        <v-btn @click="toggleHighlight" :class="{ 'is-active': editor.isActive('highlight') }">
           Highlight
-        </button>
+        </v-btn>
 
         <input type="color" v-model="textColor" @input="setTextColor" />
 
-        <div class="button-">
-          <button @click="editor.chain().focus().toggleCodeBlock().run()"
-            :class="{ 'is-active': editor.isActive('codeBlock') }">
-            Toggle code block
-          </button>
-        </div>
-
-        <button @click="addImage">Image</button>
+        <v-btn @click="editor.chain().focus().toggleCodeBlock().run()"
+          :class="{ 'is-active': editor.isActive('codeBlock') }">
+          Toggle code block
+        </v-btn>
       </div>
 
       <!-- Editor Content -->
@@ -57,6 +53,8 @@ import ts from 'highlight.js/lib/languages/typescript'
 import html from 'highlight.js/lib/languages/xml'
 import { all, createLowlight } from 'lowlight'
 
+import CodeBlockComponent from '../shared/components/CodeBlockComponent.vue'
+
 const lowlight = createLowlight(all)
 lowlight.register('html', html)
 lowlight.register('css', css)
@@ -69,17 +67,42 @@ export default {
     const title = ref('')
     const textColor = ref('#000000')
 
-    const editor = new Editor({
+    const editor = new Editor( {
       extensions: [
         StarterKit,
-        TextStyle,
+        Image,
         Color,
+        TextStyle,
         Highlight,
         Underline,
-        Image,
-        CodeBlockLowlight.configure({ lowlight }),
+        Document,
+        Paragraph,
+        Text,
+        CodeBlockLowlight.extend({
+          addNodeView() {
+            return VueNodeViewRenderer(CodeBlockComponent)
+          },
+        }).configure({ lowlight }),
       ],
-      content: '',
+       content: `
+        <p>
+          That's a boring paragraph followed by a fenced code block:
+        </p>
+        <pre><code class="language-javascript">for (var i=1; i <= 20; i++)
+{
+  if (i % 15 == 0)
+    console.log("FizzBuzz");
+  else if (i % 3 == 0)
+    console.log("Fizz");
+  else if (i % 5 == 0)
+    console.log("Buzz");
+  else
+    console.log(i);
+}</code></pre>
+        <p>
+          Press Command/Ctrl + Enter to leave the fenced code block and continue typing in boring paragraphs.
+        </p>
+      `,
     })
 
     const toggleBold = () => editor.chain().focus().toggleBold().run()
@@ -135,16 +158,21 @@ export default {
   background-color: #007bff;
   color: white;
 }
-/* Basic editor styles */
+.ProseMirror-focused{
+   outline: none;
+      border: none;
+      box-shadow: none;
+}
+
 .tiptap {
   :first-child {
     margin-top: 0;
   }
 
   pre {
-    background: var(--black);
+    background: rgb(var(--v-theme-darkColor));
     border-radius: 0.5rem;
-    color: var(--white);
+    color: rgb(var(--v-theme-lightColor));
     font-family: 'JetBrainsMono', monospace;
     margin: 1.5rem 0;
     padding: 0.75rem 1rem;
@@ -208,6 +236,5 @@ export default {
     .hljs-strong {
       font-weight: 700;
     }
-  }
-}
+  }}
 </style>
