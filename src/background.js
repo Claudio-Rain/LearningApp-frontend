@@ -2296,8 +2296,6 @@ function sendNotification() {
   });
 }
 
-
-// 🛑 Detener manualmente sesión
 function stopSessionManually() {
   sessionActive = false
   chrome.notifications.clearAll?.()
