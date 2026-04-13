@@ -1,150 +1,104 @@
+<!-- LearningItemEditor.vue -->
 <template>
   <div class="learning-item-editor">
-    <input v-model="title" type="text" placeholder="Título..." class="title-input" />
-
     <div v-if="editor" class="container">
-      <!-- Toolbar -->
       <div class="editor-menu control-group">
-        <v-btn @click="toggleBold" :class="{ 'is-active': editor.isActive('bold') }">
-          Bold
-        </v-btn>
-        <v-btn @click="toggleItalic" :class="{ 'is-active': editor.isActive('italic') }">
-          Italic
-        </v-btn>
-        <v-btn @click="toggleUnderline" :class="{ 'is-active': editor.isActive('underline') }">
-          Underline
-        </v-btn>
-        <v-btn @click="toggleHighlight" :class="{ 'is-active': editor.isActive('highlight') }">
-          Highlight
-        </v-btn>
-
-        <input type="color" v-model="textColor" @input="setTextColor" />
-
+        <!-- existentes -->
+        <v-btn @click="editor.chain().focus().toggleBold().run()"
+          :class="{ 'is-active': editor.isActive('bold') }">Bold</v-btn>
+        <v-btn @click="editor.chain().focus().toggleItalic().run()"
+          :class="{ 'is-active': editor.isActive('italic') }">Italic</v-btn>
+        <v-btn @click="editor.chain().focus().toggleUnderline().run()"
+          :class="{ 'is-active': editor.isActive('underline') }">Underline</v-btn>
+        <v-btn @click="editor.chain().focus().toggleHighlight().run()"
+          :class="{ 'is-active': editor.isActive('highlight') }">Highlight</v-btn>
+        <input type="color" v-model="textColor" @input="editor.chain().focus().setColor(textColor).run()" />
         <v-btn @click="editor.chain().focus().toggleCodeBlock().run()"
-          :class="{ 'is-active': editor.isActive('codeBlock') }">
-          Toggle code block
+          :class="{ 'is-active': editor.isActive('codeBlock') }">Code</v-btn>
+        <v-btn @click="editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()">
+          Insert table
         </v-btn>
+        <template v-if="editor.isActive('table')">
+          <v-btn @click="editor.chain().focus().addColumnBefore().run()">Col antes</v-btn>
+          <v-btn @click="editor.chain().focus().addColumnAfter().run()">Col después</v-btn>
+          <v-btn @click="editor.chain().focus().deleteColumn().run()">Del col</v-btn>
+          <v-btn @click="editor.chain().focus().addRowBefore().run()">Fila antes</v-btn>
+          <v-btn @click="editor.chain().focus().addRowAfter().run()">Fila después</v-btn>
+          <v-btn @click="editor.chain().focus().deleteRow().run()">Del fila</v-btn>
+          <v-btn @click="editor.chain().focus().mergeOrSplit().run()">Merge/split</v-btn>
+          <v-btn @click="editor.chain().focus().deleteTable().run()">Del tabla</v-btn>
+        </template>
       </div>
 
-      <!-- Editor Content -->
       <editor-content :editor="editor" />
     </div>
   </div>
 </template>
 
-<script>
-import { ref, onBeforeUnmount } from 'vue'
+<script setup lang="ts">
+import { ref, watch, onBeforeUnmount } from 'vue'
+import type { JSONContent } from '@tiptap/vue-3'
+import { Editor, EditorContent, VueNodeViewRenderer } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import Color from '@tiptap/extension-color'
 import TextStyle from '@tiptap/extension-text-style'
 import Highlight from '@tiptap/extension-highlight'
 import Underline from '@tiptap/extension-underline'
-
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
-import Document from '@tiptap/extension-document'
-import Paragraph from '@tiptap/extension-paragraph'
-import Text from '@tiptap/extension-text'
-import { Editor, EditorContent, VueNodeViewRenderer } from '@tiptap/vue-3'
-
-import css from 'highlight.js/lib/languages/css'
-import js from 'highlight.js/lib/languages/javascript'
-import ts from 'highlight.js/lib/languages/typescript'
-import html from 'highlight.js/lib/languages/xml'
 import { all, createLowlight } from 'lowlight'
-
 import CodeBlockComponent from '../shared/components/CodeBlockComponent.vue'
+import Table from '@tiptap/extension-table'
+import TableRow from '@tiptap/extension-table-row'
+import TableHeader from '@tiptap/extension-table-header'
+import TableCell from '@tiptap/extension-table-cell'
 
 const lowlight = createLowlight(all)
-lowlight.register('html', html)
-lowlight.register('css', css)
-lowlight.register('js', js)
-lowlight.register('ts', ts)
 
-export default {
-  components: { EditorContent },
-  setup() {
-    const title = ref('')
-    const textColor = ref('#000000')
+const props = defineProps<{ value: JSONContent }>()
+const emit = defineEmits<{ (e: 'change', value: JSONContent): void }>()
 
-    const editor = new Editor( {
-      extensions: [
-        StarterKit,
-        Image,
-        Color,
-        TextStyle,
-        Highlight,
-        Underline,
-        Document,
-        Paragraph,
-        Text,
-        CodeBlockLowlight.extend({
-          addNodeView() {
-            return VueNodeViewRenderer(CodeBlockComponent)
-          },
-        }).configure({ lowlight }),
-      ],
-       content: `
-        <p>
-          That's a boring paragraph followed by a fenced code block:
-        </p>
-        <pre><code class="language-javascript">for (var i=1; i <= 20; i++)
-{
-  if (i % 15 == 0)
-    console.log("FizzBuzz");
-  else if (i % 3 == 0)
-    console.log("Fizz");
-  else if (i % 5 == 0)
-    console.log("Buzz");
-  else
-    console.log(i);
-}</code></pre>
-        <p>
-          Press Command/Ctrl + Enter to leave the fenced code block and continue typing in boring paragraphs.
-        </p>
-      `,
-    })
+const textColor = ref('#000000')
 
-    const toggleBold = () => editor.chain().focus().toggleBold().run()
-    const toggleItalic = () => editor.chain().focus().toggleItalic().run()
-    const toggleUnderline = () => editor.chain().focus().toggleUnderline().run()
-    const toggleHighlight = () => editor.chain().focus().toggleHighlight().run()
-    const setTextColor = () => editor.chain().focus().setColor(textColor.value).run()
-    const setCodeBlock = () => editor.chain().focus().toggleCodeBlock().run()
-    const addImage = () => {
-      const url = prompt('URL de la imagen:')
-      if (url) editor.chain().focus().setImage({ src: url }).run()
-    }
+const editor = new Editor({
+  extensions: [
+    StarterKit,
+    Image,
+    Color,
+    TextStyle,
+    Highlight,
+    Underline,
+    Table.configure({ resizable: true }),
+    TableRow,
+    TableHeader,
+    TableCell,
+    CodeBlockLowlight.extend({
+      addNodeView() {
+        return VueNodeViewRenderer(CodeBlockComponent)
+      },
+    }).configure({ lowlight }),
 
-    onBeforeUnmount(() => editor.destroy())
-
-    return {
-      title,
-      editor,
-      textColor,
-      toggleBold,
-      toggleItalic,
-      toggleUnderline,
-      toggleHighlight,
-      setTextColor,
-      setCodeBlock,
-      addImage,
-    }
+  ],
+  content: props.value,
+  onUpdate: ({ editor }) => {
+    emit('change', editor.getJSON())
   },
-}
+})
+
+watch(
+  () => props.value,
+  (newVal) => {
+    const isSame = JSON.stringify(editor.getJSON()) === JSON.stringify(newVal)
+    if (!isSame) editor.commands.setContent(newVal, false)
+  }
+)
+
+onBeforeUnmount(() => editor.destroy())
 </script>
 
 <style lang="scss">
 .learning-item-editor {
   max-width: 800px;
-  margin: auto;
-}
-
-.title-input {
-  width: 100%;
-  font-size: 1.5rem;
-  padding: 8px;
-  margin-bottom: 16px;
 }
 
 .editor-menu {
@@ -152,21 +106,73 @@ export default {
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 8px;
+
+  button.is-active {
+    background-color: #007bff;
+    color: white;
+  }
 }
 
-.editor-menu button.is-active {
-  background-color: #007bff;
-  color: white;
-}
-.ProseMirror-focused{
-   outline: none;
-      border: none;
-      box-shadow: none;
+.ProseMirror-focused {
+  outline: none;
+  border: none;
+  box-shadow: none;
 }
 
 .tiptap {
-  :first-child {
-    margin-top: 0;
+  :first-child { margin-top: 0; }
+
+  table {
+    border-collapse: collapse;
+    margin: 0;
+    overflow: hidden;
+    table-layout: fixed;
+    width: 100%;
+
+    td, th {
+      border: 1px solid #d1d5db;
+      box-sizing: border-box;
+      min-width: 1em;
+      padding: 6px 8px;
+      position: relative;
+      vertical-align: top;
+
+      > * { margin-bottom: 0; }
+    }
+
+    th {
+      background-color: #f3f4f6;
+      font-weight: bold;
+      text-align: left;
+    }
+
+    .selectedCell:after {
+      background: #e5e7eb;
+      content: '';
+      left: 0; right: 0; top: 0; bottom: 0;
+      pointer-events: none;
+      position: absolute;
+      z-index: 2;
+    }
+
+    .column-resize-handle {
+      background-color: #7c3aed;
+      bottom: -2px;
+      pointer-events: none;
+      position: absolute;
+      right: -2px;
+      top: 0;
+      width: 4px;
+    }
+  }
+
+  .tableWrapper {
+    margin: 1.5rem 0;
+    overflow-x: auto;
+  }
+
+  &.resize-cursor {
+    cursor: col-resize;
   }
 
   pre {
@@ -184,57 +190,17 @@ export default {
       padding: 0;
     }
 
-    /* Code styling */
-    .hljs-comment,
-    .hljs-quote {
-      color: #616161;
-    }
-
-    .hljs-variable,
-    .hljs-template-variable,
-    .hljs-attribute,
-    .hljs-tag,
-    .hljs-name,
-    .hljs-regexp,
-    .hljs-link,
-    .hljs-name,
-    .hljs-selector-id,
-    .hljs-selector-class {
-      color: #f98181;
-    }
-
-    .hljs-number,
-    .hljs-meta,
-    .hljs-built_in,
-    .hljs-builtin-name,
-    .hljs-literal,
-    .hljs-type,
-    .hljs-params {
-      color: #fbbc88;
-    }
-
-    .hljs-string,
-    .hljs-symbol,
-    .hljs-bullet {
-      color: #b9f18d;
-    }
-
-    .hljs-title,
-    .hljs-section {
-      color: #faf594;
-    }
-
-    .hljs-keyword,
-    .hljs-selector-tag {
-      color: #70cff8;
-    }
-
-    .hljs-emphasis {
-      font-style: italic;
-    }
-
-    .hljs-strong {
-      font-weight: 700;
-    }
-  }}
+    .hljs-comment, .hljs-quote { color: #616161; }
+    .hljs-variable, .hljs-template-variable, .hljs-attribute,
+    .hljs-tag, .hljs-regexp, .hljs-link, .hljs-selector-id,
+    .hljs-selector-class { color: #f98181; }
+    .hljs-number, .hljs-meta, .hljs-built_in, .hljs-literal,
+    .hljs-type, .hljs-params { color: #fbbc88; }
+    .hljs-string, .hljs-symbol, .hljs-bullet { color: #b9f18d; }
+    .hljs-title, .hljs-section { color: #faf594; }
+    .hljs-keyword, .hljs-selector-tag { color: #70cff8; }
+    .hljs-emphasis { font-style: italic; }
+    .hljs-strong { font-weight: 700; }
+  }
+}
 </style>

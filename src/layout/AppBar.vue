@@ -2,20 +2,11 @@
   <div>
     <v-navigation-drawer v-model="drawer" app width="180" class="pa-4">
       <v-list>
-        <!-- <v-btn icon @click="drawer = !drawer">
-          <v-icon>mdi-menu</v-icon>
-        </v-btn> -->
-        <v-list-item class="my-4">
-          <v-icon>mdi-home</v-icon>
-          Schedule
-        </v-list-item>
-        <v-list-item class="my-4">
-          <v-icon>mdi-account</v-icon>
+        <v-list-item class="my-4" :to="{ name: 'collections' }">
           Collections
         </v-list-item>
-        <v-list-item class="my-4">
-          <v-icon>mdi-account</v-icon>
-          Settings
+        <v-list-item class="my-4" :to="{ name: 'bulkInsert' }">
+          Bulk Insert
         </v-list-item>
       </v-list>
     </v-navigation-drawer>
@@ -25,7 +16,7 @@
 <script>
 export default {
   props: {
-    initialOpen: { // opcional, para pasar si empieza abierto o cerrado
+    initialOpen: {
       type: Boolean,
       default: true
     }
