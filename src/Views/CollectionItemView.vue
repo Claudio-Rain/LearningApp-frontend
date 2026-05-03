@@ -5,9 +5,6 @@
       <div class="panel-header">
         <div>
           <div class="panel-title">{{ collection?.title }}</div>
-          <!-- <div class="panel-meta">
-            Created {{ collection?.dateCreated }} · Modified {{ collection?.lastModified }}
-          </div> -->
         </div>
         <v-btn color="primary" size="small" prepend-icon="mdi-plus" @click="handleAddLearningItem">
           Add
@@ -15,19 +12,12 @@
       </div>
 
       <v-list v-if="learningItems.length > 0" lines="two" class="item-list">
-        <v-list-item
-          v-for="item in learningItems"
-          :key="item.id"
-          :active="selectedItem?.id === item.id"
-          active-color="primary"
-          rounded="lg"
-          class="item-entry"
-          @click="selectedItem = item"
-        >
+        <v-list-item v-for="item in learningItems" :key="item.id" :active="selectedItem?.id === item.id" color="primary"
+          rounded="lg" class="item-entry" @click="selectedItem = item">
           <v-list-item-title>{{ item.title }}</v-list-item-title>
-       
           <template #append>
-            <v-btn icon="mdi-delete" size="x-small" variant="text" color="error" @click.stop="handleDeleteLearningItem(item)" />
+            <v-btn icon="mdi-delete" size="x-small" variant="text" color="error"
+              @click.stop="handleDeleteLearningItem(item)" />
           </template>
         </v-list-item>
       </v-list>
@@ -37,12 +27,9 @@
         <p>No learning items yet</p>
       </div>
     </div>
-        <LearningItemView
-          v-if="selectedItem"
-          :item="selectedItem"
-          @update:content="handleContentUpdate"
-          @update:title="handleTitleUpdate"
-        />
+
+    <LearningItemView v-if="selectedItem" :item="selectedItem" @update:content="handleContentUpdate"
+      @update:title="handleTitleUpdate" />
   </div>
 </template>
 
@@ -50,21 +37,24 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import LearningItemView from './LearningItemView.vue'
+import type { JSONContent } from '@tiptap/vue-3'
 
 import {
   getCollections,
-  updateCollection,
   getLearningItems,
-  addLearningItem,
-  updateLearningItem,
-  deleteLearningItem,
-  type Collection,
-  type LearningItem
-} from '../database/idb'
+  createLearningItem,
+  removeLearningItem,
+  editCollection,
+  syncLearningItems,
+  syncCollections,
+  startSyncEngine
+} from '../database'
+
+import type { Collection, LearningItem } from '../database/types'
 
 const route = useRoute()
 const router = useRouter()
-const collectionId = Number(route.params.id)
+const collectionId = route.params.id!.toLocaleString()
 
 const collection = ref<Collection | null>(null)
 const learningItems = ref<LearningItem[]>([])
@@ -94,52 +84,54 @@ const handleAddLearningItem = async () => {
   if (!title || !collection.value) return
 
   const now = new Date().toISOString()
-  await addLearningItem({
+  await createLearningItem({
     collectionId: collection.value.id!,
     title,
     dateCreated: now,
     lastModified: now
   })
-  await updateCollection({
+  await editCollection({
     ...collection.value,
     numberOfItems: collection.value.numberOfItems + 1,
     lastModified: now
   })
-  await loadData()
-}
+  await syncLearningItems()
+  await syncCollections() 
 
-const handleEditLearningItem = async (item: LearningItem) => {
-  const newTitle = prompt('Edit item title:', item.title)
-  if (!newTitle) return
-  await updateLearningItem({ ...item, title: newTitle, lastModified: new Date().toISOString() })
   await loadData()
 }
 
 const handleDeleteLearningItem = async (item: LearningItem) => {
   if (!confirm('Delete this learning item?')) return
-  await deleteLearningItem(item.id!)
+  await removeLearningItem(item.id!)
   if (collection.value) {
-    await updateCollection({
+    await editCollection({
       ...collection.value,
       numberOfItems: collection.value.numberOfItems - 1,
       lastModified: new Date().toISOString()
     })
   }
+  await syncLearningItems()
+  await syncCollections()
   await loadData()
 }
 
-const handleContentUpdate = (id: number, content: string) => {
+const handleContentUpdate = (id: string, content: JSONContent) => {
   const item = learningItems.value.find(i => i.id === id)
   if (item) item.content = content
 }
-const handleTitleUpdate = (id: number, title: string) => {
+
+const handleTitleUpdate = (id: string, title: string) => {
   const item = learningItems.value.find(i => i.id === id)
   if (item) item.title = title
 }
 
-onMounted(loadData)
-</script>
+onMounted(async () => {
+  startSyncEngine()
+  await loadData()
+})
 
+</script>
 <style scoped>
 .split-view {
   display: flex;

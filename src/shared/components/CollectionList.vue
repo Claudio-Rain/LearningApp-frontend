@@ -12,7 +12,7 @@
         v-for="collection in collections"
         :key="collection.id"
         :title="collection.title"
-        :subtitle="formatSubtitle(collection)"
+        :subtitle="formatSubtitle()"
         @click="goToCollection(collection.id!)"
         class="cursor-pointer"
       >
@@ -39,11 +39,16 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   getCollections,
-  addCollection,
-  updateCollection,
-  deleteCollection,
-  type Collection
-} from '../../database/idb'
+  createCollection,
+  editCollection,
+  removeCollection,
+  startSyncEngine,
+  syncCollections,
+} from '../../database'
+
+import type {
+  Collection
+} from '../../database'
 
 const router = useRouter()
 const collections = ref<Collection[]>([])
@@ -60,13 +65,13 @@ const handleAdd = async () => {
 
   const now = new Date().toISOString()
 
-  await addCollection({
+  await createCollection({
     title,
     dateCreated: now,
     lastModified: now,
     numberOfItems: 0
   })
-
+  await syncCollections() 
   await loadCollections()
 }
 
@@ -75,64 +80,35 @@ const handleEdit = async (collection: Collection) => {
   const newTitle = prompt('Edit collection name:', collection.title)
   if (!newTitle) return
 
-  await updateCollection({
+  await editCollection({
     ...collection,
     title: newTitle,
     lastModified: new Date().toISOString()
   })
-
+  await syncCollections() 
   await loadCollections()
 }
 
-// 🗑️ Delete
-const handleDelete = async (id: number) => {
+const handleDelete = async (id: string) => {
   const confirmed = confirm('Are you sure you want to delete this collection?')
   if (!confirmed) return
 
-  await deleteCollection(id)
+  await removeCollection(id)
+  await syncCollections() 
   await loadCollections()
 }
 
-// 🔗 Navigate
-const goToCollection = (id: number) => {
+const goToCollection = (id: string) => {
   router.push({ name: 'collectionView', params: { id } })
 }
 
-// 🚀 Init
 onMounted(async () => {
+  startSyncEngine()
   await loadCollections()
-
-  // Seed initial data if DB is empty
-  if (collections.value.length === 0) {
-    const now = new Date().toISOString()
-
-    await addCollection({
-      title: 'Middle - Language - Asynchrony',
-      lastModified: now,
-      dateCreated: now,
-      numberOfItems: 24
-    })
-
-    await addCollection({
-      title: 'Middle - Language - Concurrency',
-      lastModified: now,
-      dateCreated: now,
-      numberOfItems: 12
-    })
-
-    await addCollection({
-      title: 'Miggle - Language - Delegates and Generic Delegates',
-      lastModified: '2026-01-30',
-      dateCreated: '2025-11-05',
-      numberOfItems: 8
-    })
-
-    await loadCollections()
-  }
 })
 
 // 📝 Subtitle formatter
-const formatSubtitle = (collection: Collection) => {
+const formatSubtitle = () => {
   return ``
 }
 </script>

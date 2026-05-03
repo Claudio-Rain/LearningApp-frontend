@@ -77,16 +77,16 @@
 import { ref, computed, onMounted } from 'vue'
 import {
   getCollections,
-  addCollection,
-  addLearningItem,
-  updateCollection,
-  type Collection
-} from '../database/idb'
+  createCollection,
+  createLearningItem,
+  editCollection,
+} from '../database'
+import type { Collection } from '../database/types'
 
 // ── State ───────────────────────────────────────────────
 const collections = ref<Collection[]>([])
 const collectionMode = ref<'existing' | 'new'>('existing')
-const selectedCollectionId = ref<number | null>(null)
+const selectedCollectionId = ref<string | null>(null)
 const newCollectionTitle = ref('')
 const rawInput = ref('')
 const inserting = ref(false)
@@ -112,7 +112,6 @@ interface ParsedItem {
 const parsedItems = computed<ParsedItem[]>(() => {
   if (!rawInput.value.trim()) return []
 
-  // Split into blocks by blank lines
   const blocks = rawInput.value
     .split(/\n\s*\n/)
     .map(b => b.trim())
@@ -167,26 +166,24 @@ const handleBulkInsert = async () => {
   lastResult.value = ''
 
   try {
-    let collectionId: number
+    let collectionId: string
 
-    // Resolve collection
     if (collectionMode.value === 'new') {
       const now = new Date().toISOString()
-      collectionId = (await addCollection({
+      collectionId = (await createCollection({
         title: newCollectionTitle.value.trim(),
         dateCreated: now,
         lastModified: now,
         numberOfItems: 0
-      })) as number
+      })) as string
       collections.value = await getCollections()
     } else {
       collectionId = selectedCollectionId.value!
     }
 
-    // Insert all valid items
     const now = new Date().toISOString()
     for (const item of validItems.value) {
-      await addLearningItem({
+      await createLearningItem({
         collectionId,
         title: item.question,
         content: {
@@ -203,10 +200,10 @@ const handleBulkInsert = async () => {
       })
     }
 
-    // Update collection's numberOfItems + lastModified
+    // Update collection item count
     const col = collections.value.find(c => c.id === collectionId)
     if (col) {
-      await updateCollection({
+      await editCollection({
         ...col,
         numberOfItems: col.numberOfItems + validItems.value.length,
         lastModified: now
@@ -226,7 +223,6 @@ const handleBulkInsert = async () => {
 const reset = () => {
   rawInput.value = ''
   newCollectionTitle.value = ''
-  lastResult.value = lastResult.value // preserve success msg
 }
 </script>
 

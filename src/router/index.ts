@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router'
 import CollectionItemView from '@/views/CollectionItemView.vue'
 import CollectionList from '../shared/components/CollectionList.vue'
 import BulkInsertView from '../views/BulkInsertView.vue'
@@ -24,7 +24,7 @@ const routes = [
 ]
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHashHistory(),
   routes
 })
 

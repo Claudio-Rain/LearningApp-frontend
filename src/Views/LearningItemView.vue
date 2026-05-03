@@ -21,7 +21,8 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import type { JSONContent } from '@tiptap/vue-3'
-import { updateLearningItem, updateLearningItemTitle, type LearningItem } from '../database/idb'
+import { editLearningItem } from '../database'
+import type { LearningItem } from '../database/types'
 import LearningItemEditor from './LearningItemEditor.vue'
 
 const props = defineProps<{
@@ -29,15 +30,15 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'update:content', id: number, content: JSONContent): void
-  (e: 'update:title', id: number, title: string): void
+  (e: 'update:content', id: string, content: JSONContent): void
+  (e: 'update:title', id: string, title: string): void
 }>()
 
-// content ahora es JSONContent, no string
 const content = ref<JSONContent>(
-  (props.item.content as JSONContent) ?? { type: 'doc', content: [] }
+  typeof props.item.content === 'string'
+    ? { type: 'doc', content: [] }
+    : props.item.content ?? { type: 'doc', content: [] }
 )
-
 const title = ref(props.item.title)
 
 watch(() => props.item.id, () => {
@@ -54,7 +55,7 @@ const handleContentChange = (val: JSONContent) => {
   content.value = val
   if (contentTimer) clearTimeout(contentTimer)
   contentTimer = setTimeout(async () => {
-    await updateLearningItem({
+    await editLearningItem({
       ...props.item,
       content: val,
       lastModified: new Date().toISOString()
@@ -67,11 +68,15 @@ const handleTitleInput = () => {
   if (!title.value.trim()) return
   if (titleTimer) clearTimeout(titleTimer)
   titleTimer = setTimeout(async () => {
-    await updateLearningItemTitle(props.item.id!, title.value.trim())
-    emit('update:title', props.item.id!, title.value.trim())
+    const trimmed = title.value.trim()
+    await editLearningItem({
+      ...props.item,
+      title: trimmed,
+      lastModified: new Date().toISOString()
+    })
+    emit('update:title', props.item.id!, trimmed)
   }, 500)
 }
-
 </script>
 
 <style scoped>
