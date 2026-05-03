@@ -1,6 +1,5 @@
-// db/sync/syncEngine.ts
-import * as local from '../local/idb'
-import * as remote from '../remote/firestore'
+import * as local from '../local'
+import * as remote from '../remote'
 
 export async function syncCollections() {
   const collections = await local.getCollections()

@@ -1,4 +1,4 @@
-import { getLearningItems } from './database/idb';
+import { getLearningItems } from './database';
 
 let sessionActive = false
 
