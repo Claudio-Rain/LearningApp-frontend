@@ -22,6 +22,13 @@
           </template>
           <v-list-item-title>Bulk Insert</v-list-item-title>
         </v-list-item>
+
+        <v-list-item :to="{ name: 'htmlBulkInsert' }" rounded="lg" class="my-1">
+          <template #prepend>
+            <v-icon>mdi-code-html5</v-icon>
+          </template>
+          <v-list-item-title>HTML Bulk Insert</v-list-item-title>
+        </v-list-item>
       </v-list>
     </v-navigation-drawer>
   </div>

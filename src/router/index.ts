@@ -2,6 +2,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import CollectionItemView from '@/views/CollectionItemView.vue'
 import CollectionList from '../shared/components/CollectionList.vue'
 import BulkInsertView from '../views/BulkInsertView.vue'
+import HtmlBulkInsertView from '../views/HtmlBulkInsertView.vue'
 
 const routes = [
   { path: '/', redirect: '/collections' },
@@ -20,6 +21,11 @@ const routes = [
     path: '/bulk-insert',
     name: 'bulkInsert',
     component: BulkInsertView
+  },
+  {
+    path: '/html-bulk-insert',
+    name: 'htmlBulkInsert',
+    component: HtmlBulkInsertView
   }
 ]
 

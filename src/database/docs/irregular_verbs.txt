@@ -1,0 +1,458 @@
+question: abide
+answer: (Abode/Abided) (Abode/Abided/Abidden) To tolerate
+
+question: aby/abey
+answer: (Abought) (Abought) To make amends for something wrong
+
+question: alight
+answer: (Alit/Alighted) (Alit/Alighted) To get off a bus, train, etc.
+
+question: arise
+answer: (Arose) (Arisen) To originate; To get up from horizontal position; To come into existence
+
+question: awake
+answer: (Awoke) (Awoken) To stop sleeping and become conscious
+
+question: be
+answer: (Was/Were) (Been) To exist, live or occur; To have as a quality; An auxiliary verb
+
+question: bear
+answer: (Bore) (Born/Borne) To carry; To tolerate; To give birth to
+
+question: beat
+answer: (Beat) (Beaten) To hit repeatedly
+
+question: become
+answer: (Became) (Become) To come into existence
+
+question: begin
+answer: (Began) (Begun) To start something
+
+question: bend
+answer: (Bent) (Bent) To curve something by distorting its shape
+
+question: bind
+answer: (Bound) (Bound) To tie something with string
+
+question: bite
+answer: (Bit) (Bitten) To cut or hold with teeth
+
+question: bleed
+answer: (Bled) (Bled) To lose blood through a cut in the skin
+
+question: blow
+answer: (Blew) (Blown) To move air, wind and gases
+
+question: break
+answer: (Broke) (Broken) To cause something to separate into pieces
+
+question: breed
+answer: (Bred) (Bred) To produce animals or plants by controlling reproduction
+
+question: bring
+answer: (Brought) (Brought) To carry or convey something to a place
+
+question: build
+answer: (Built) (Built) To construct
+
+question: burn
+answer: (Burnt/Burned) (Burnt/Burned) To consume or be consumed by fire
+
+question: burst
+answer: (Burst) (Burst) To break something open by internal pressure
+
+question: buy
+answer: (Bought) (Bought) To acquire something in exchange for money
+
+question: cast
+answer: (Cast) (Cast) To throw or project something
+
+question: catch
+answer: (Caught) (Caught) To stop and hold a moving object
+
+question: choose
+answer: (Chose) (Chosen) To select
+
+question: come
+answer: (Came) (Come) To move towards or arrive at a place
+
+question: cost
+answer: (Cost) (Cost) The amount of money required to buy something
+
+question: cut
+answer: (Cut) (Cut) To break the surface with a knife
+
+question: deal
+answer: (Dealt) (Dealt) To distribute, especially playing cards
+
+question: dig
+answer: (Dug) (Dug) To make a hole in the ground
+
+question: do
+answer: (Did) (Done) To perform or carry out
+
+question: draw
+answer: (Drew) (Drawn) To make a picture using a pen or pencil
+
+question: dream
+answer: (Dreamt/Dreamed) (Dreamt/Dreamed) To see visual images while sleeping
+
+question: drink
+answer: (Drank) (Drunk) To consume liquids
+
+question: drive
+answer: (Drove) (Driven) To operate and control a car
+
+question: dwell
+answer: (Dwelt) (Dwelt) To reside or live somewhere
+
+question: eat
+answer: (Ate) (Eaten) To consume solid food
+
+question: fall
+answer: (Fell) (Fallen) To move downwards or to the ground
+
+question: feed
+answer: (Fed) (Fed) To give or supply food
+
+question: feel
+answer: (Felt) (Felt) To sense by touch; To experience emotion
+
+question: fight
+answer: (Fought) (Fought) To try to hurt or kill in combat
+
+question: find
+answer: (Found) (Found) To discover something
+
+question: fit
+answer: (Fit/Fitted) (Fit/Fitted) To be the correct size
+
+question: flee
+answer: (Fled) (Fled) To run away to find safety
+
+question: fling
+answer: (Flung) (Flung) To throw something
+
+question: fly
+answer: (Flew) (Flown) To move through the air
+
+question: forbid
+answer: (Forbade/Forbad) (Forbidden) To prohibit
+
+question: forget
+answer: (Forgot) (Forgotten) To be unable to remember something
+
+question: forgive
+answer: (Forgave) (Forgiven) To pardon or stop being angry
+
+question: freeze
+answer: (Froze) (Frozen) To make liquids into solids by cold
+
+question: get
+answer: (Got) (Got/Gotten) To obtain, catch or receive
+
+question: give
+answer: (Gave) (Given) To offer something as a present
+
+question: go
+answer: (Went) (Gone/Been) To travel to a place
+
+question: grind
+answer: (Ground) (Ground) To break something into powder
+
+question: grow
+answer: (Grew) (Grown) To increase in size
+
+question: hang
+answer: (Hung/Hanged) (Hung/Hanged) To suspend from a support
+
+question: have
+answer: (Had) (Had) To possess; An auxiliary verb
+
+question: hear
+answer: (Heard) (Heard) To detect or perceive sound
+
+question: hide
+answer: (Hid) (Hidden) To conceal something
+
+question: hit
+answer: (Hit) (Hit) To touch with force
+
+question: hold
+answer: (Held) (Held) To secure something in your hand
+
+question: hurt
+answer: (Hurt) (Hurt) To cause pain or injury
+
+question: keep
+answer: (Kept) (Kept) To have possession; To make stay
+
+question: know
+answer: (Knew) (Known) To be acquainted with
+
+question: lay
+answer: (Laid) (Laid) To put something in a horizontal position
+
+question: lead
+answer: (Led) (Led) To take someone somewhere
+
+question: learn
+answer: (Learnt/Learned) (Learnt/Learned) To acquire knowledge
+
+question: leave
+answer: (Left) (Left) To go out of a place
+
+question: lend
+answer: (Lent) (Lent) To give money that must be returned
+
+question: let
+answer: (Let) (Let) To allow something to happen
+
+question: lie
+answer: (Lay) (Lain) To get into a horizontal position
+
+question: light
+answer: (Lit) (Lit) To make something burn
+
+question: lose
+answer: (Lost) (Lost) To not have something; To misplace
+
+question: make
+answer: (Made) (Made) To create or construct
+
+question: mean
+answer: (Meant) (Meant) To signify; To intend
+
+question: meet
+answer: (Met) (Met) To make someone's acquaintance
+
+question: mistake
+answer: (Mistook) (Mistaken) Not to understand
+
+question: mow
+answer: (Mowed) (Mown) To cut grass
+
+question: pay
+answer: (Paid) (Paid) To give money in exchange
+
+question: prove
+answer: (Proved) (Proven/Proved) To demonstrate that something is true
+
+question: put
+answer: (Put) (Put) To place something in a position
+
+question: quit
+answer: (Quit) (Quit) To stop doing something
+
+question: read
+answer: (Read) (Read) To look at written words and understand
+
+question: ride
+answer: (Rode) (Ridden) To travel by horse or bike
+
+question: ring
+answer: (Rang) (Rung) To telephone; To make sounds with a bell
+
+question: rise
+answer: (Rose) (Risen) To move upwards
+
+question: run
+answer: (Ran) (Run) To move quickly with both legs off ground
+
+question: say
+answer: (Said) (Said) To speak words
+
+question: see
+answer: (Saw) (Seen) To notice with your eyes
+
+question: seek
+answer: (Sought) (Sought) To try to find something
+
+question: sell
+answer: (Sold) (Sold) To receive money in exchange for goods
+
+question: send
+answer: (Sent) (Sent) To cause something to go to a destination
+
+question: set
+answer: (Set) (Set) To place something somewhere
+
+question: sew
+answer: (Sewed) (Sewn/Sewed) To join material with thread
+
+question: shake
+answer: (Shook) (Shaken) To vibrate
+
+question: shine
+answer: (Shone) (Shone) To give off bright light
+
+question: shoot
+answer: (Shot) (Shot) To fire a bullet from a gun
+
+question: show
+answer: (Showed) (Shown) To allow someone to see something
+
+question: shrink
+answer: (Shrank) (Shrunk) To become smaller
+
+question: shut
+answer: (Shut) (Shut) To close something
+
+question: sing
+answer: (Sang) (Sung) To make music with your voice
+
+question: sink
+answer: (Sank) (Sunk) To move downwards in water
+
+question: sit
+answer: (Sat) (Sat) To support your body on a chair
+
+question: slay
+answer: (Slew) (Slain) To kill
+
+question: sleep
+answer: (Slept) (Slept) To be in a relaxed state with eyes closed
+
+question: slide
+answer: (Slid) (Slid/Slidden) To move on a smooth surface
+
+question: sling
+answer: (Slung) (Slung) To throw something
+
+question: smell
+answer: (Smelt/Smelled) (Smelt/Smelled) To detect odours
+
+question: speak
+answer: (Spoke) (Spoken) To say words with your mouth
+
+question: speed
+answer: (Sped/Speeded) (Sped/Speeded) To move quickly
+
+question: spell
+answer: (Spelt/Spelled) (Spelt/Spelled) To use correct letters for a word
+
+question: spend
+answer: (Spent) (Spent) To use money or time
+
+question: spill
+answer: (Spilt/Spilled) (Spilt/Spilled) To allow liquids out accidentally
+
+question: spin
+answer: (Span/Spun) (Spun) To turn in circles
+
+question: split
+answer: (Split) (Split) To divide; To break open
+
+question: spoil
+answer: (Spoilt/Spoiled) (Spoilt/Spoiled) To let go bad
+
+question: spread
+answer: (Spread) (Spread) To cover a surface
+
+question: spring
+answer: (Sprang) (Sprung) To jump
+
+question: stand
+answer: (Stood) (Stood) To be in vertical position
+
+question: steal
+answer: (Stole) (Stolen) To take property without permission
+
+question: stick
+answer: (Stuck) (Stuck) To attach with glue
+
+question: sting
+answer: (Stung) (Stung) To cause pain like an insect
+
+question: stink
+answer: (Stank) (Stunk) To smell very badly
+
+question: strike
+answer: (Struck) (Struck/Stricken) To hit
+
+question: string
+answer: (Strung) (Strung) To attach using cord
+
+question: strive
+answer: (Strove) (Striven) To try very hard
+
+question: swear
+answer: (Swore) (Sworn) To use offensive words; To promise
+
+question: sweep
+answer: (Swept/Sweeped) (Swept/Sweeped) To clean with a brush
+
+question: swell
+answer: (Swelled) (Swollen) To increase in size
+
+question: swim
+answer: (Swam) (Swum) To travel in water
+
+question: swing
+answer: (Swung) (Swung) To move side to side
+
+question: take
+answer: (Took) (Taken) To perform an action; To acquire
+
+question: teach
+answer: (Taught) (Taught) To instruct or train
+
+question: tear
+answer: (Tore) (Torn) To make a hole in material
+
+question: tell
+answer: (Told) (Told) To give someone information
+
+question: think
+answer: (Thought) (Thought) To have an opinion; To use brain
+
+question: throw
+answer: (Threw) (Thrown) To cause to leave your hand
+
+question: thrust
+answer: (Thrust) (Thrust) To push with force
+
+question: understand
+answer: (Understood) (Understood) To know the meaning
+
+question: undertake
+answer: (Undertook) (Undertaken) To accept responsibility
+
+question: undo
+answer: (Undid) (Undone) To ruin; To open clothes
+
+question: upset
+answer: (Upset) (Upset) To make unhappy
+
+question: wake
+answer: (Woke) (Woken) To stop sleeping
+
+question: wear
+answer: (Wore) (Worn) To have clothes on your body
+
+question: weave
+answer: (Wove) (Woven) To make material
+
+question: wed
+answer: (Wed/Wedded) (Wed/Wedded) To marry
+
+question: weep
+answer: (Wept) (Wept) To cry heavily
+
+question: wet
+answer: (Wet/Wetted) (Wet/Wetted) To make wet
+
+question: win
+answer: (Won) (Won) To be best in competition
+
+question: wind
+answer: (Wound) (Wound) To turn something round
+
+question: withdraw
+answer: (Withdrew) (Withdrawn) To remove money from bank
+
+question: withstand
+answer: (Withstood) (Withstood) To resist successfully
+
+question: write
+answer: (Wrote) (Written) To put words onto paper

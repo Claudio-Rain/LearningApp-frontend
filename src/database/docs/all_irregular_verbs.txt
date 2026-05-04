@@ -1,0 +1,1238 @@
+question: abide
+answer: (Abode/Abided) (Abode/Abided/Abidden) To continue; To reside/live
+
+question: aby/abey
+answer: (Abought) (Abought) To make amends for something wrong
+
+question: alight
+answer: (Alit/Alighted) (Alit/Alighted) To get off a bus, train, etc.
+
+question: arise
+answer: (Arose) (Arisen) To originate; To get up from horizontal position
+
+question: awake
+answer: (Awoke) (Awoken) To stop sleeping and become conscious
+
+question: backbite
+answer: (Backbit) (Backbitten) To speak badly about someone
+
+question: backfit
+answer: (Backfit) (Backfit) To fit new parts into an older machine
+
+question: backlight
+answer: (Backlit) (Backlit) To illuminate from behind (photography)
+
+question: backslide
+answer: (Backslid) (Backslid/Backslidden) To stop making progress and regress
+
+question: be
+answer: (Was/Were) (Been) To exist, live or occur; To have as a quality
+
+question: bear
+answer: (Bore) (Born/Borne) To carry; To tolerate; To give birth to
+
+question: beat
+answer: (Beat) (Beaten) To hit repeatedly
+
+question: become
+answer: (Became) (Become) To come into existence
+
+question: bedight
+answer: (Bedight/Bedighted) (Bedight/Bedighted) To adorn, decorate
+
+question: befall
+answer: (Befell) (Befallen) To happen
+
+question: beget
+answer: (Begot/Begat) (Begotten) To cause something to happen; To procreate
+
+question: begin
+answer: (Began) (Begun) To start something
+
+question: begird
+answer: (Begirt/Begirded) (Begirt) To encircle
+
+question: behight
+answer: (Behight) (Behight/Behoten) To promise or vow; To order
+
+question: behold
+answer: (Beheld) (Beheld) To become conscious of by seeing
+
+question: belay
+answer: (Belaid/Belayed) (Belaid/Belayed) To secure a boat with rope; To tie up
+
+question: bend
+answer: (Bent) (Bent) To curve something by distorting shape
+
+question: bereave
+answer: (Bereft) (Bereft/Bereaved) To lose a relative through death; To deprive
+
+question: beseech
+answer: (Besought/Beseeched) (Besought/Beseeched) To ask insistently
+
+question: beset
+answer: (Beset) (Beset) To be restricted and occupied by difficulties
+
+question: bespeak
+answer: (Bespoke) (Bespoken) To be a signal or symbol of something
+
+question: bestrew
+answer: (Bestrewed) (Bestrewed/Bestrewn) To cover surface by throwing things randomly
+
+question: bestride
+answer: (Bestrode) (Bestridden) To sit or stand with one leg on either side
+
+question: bet
+answer: (Bet) (Bet) To risk money against result of future event
+
+question: betake
+answer: (Betook) (Betaken) To go to a place
+
+question: bethink
+answer: (Bethought) (Bethought) To think about something; To remind yourself
+
+question: beweep
+answer: (Bewept) (Bewept) To cry for or over someone or something
+
+question: bid
+answer: (Bid) (Bid) To make an offer of money or services
+
+question: bid
+answer: (Bade) (Bidden) To command or urge someone to do something
+
+question: bide
+answer: (Bided/Bode) (Bided) To wait for; To tolerate; To withstand
+
+question: bind
+answer: (Bound) (Bound) To tie something with string
+
+question: bite
+answer: (Bit) (Bitten) To cut or hold with teeth
+
+question: blaw
+answer: (Blawed) (Blawn) To blow
+
+question: bleed
+answer: (Bled) (Bled) To lose blood through a cut
+
+question: blend
+answer: (Blended/Blent) (Blended/Blent) To mix together
+
+question: bless
+answer: (Blessed/Blest) (Blessed/Blest) To wish or confer happiness; To make holy
+
+question: blow
+answer: (Blew) (Blown) To move air, wind and gases
+
+question: bottle-feed
+answer: (Bottle-fed) (Bottle-fed) To feed a baby with a bottle
+
+question: bowstring
+answer: (Bowstrung/Bowstringed) (Bowstrung) To strangle with the string from a bow
+
+question: break
+answer: (Broke) (Broken) To cause something to separate into pieces
+
+question: breast-feed
+answer: (Breast-fed) (Breast-fed) To feed a baby with breast milk
+
+question: breed
+answer: (Bred) (Bred) To produce animals or plants
+
+question: bring
+answer: (Brought) (Brought) To carry or convey something to a place
+
+question: broadcast
+answer: (Broadcast/Broadcasted) (Broadcast/Broadcasted) To transmit radio or TV signals
+
+question: browbeat
+answer: (Browbeat) (Browbeat/Browbeaten) To put pressure on someone or bully them
+
+question: build
+answer: (Built) (Built) To construct
+
+question: burn
+answer: (Burnt/Burned) (Burnt/Burned) To consume or be consumed by fire
+
+question: burst
+answer: (Burst) (Burst) To break something open by internal pressure
+
+question: bust
+answer: (Bust) (Bust) To break
+
+question: buy
+answer: (Bought) (Bought) To acquire something in exchange for money
+
+question: cast
+answer: (Cast) (Cast) To throw or project something
+
+question: catch
+answer: (Caught) (Caught) To stop and hold a moving object
+
+question: cheerlead
+answer: (Cheerled) (Cheerled) To cheer and support a team
+
+question: chide
+answer: (Chid) (Chid/Chidden) To tell somebody off
+
+question: choose
+answer: (Chose) (Chosen) To select
+
+question: clap
+answer: (Clapped/Clapt) (Clapped/Clapt) To hit your hands together to show approval
+
+question: clear-cut
+answer: (Clear-cut) (Clear-cut) To cut down all trees in an area
+
+question: cleave
+answer: (Cleft/Cleaved/Clove) (Cleft/Cleaved/Cloven) To separate or divide something
+
+question: cleek
+answer: (Claught/Claucht/Cleeked) (Cleeked) To grasp or take hold of
+
+question: clepe
+answer: (Cleped) (Cleped/Ycleped/Yclept) To call or name
+
+question: cling
+answer: (Clung) (Clung) To hold on to or to stick to
+
+question: clothe
+answer: (Clad/Clothed) (Clad/Clothed) To dress someone or provide clothes
+
+question: colorbreed
+answer: (Colorbred) (Colorbred) To breed an animal to be of a particular color
+
+question: colorcast
+answer: (Colorcast) (Colorcast) To broadcast in color
+
+question: come
+answer: (Came) (Come) To move towards or arrive at a place
+
+question: cost
+answer: (Cost) (Cost) The amount of money required to buy something
+
+question: cost-cut
+answer: (Cost-cut) (Cost-cut) To reduce costs or expenditure
+
+question: counterdraw
+answer: (Counterdrew) (Counterdrawn) To copy by tracing
+
+question: counterlight
+answer: (Counterlit) (Counterlit) To light something directly from opposite sides
+
+question: cowrite
+answer: (Cowrote) (Cowritten) To write with someone
+
+question: crash-dive
+answer: (Crash-dived/Crashdove) (Crash-dived) To go down very quickly
+
+question: creep
+answer: (Crept) (Crept) To move along the ground lying down
+
+question: creep-feed
+answer: (Creep-fed) (Creep-fed) To feed young animals in special area
+
+question: crib-bite
+answer: (Crib-bit) (Crib-bitten) To bite its manger and swallow air (of horse)
+
+question: cross-bite
+answer: (Cross-bit) (Cross-bitten) To thwart or stop something by deception
+
+question: cross-string
+answer: (Cross-strung) (Cross-strung) To place bass strings on piano
+
+question: crossbreed
+answer: (Crossbred) (Crossbred) To breed animals or plants of different species
+
+question: crosscut
+answer: (Crosscut) (Crosscut) To move between scenes in a film
+
+question: crosslight
+answer: (Crosslit) (Crosslit) To illuminate from different sides
+
+question: crow
+answer: (Crowed/Crew) (Crowed) To boast; To utter sound indicating pleasure
+
+question: cut
+answer: (Cut) (Cut) To break the surface with a knife
+
+question: dare
+answer: (Dared/Durst) (Dared) To have sufficient courage
+
+question: daydream
+answer: (Daydreamt/Daydreamt) (Daydreamt/Daydreamt) To have dream-like thoughts when awake
+
+question: deal
+answer: (Dealt) (Dealt) To distribute, especially playing cards
+
+question: deep-freeze
+answer: (Deep-froze) (Deep-frozen) To freeze or store frozen; To suspend progress
+
+question: dig
+answer: (Dug) (Dug) To make a hole in the ground
+
+question: dight
+answer: (Dight/Dighted) (Dight/Dighted) To dictate orders
+
+question: dispread
+answer: (Dispread) (Dispread) To spread out
+
+question: disprove
+answer: (Disproved) (Disproven/Disproved) To prove that something is false
+
+question: dive
+answer: (Dived/Dove) (Dived) To jump head first into water; To fall quickly
+
+question: do
+answer: (Did) (Done) To perform or carry out
+
+question: dogfight
+answer: (Dogfought) (Dogfought) To fight in aeroplanes
+
+question: dow
+answer: (Dought/Dowed) (Dought/Dowed) To have the ability to do something
+
+question: draw
+answer: (Drew) (Drawn) To make a picture using a pen or pencil
+
+question: dream
+answer: (Dreamt/Dreamed) (Dreamt/Dreamed) To see visual images while sleeping
+
+question: drink
+answer: (Drank) (Drunk) To consume liquids
+
+question: drip-feed
+answer: (Drip-fed) (Drip-fed) To feed someone with fluids going into vein
+
+question: drive
+answer: (Drove) (Driven) To operate and control a car
+
+question: dwell
+answer: (Dwelt) (Dwelt) To reside or live somewhere
+
+question: eat
+answer: (Ate) (Eaten) To consume solid food
+
+question: end-run
+answer: (End-ran) (End-run) To avoid doing something by cheating
+
+question: engird
+answer: (Engirt) (Engirt) To encircle, encompass
+
+question: engrave
+answer: (Engraved) (Engraved/Engraven) To carve letters into surface
+
+question: enwind
+answer: (Enwound) (Enwound) To make into a coil; To wrap around
+
+question: fall
+answer: (Fell) (Fallen) To move downwards or to the ground
+
+question: farebeat
+answer: (Farebeat) (Farebeaten) To avoid paying fares on public transport
+
+question: fast-cut
+answer: (Fast-cut) (Fast-cut) To cut quickly from one scene to another
+
+question: feed
+answer: (Fed) (Fed) To give or supply food
+
+question: feel
+answer: (Felt) (Felt) To sense by touch; To experience emotion
+
+question: fight
+answer: (Fought) (Fought) To try to hurt or kill in combat
+
+question: find
+answer: (Found) (Found) To discover something
+
+question: fit
+answer: (Fit/Fitted) (Fit/Fitted) To be the correct size
+
+question: flash-freeze
+answer: (Flash-froze) (Flash-frozen) To freeze food very rapidly
+
+question: flee
+answer: (Fled) (Fled) To run away to find safety
+
+question: fling
+answer: (Flung) (Flung) To throw something
+
+question: floodlight
+answer: (Floodlit) (Floodlit) To use powerful lights to illuminate outside
+
+question: fly
+answer: (Flew) (Flown) To move through the air
+
+question: flyblow
+answer: (Flyblew) (Flyblown) To contaminate by laying eggs
+
+question: forbear
+answer: (Forbore) (Forborne/Forborn) Not to use or talk about something
+
+question: forbid
+answer: (Forbade/Forbad) (Forbidden) To prohibit
+
+question: force-feed
+answer: (Force-fed) (Force-fed) To feed someone who refuses to eat
+
+question: fordo/foredo
+answer: (Fordid) (Fordone) To ruin or destroy
+
+question: forecast
+answer: (Forecast/Forecasted) (Forecast/Forecasted) To predict the future
+
+question: forefeel
+answer: (Forefelt) (Forefelt) To have a feeling before something happens
+
+question: forego
+answer: (Forewent) (Foregone) To precede something; To go without
+
+question: foreknow
+answer: (Foreknew) (Foreknown) To know something beforehand
+
+question: forerun
+answer: (Foreran) (Forerun) To go before something
+
+question: foresee
+answer: (Foresaw) (Foreseen) To predict or see the future
+
+question: foreshow
+answer: (Foreshowed) (Forshowed/Foreshown) To show something beforehand
+
+question: forespeak
+answer: (Forespoke) (Forespoken) To predict; To speak of something beforehand
+
+question: foretell
+answer: (Foretold) (Foretold) To predict the future
+
+question: forget
+answer: (Forgot) (Forgotten) To be unable to remember something
+
+question: forgive
+answer: (Forgave) (Forgiven) To pardon or stop being angry
+
+question: forlese
+answer: (Forlore) (Forlorn) To lose completely
+
+question: forsake
+answer: (Forsook) (Forsaken) To give something up; To abandon
+
+question: forswear
+answer: (Forswore) (Forsworn) To make a false promise or oath
+
+question: fraught
+answer: (Fraught/Fraughted) (Fraught/Fraughted) To stock; To load a ship
+
+question: free-fall
+answer: (Free-fell) (Free-fallen) To drop or fall suddenly
+
+question: freeze
+answer: (Froze) (Frozen) To make liquids into solids by cold
+
+question: frostbite
+answer: (Frostbit) (Frostbitten) To injure part of body through extreme cold
+
+question: gainsay
+answer: (Gainsaid) (Gainsaid) To contradict or deny
+
+question: geld
+answer: (Gelded/Gelt) (Gelded/Gelt) To castrate an animal
+
+question: get
+answer: (Got) (Got/Gotten) To obtain, catch or receive
+
+question: ghostwrite
+answer: (Ghostwrote) (Ghostwritten) To write for someone else
+
+question: gild
+answer: (Gilt/Gilded) (Gilt/Gilded) To cover with thin layer of gold
+
+question: gin
+answer: (Gan) (Gan) To begin something
+
+question: gird
+answer: (Girded/Girt) (Girded/Girt) To secure or encircle with belt
+
+question: give
+answer: (Gave) (Given) To offer something as a present
+
+question: gnaw
+answer: (Gnawed) (Gnawed/Gnawn) To bite or chew; To cause worry
+
+question: go
+answer: (Went) (Gone/Been) To travel to a place
+
+question: grave
+answer: (Graved) (Graven/Graved) To dig; To carve; To fix in memory
+
+question: grind
+answer: (Ground) (Ground) To break something into powder
+
+question: grow
+answer: (Grew) (Grown) To increase in size
+
+question: hagride
+answer: (Hagrode) (Hagridden) To torment or cause nightmares
+
+question: halterbreak
+answer: (Halterbroke) (Halterbroken) To break a horse in
+
+question: hamstring
+answer: (Hamstrung/Hamstringed) (Hamstrung/Hamstringed) To make things difficult
+
+question: hand-feed
+answer: (Hand-fed) (Hand-fed) To give food by hand
+
+question: hand-ride
+answer: (Hand-rode) (Hand-ridden) To control an animal by hand
+
+question: handsew
+answer: (Handsewed) (Handsewn/Handsewed) To sew by hand
+
+question: handwrite
+answer: (Handwrote) (Handwritten) To write with pen or pencil
+
+question: hang
+answer: (Hung/Hanged) (Hung/Hanged) To suspend from support
+
+question: have
+answer: (Had) (Had) To possess; An auxiliary verb
+
+question: hear
+answer: (Heard) (Heard) To detect or perceive sound
+
+question: heave
+answer: (Heaved/Hove) (Heaved/Hove) To lift something heavy
+
+question: hew
+answer: (Hewed) (Hewn) To cut things into pieces
+
+question: hide
+answer: (Hid) (Hidden) To conceal something
+
+question: hight
+answer: (Hote/Hight) (Hoten) To name; To promise; To command
+
+question: hit
+answer: (Hit) (Hit) To touch with force
+
+question: hoise
+answer: (Hoised/Hoist) (Hoised/Hoist) To hoist or lift
+
+question: hoist
+answer: (Hoist/Hoisted) (Hoist/Hoisted) To raise or lift using ropes
+
+question: hold
+answer: (Held) (Held) To secure something in your hand
+
+question: house-sit
+answer: (House-sat) (House-sat) To stay in someone's house
+
+question: housebreak
+answer: (Housebroke) (Housebroken) To train an animal to live in house
+
+question: hurt
+answer: (Hurt) (Hurt) To cause pain or injury
+
+question: inbreed
+answer: (Inbred) (Inbred) To produce babies with health problems
+
+question: indwell
+answer: (Indwelt) (Indwelt) To inhabit; To exist as guiding principle
+
+question: inhold
+answer: (Inheld) (Inheld) To have as inherent characteristic
+
+question: inlay
+answer: (Inlaid) (Inlaid) To put different material inside another
+
+question: input
+answer: (Input/Inputted) (Input/Inputted) To enter data into computer
+
+question: inset
+answer: (Inset) (Inset) To put picture or graphic inside larger one
+
+question: interblend
+answer: (Interblended/Interblent) (Interblended/Interblent) To blend things together
+
+question: interbreed
+answer: (Interbred) (Interbred) To mix species or groups sexually
+
+question: intercut
+answer: (Intercut) (Intercut) To move between different scenes
+
+question: intergrave
+answer: (Intergraved) (Intergraved/Intergraven) To carve in alternate sections
+
+question: interlay
+answer: (Interlaid) (Interlaid) To place among or between things
+
+question: interset
+answer: (Interset) (Interset) To set among or between things
+
+question: interweave
+answer: (Interwove) (Interwoven) To join or mix together
+
+question: interwind
+answer: (Interwound) (Interwound) To wind together or intertwine
+
+question: inweave
+answer: (Inwove/Inweaved) (Inwoven/Inweaved) To weave things together
+
+question: inwind
+answer: (Inwound) (Inwound) To wrap or coil around
+
+question: jerry-build
+answer: (Jerry-built) (Jerry-built) To build something cheaply and badly
+
+question: keep
+answer: (Kept) (Kept) To have possession; To make stay
+
+question: ken
+answer: (Kent/Kenned) (Kent/Kenned) To know
+
+question: kneel
+answer: (Knelt/Kneeled) (Knelt/Kneeled) To support yourself on knees
+
+question: knit
+answer: (Knit/Knitted) (Knit/Knitted) To make clothes out of wool
+
+question: know
+answer: (Knew) (Known) To be acquainted with
+
+question: lade
+answer: (Laded) (Laden/Laded) To load goods onto a ship
+
+question: landslide
+answer: (Landslid/Landslided) (Landslid/Landslided) To win a convincing victory
+
+question: lay
+answer: (Laid) (Laid) To put something in horizontal position
+
+question: lead
+answer: (Led) (Led) To take someone somewhere
+
+question: lean
+answer: (Leant/Leaned) (Leant/Leaned) To place at incline for support
+
+question: leap
+answer: (Leapt/Leaped) (Leapt/Leaped) To jump
+
+question: learn
+answer: (Learnt/Learned) (Learnt/Learned) To acquire knowledge
+
+question: leave
+answer: (Left) (Left) To go out of a place
+
+question: lend
+answer: (Lent) (Lent) To give money that must be returned
+
+question: lep
+answer: (Lept) (Lept) To leap
+
+question: let
+answer: (Let) (Let) To allow something to happen
+
+question: lie
+answer: (Lay) (Lain) To get into horizontal position
+
+question: light
+answer: (Lit) (Lit) To make something burn
+
+question: linebreed
+answer: (Linebred) (Linebred) Breed animals from particular family
+
+question: lip-read
+answer: (Lip-Read) (Lip-Read) To work out what someone is saying
+
+question: lose
+answer: (Lost) (Lost) To not have something; To misplace
+
+question: make
+answer: (Made) (Made) To create or construct
+
+question: mean
+answer: (Meant) (Meant) To signify; To intend
+
+question: meet
+answer: (Met) (Met) To make someone's acquaintance
+
+question: melt
+answer: (Melted) (Molten/Melted) To change from solid to liquid
+
+question: mistake
+answer: (Mistook) (Mistaken) Not to understand; To confuse
+
+question: mow
+answer: (Mowed) (Mown) To cut grass or cereals
+
+question: pay
+answer: (Paid) (Paid) To give money in exchange
+
+question: prove
+answer: (Proved) (Proven/Proved) To demonstrate something is true
+
+question: put
+answer: (Put) (Put) To place in specific position
+
+question: quit
+answer: (Quit) (Quit) To stop doing something
+
+question: read
+answer: (Read) (Read) To look at written words
+
+question: ride
+answer: (Rode) (Ridden) To travel by horse or bike
+
+question: ring
+answer: (Rang) (Rung) To telephone; To make bell sounds
+
+question: rise
+answer: (Rose) (Risen) To move upwards
+
+question: run
+answer: (Ran) (Run) To move quickly
+
+question: say
+answer: (Said) (Said) To speak words
+
+question: see
+answer: (Saw) (Seen) To notice with eyes
+
+question: seek
+answer: (Sought) (Sought) To try to find
+
+question: sell
+answer: (Sold) (Sold) To receive money for goods
+
+question: send
+answer: (Sent) (Sent) To cause to go to destination
+
+question: set
+answer: (Set) (Set) To place somewhere
+
+question: sew
+answer: (Sewed) (Sewn/Sewed) To join material with thread
+
+question: shake
+answer: (Shook) (Shaken) To vibrate
+
+question: shave
+answer: (Shaved) (Shaven/Shaved) To remove body hair
+
+question: shear
+answer: (Shore/Sheared) (Shorn/Sheared) To cut with scissors
+
+question: shed
+answer: (Shed) (Shed) To fall off or let fall
+
+question: shend
+answer: (Shent) (Shent) To shame or disgrace
+
+question: shew
+answer: (Shewed) (Shewn/Shewed) Show
+
+question: shine
+answer: (Shone) (Shone) To give off bright light
+
+question: shit
+answer: (Shat/Shit) (Shat/Shit) To get rid of waste
+
+question: shoe
+answer: (Shod) (Shod) To provide with shoes
+
+question: shoot
+answer: (Shot) (Shot) To fire bullet from gun
+
+question: shortcut
+answer: (Shortcut) (Shortcut) To use shorter way
+
+question: show
+answer: (Showed) (Shown) To allow someone to see
+
+question: shrink
+answer: (Shrank) (Shrunk) To become smaller
+
+question: shrive
+answer: (Shrove) (Shriven) To confess
+
+question: shut
+answer: (Shut) (Shut) To close something
+
+question: sidewind
+answer: (Sidewound) (Sidewound) To move like sidewinder
+
+question: sight-read
+answer: (Sight-read) (Sight-read) To read music
+
+question: sightsee
+answer: (Sightsaw) (Sightseen) To visit monuments
+
+question: sing
+answer: (Sang) (Sung) To make music with voice
+
+question: sink
+answer: (Sank) (Sunk) To move downwards in water
+
+question: sit
+answer: (Sat) (Sat) To support body on chair
+
+question: skywrite
+answer: (Skywrote) (Skywritten) To write in sky
+
+question: slay
+answer: (Slew) (Slain) To kill
+
+question: sleep
+answer: (Slept) (Slept) To be in relaxed state
+
+question: slide
+answer: (Slid) (Slid/Slidden) To move on smooth surface
+
+question: sling
+answer: (Slung) (Slung) To throw something
+
+question: slink
+answer: (Slunk) (Slunk) To move in guilty way
+
+question: slit
+answer: (Slit) (Slit) To make long thin cut
+
+question: smell
+answer: (Smelt/Smelled) (Smelt/Smelled) To detect odours
+
+question: smite
+answer: (Smote) (Smitten) To hit
+
+question: snapshoot
+answer: (Snapshot) (Snapshot) Take quick photograph
+
+question: sneak
+answer: (Sneaked/Snuck) (Sneaked/Snuck) To move guiltily
+
+question: soothsay
+answer: (Soothsaid) (Soothsaid) To predict future
+
+question: sow
+answer: (Sowed) (Sown) To plant seeds
+
+question: speak
+answer: (Spoke) (Spoken) To say words with mouth
+
+question: speed
+answer: (Sped/Speeded) (Sped/Speeded) To move quickly
+
+question: spell
+answer: (Spelt/Spelled) (Spelt/Spelled) To use correct letters
+
+question: spellbind
+answer: (Spellbound) (Spellbound) To captivate
+
+question: spend
+answer: (Spent) (Spent) To use money or time
+
+question: spill
+answer: (Spilt/Spilled) (Spilt/Spilled) To allow liquids out
+
+question: spin
+answer: (Span/Spun) (Spun) To turn in circles
+
+question: spit
+answer: (Spat/Spit) (Spat/Spit) To eject from mouth
+
+question: split
+answer: (Split) (Split) To divide; To break open
+
+question: spoil
+answer: (Spoilt/Spoiled) (Spoilt/Spoiled) To let go bad
+
+question: spoonfeed
+answer: (Spoonfed) (Spoonfed) To give information in bits
+
+question: spread
+answer: (Spread) (Spread) To cover surface
+
+question: spring
+answer: (Sprang) (Sprung) To jump
+
+question: stall-feed
+answer: (Stall-fed) (Stall-fed) To feed animal in stall
+
+question: stand
+answer: (Stood) (Stood) To be in vertical position
+
+question: stave
+answer: (Stove/Staved/Stoved) (Stove/Staved/Stoved) To break hole
+
+question: steal
+answer: (Stole) (Stolen) To take property
+
+question: stick
+answer: (Stuck) (Stuck) To attach with glue
+
+question: sting
+answer: (Stung) (Stung) To cause pain
+
+question: stink
+answer: (Stank) (Stunk) To smell badly
+
+question: strap hang
+answer: (Straphung) (Straphung) To hold strap for support
+
+question: strew
+answer: (Strewed) (Strewn/Strewed) To distribute randomly
+
+question: stride
+answer: (Strode/Strided) (Stridden) To walk confidently
+
+question: strike
+answer: (Struck) (Struck/Stricken) To hit
+
+question: string
+answer: (Strung) (Strung) To attach using cord
+
+question: strip
+answer: (Stript/Stripped) (Stript/Stripped) To undress
+
+question: strive
+answer: (Strove) (Striven) To try very hard
+
+question: sublet
+answer: (Sublet) (Sublet) To rent what you rented
+
+question: sunburn
+answer: (Sunburned/Sunburnt) (Sunburned/Sunburnt) To get red skin
+
+question: swear
+answer: (Swore) (Sworn) To use offensive words
+
+question: sweat
+answer: (Sweat/Sweated) (Sweat/Sweated) To perspire
+
+question: sweep
+answer: (Swept/Sweeped) (Swept/Sweeped) To clean floors
+
+question: swell
+answer: (Swelled) (Swollen) To increase in size
+
+question: swim
+answer: (Swam) (Swum) To travel in water
+
+question: swing
+answer: (Swung) (Swung) To move side to side
+
+question: swink
+answer: (Swank/Swonk) (Swonken) To work, toil or labour
+
+question: switch-hit
+answer: (Switch-hit) (Switch-hit) To bat in baseball
+
+question: take
+answer: (Took) (Taken) To perform action; To acquire
+
+question: teach
+answer: (Taught) (Taught) To instruct or train
+
+question: team-teach
+answer: (Team-taught) (Team-taught) To teach together
+
+question: tear
+answer: (Tore) (Torn) To make hole in material
+
+question: telecast
+answer: (Telecast/Telecasted) (Telecast/Telecasted) To broadcast on TV
+
+question: tell
+answer: (Told) (Told) To give information
+
+question: test-drive
+answer: (Test-drove) (Test-driven) To drive car to test
+
+question: test-fly
+answer: (Test-flew) (Test-flown) To test plane
+
+question: think
+answer: (Thought) (Thought) To have opinion; To use brain
+
+question: thrive
+answer: (Throve/Thrived) (Thriven/Thrived) To do very well
+
+question: throw
+answer: (Threw) (Thrown) To cause to leave hand
+
+question: thrust
+answer: (Thrust) (Thrust) To push with force
+
+question: thunderstrike
+answer: (Thunderstruck) (Thunderstruck/Thunderstricken) To strike with lightning
+
+question: tine
+answer: (Tint/Tined) (Tint/Tined) To shut
+
+question: tread
+answer: (Trod) (Trodden) To put foot down
+
+question: troubleshoot
+answer: (Troubleshot) (Troubleshot) To solve problem
+
+question: typecast
+answer: (Typecast) (Typecast) To give same role repeatedly
+
+question: typeset
+answer: (Typeset) (Typeset) To compose type
+
+question: typewrite
+answer: (Typewrote) (Typewritten) To write with typewriter
+
+question: unbear
+answer: (Unbore) (Unborn/Unborne) To remove horse's rein
+
+question: unbend
+answer: (Unbent) (Unbent) To restore to original shape
+
+question: unbind
+answer: (Unbound) (Unbound) To set something free
+
+question: unbuild
+answer: (Unbuilt) (Unbuilt) To demolish
+
+question: unclothe
+answer: (Unclad/Unclothed) (Unclad/Unclothed) To remove clothes
+
+question: underbid
+answer: (Underbid) (Underbid/Underbidden) To offer less money
+
+question: underbuy
+answer: (Underbought) (Underbought) To buy for less
+
+question: undercut
+answer: (Undercut) (Undercut) To sell at cheaper price
+
+question: underdo
+answer: (Underdid) (Underdone) To do less; Not cook enough
+
+question: underfeed
+answer: (Underfed) (Underfed) To give too little food
+
+question: undergird
+answer: (Undergirt/Undergirded) (Undergirt/Undergirded) To make secure underneath
+
+question: undergo
+answer: (Underwent) (Undergone) To suffer or go through
+
+question: underlay
+answer: (Underlaid) (Underlaid) To put underneath
+
+question: underlet
+answer: (Underlet) (Underlet) To rent for less
+
+question: underlie
+answer: (Underlay) (Underlain) To be real reason behind
+
+question: underpay
+answer: (Underpaid) (Underpaid) To pay too little
+
+question: underrun
+answer: (Underran) (Underrun) To pass underneath
+
+question: undersell
+answer: (Undersold) (Undersold) To sell at lower price
+
+question: undershoot
+answer: (Undershot) (Undershot) To shoot too short
+
+question: underspend
+answer: (Underspent) (Underspent) To spend less than allocated
+
+question: understand
+answer: (Understood) (Understood) To know the meaning
+
+question: undertake
+answer: (Undertook) (Undertaken) To accept responsibility
+
+question: underthrust
+answer: (Underthrust) (Underthrust) To insert rock under
+
+question: underwrite
+answer: (Underwrote) (Underwritten) To accept financial risk
+
+question: undo
+answer: (Undid) (Undone) To ruin; To open clothes
+
+question: undraw
+answer: (Undrew) (Undrawn) To open curtain; To withdraw
+
+question: unfreeze
+answer: (Unfroze) (Unfrozen) To make available; To thaw
+
+question: unhang
+answer: (Unhung) (Unhung) To remove hanging thing
+
+question: unhide
+answer: (Unhid) (Unhidden) To expose hidden thing
+
+question: unhold
+answer: (Unheld) (Unheld) To stop holding
+
+question: unknit
+answer: (Unknit/Unknitted) (Unknit/Unknitted) To untie
+
+question: unlade
+answer: (Unladed) (Unladen/Unladed) To unload
+
+question: unlay
+answer: (Unlaid) (Unlaid) To untwist rope
+
+question: unlearn
+answer: (Unlearnt/Unlearned) (Unlearnt/Unlearned) To forget habit
+
+question: unmake
+answer: (Unmade) (Unmade) To remove decision
+
+question: unreeve
+answer: (Unrove/Unreeved) (Unrove/Unreeved) To remove rope
+
+question: unsay
+answer: (Unsaid) (Unsaid) Not to say something
+
+question: unsell
+answer: (Unsold) (Unsold) To convince worthless
+
+question: unsew
+answer: (Unsewed) (Unsewn/Unsewed) To remove stitches
+
+question: unsling
+answer: (Unslung) (Unslung) To remove from sling
+
+question: unspeak
+answer: (Unspoke) (Unspoken) To take back what said
+
+question: unspin
+answer: (Unspun) (Unspun) To untwist
+
+question: unstick
+answer: (Unstuck) (Unstuck) To separate stuck things
+
+question: unstring
+answer: (Unstrung) (Unstrung) To open secured string
+
+question: unswear
+answer: (Unswore) (Unsworn) To take back oath
+
+question: unteach
+answer: (Untaught) (Untaught) To make forget
+
+question: unthink
+answer: (Unthought) (Unthought) To remove from mind
+
+question: untread
+answer: (Untrod) (Untrodden) To retrace steps
+
+question: unweave
+answer: (Unwove) (Unwoven) To undo weaving
+
+question: unwind
+answer: (Unwound) (Unwound) To relax
+
+question: unwrite
+answer: (Unwrote) (Unwritten) To delete writing
+
+question: upbuild
+answer: (Upbuilt) (Upbuilt) To build up; To develop
+
+question: uphold
+answer: (Upheld) (Upheld) To support or confirm
+
+question: uppercut
+answer: (Uppercut) (Uppercut) To punch upwards
+
+question: uprise
+answer: (Uprose) (Uprisen) To get up; To return from dead
+
+question: upset
+answer: (Upset) (Upset) To make unhappy
+
+question: upspring
+answer: (Upsprang) (Upsprung) To jump or spring up
+
+question: upsweep
+answer: (Upswept) (Upswept) To sweep upwards
+
+question: uptear
+answer: (Uptore) (Uptorn) To tear into pieces
+
+question: vex
+answer: (Vext/Vexed) (Vext/Vexed) To trouble or annoy
+
+question: wake
+answer: (Woke) (Woken) To stop sleeping
+
+question: waylay
+answer: (Waylaid) (Waylaid) To wait to rob
+
+question: wear
+answer: (Wore) (Worn) To have clothes on body
+
+question: weave
+answer: (Wove) (Woven) To make material
+
+question: wed
+answer: (Wed/Wedded) (Wed/Wedded) To marry
+
+question: weep
+answer: (Wept) (Wept) To cry heavily
+
+question: wend
+answer: (Wended/Went) (Wended/Went) To go; To make way
+
+question: wet
+answer: (Wet/Wetted) (Wet/Wetted) To make wet
+
+question: whipsaw
+answer: (Whipsawed) (Whipsawn/Whipsawed) To cut with whipsaw
+
+question: win
+answer: (Won) (Won) To be best in competition
+
+question: wind
+answer: (Wound) (Wound) To turn something round
+
+question: winterfeed
+answer: (Winterfed) (Winterfed) To feed cattle in winter
+
+question: wiredraw
+answer: (Wiredrew) (Wiredrawn) To make wire
+
+question: wit
+answer: (Wist) (Wist) To know
+
+question: withdraw
+answer: (Withdrew) (Withdrawn) To remove money from bank
+
+question: withhold
+answer: (Withheld) (Withheld) Not to let have
+
+question: withstand
+answer: (Withstood) (Withstood) To resist successfully
+
+question: wont
+answer: (Wont) (Wont/Wonted) To be accustomed
+
+question: work
+answer: (Worked/Wrought) (Worked/Wrought) To make effort
+
+question: wrap
+answer: (Wrapped/Wrapt) (Wrapped/Wrapt) To cover
+
+question: wreak
+answer: (Wreaked) (Wreaked/Wroken) To cause something
+
+question: wring
+answer: (Wrung) (Wrung) To put pressure to remove
+
+question: write
+answer: (Wrote) (Written) To put words onto paper
+
+question: zinc
+answer: (Zinced/Zincked) (Zinced/Zincked) To coat with zinc

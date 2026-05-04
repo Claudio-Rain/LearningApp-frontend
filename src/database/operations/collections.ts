@@ -18,6 +18,15 @@ export async function editCollection(collection: Collection) {
 }
 
 export async function removeCollection(id: string) {
+  const items = await local.getLearningItems(id)
+
+  for (const item of items) {
+    await local.deleteLearningItem(item.id!)
+    if (navigator.onLine && item.id) {
+      await remote.deleteLearningItem(item.id)
+    }
+  }
+
   await local.deleteCollection(id)
   if (navigator.onLine) {
     await remote.deleteCollection(id)
