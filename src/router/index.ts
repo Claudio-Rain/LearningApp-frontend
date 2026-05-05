@@ -3,6 +3,8 @@ import CollectionItemView from '@/views/CollectionItemView.vue'
 import CollectionList from '../shared/components/CollectionList.vue'
 import BulkInsertView from '../views/BulkInsertView.vue'
 import HtmlBulkInsertView from '../views/HtmlBulkInsertView.vue'
+import StudyView from '../views/StudyView.vue'
+import StudyProgressView from '../views/StudyProgressView.vue'
 
 const routes = [
   { path: '/', redirect: '/collections' },
@@ -16,6 +18,17 @@ const routes = [
     name: 'collectionView',
     component: CollectionItemView,
     props: true
+  },
+  {
+    path: '/study/:id',
+    name: 'study',
+    component: StudyView,
+    props: true
+  },
+  {
+    path: '/progress',
+    name: 'progress',
+    component: StudyProgressView
   },
   {
     path: '/bulk-insert',

@@ -29,10 +29,40 @@ export async function syncLearningItems() {
   }
 }
 
+export async function syncCardProgress() {
+  const progress = await local.getAllCardProgress()
+  const pending = progress.filter(p => p.syncStatus === 'pending')
+
+  for (const p of pending) {
+    try {
+      await remote.setCardProgress(p)
+      await local.updateCardProgress({ ...p, syncStatus: 'synced' })
+    } catch {
+      await local.updateCardProgress({ ...p, syncStatus: 'error' })
+    }
+  }
+}
+
+export async function syncAttemptLogs() {
+  const logs = await local.getAllAttemptLogs()
+  const pending = logs.filter(l => l.syncStatus === 'pending')
+
+  for (const log of pending) {
+    try {
+      await remote.setAttemptLog(log)
+      await local.updateAttemptLog({ ...log, syncStatus: 'synced' })
+    } catch {
+      await local.updateAttemptLog({ ...log, syncStatus: 'error' })
+    }
+  }
+}
+
 export async function syncAll() {
   if (!navigator.onLine) return
   await syncCollections()
   await syncLearningItems()
+  await syncCardProgress()
+  await syncAttemptLogs()
 }
 
 export function startSyncEngine() {

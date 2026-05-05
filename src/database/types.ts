@@ -21,3 +21,20 @@ export interface LearningItem extends Syncable {
   dateCreated: string
   lastModified: string
 }
+
+export interface CardProgress extends Syncable {
+  id?: string
+  learning_item_id: string
+  strength_score: number
+  last_reviewed_at: string
+  weighted_attempts: number
+  total_attempts: number
+}
+
+export interface AttemptLog extends Syncable {
+  id?: string
+  learning_item_id: string
+  is_correct: boolean
+  ease_score: number
+  created_at: string
+}

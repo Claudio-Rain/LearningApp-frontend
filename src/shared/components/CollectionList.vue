@@ -1,9 +1,12 @@
 <template>
   <div class="collections">
-    <!-- Add button -->
-    <div class="mb-4">
+    <!-- Header with buttons -->
+    <div class="header-bar">
       <v-btn color="primary" @click="handleAdd">
         Add Collection
+      </v-btn>
+      <v-btn variant="outlined" @click="goToProgress" prepend-icon="mdi-chart-line">
+        Progress
       </v-btn>
     </div>
 
@@ -18,6 +21,12 @@
       >
         <!-- 👉 Actions -->
         <template #append>
+          <v-btn
+            icon="mdi-school"
+            variant="text"
+            @click.stop="goToStudy(collection.id!)"
+            title="Study"
+          />
           <v-btn
             icon="mdi-pencil"
             variant="text"
@@ -102,6 +111,14 @@ const goToCollection = (id: string) => {
   router.push({ name: 'collectionView', params: { id } })
 }
 
+const goToStudy = (id: string) => {
+  router.push({ name: 'study', params: { id } })
+}
+
+const goToProgress = () => {
+  router.push({ name: 'progress' })
+}
+
 onMounted(async () => {
   startSyncEngine()
   await loadCollections()
@@ -116,5 +133,11 @@ const formatSubtitle = () => {
 <style scoped>
 .cursor-pointer {
   cursor: pointer;
+}
+
+.header-bar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 </style>
