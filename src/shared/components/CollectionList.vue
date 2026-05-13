@@ -53,6 +53,7 @@ import {
   removeCollection,
   startSyncEngine,
   syncCollections,
+  syncAll,
 } from '../../database'
 
 import type {
@@ -120,6 +121,7 @@ const goToProgress = () => {
 }
 
 onMounted(async () => {
+  await syncAll()
   startSyncEngine()
   await loadCollections()
 })

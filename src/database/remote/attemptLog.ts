@@ -21,6 +21,11 @@ export async function getAttemptLogs(itemId: string): Promise<AttemptLog[]> {
   return snapshot.docs.map(doc => ({ ...doc.data(), remoteId: doc.id } as AttemptLog))
 }
 
+export async function getAllAttemptLogs(): Promise<AttemptLog[]> {
+  const snapshot = await getDocs(collection(db, 'attempt_log'))
+  return snapshot.docs.map(doc => ({ ...doc.data(), remoteId: doc.id } as AttemptLog))
+}
+
 export async function addAttemptLog(log: AttemptLog): Promise<string> {
   const docRef = await addDoc(collection(db, 'attempt_log'), log)
   return docRef.id

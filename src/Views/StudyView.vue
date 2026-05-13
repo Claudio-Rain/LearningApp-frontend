@@ -118,7 +118,9 @@ import {
   updateCardProgress,
   syncCardProgress,
   syncAttemptLogs,
-  startSyncEngine
+  startSyncEngine,
+  pullLearningItems,
+  pullCardProgress
 } from '../database'
 import type { Collection, LearningItem, CardProgress } from '../database/types'
 
@@ -282,6 +284,10 @@ const goBack = () => {
 
 onMounted(async () => {
   startSyncEngine()
+  if (navigator.onLine) {
+    await pullLearningItems(collectionId)
+    await pullCardProgress()
+  }
   await loadData()
 })
 </script>

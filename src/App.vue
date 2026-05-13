@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <v-main>
-      <v-container :fluid="smAndDown" :class="containerClass">
+      <v-container fluid :class="containerClass">
         <AppBar />
         <router-view />
       </v-container>
@@ -23,23 +23,32 @@ const containerClass = computed(() => ({
 </script>
 
 <style>
-html, body, #app {
-  width: 100%;
-  min-height: 100vh;
+/* Chrome extension popups size to the document. Without explicit
+   dimensions the popup collapses to a cramped default. Chrome caps
+   popups at 800x600 — pick a comfortable size within that. */
+html,
+body,
+#app {
   margin: 0;
+  min-width: 420px;
+  min-height: 600px;
 }
 
-/* Pantalla mediana (md: 960px–1279px) */
-@media (min-width: 960px) and (max-width: 1279px) {
-  .v-container {
-    max-width: 900px;
+/* When opened as a Chrome extension popup, Chrome sizes the window to
+   the body. Force a comfortable popup footprint only in that case by
+   detecting the small initial viewport. In a real browser tab the
+   viewport is large, so we let the layout fill the available space. */
+@media (max-width: 800px) {
+  html,
+  body,
+  #app {
+    width: 420px;
+    overflow-x: hidden;
   }
 }
 
-/* Pantalla grande (lg+: 1280px en adelante) */
-@media (min-width: 1280px) {
-  .v-container {
-    max-width: 1200px;
-  }
+.v-application,
+.v-application__wrap {
+  min-height: 600px;
 }
 </style>

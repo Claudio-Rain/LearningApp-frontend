@@ -1,6 +1,18 @@
 export type { Collection, LearningItem, CardProgress, AttemptLog } from './types'
-export { startSyncEngine, syncCollections, syncLearningItems, syncCardProgress, syncAttemptLogs } from './sync/syncEngine'
 export {
+  startSyncEngine,
+  syncAll,
+  pullAllLearningItems,
+  syncCollections,
+  syncLearningItems,
+  syncCardProgress,
+  syncAttemptLogs
+} from './sync/syncEngine'
+export {
+  pullCollections,
+  pullLearningItems,
+  pullCardProgress,
+  pullAttemptLogs,
   createCollection,
   editCollection,
   removeCollection,

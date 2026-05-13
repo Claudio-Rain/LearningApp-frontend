@@ -23,6 +23,11 @@ export async function getCardProgress(itemId: string): Promise<CardProgress | un
     : undefined
 }
 
+export async function getAllCardProgress(): Promise<CardProgress[]> {
+  const snapshot = await getDocs(collection(db, 'card_progress'))
+  return snapshot.docs.map(doc => ({ ...doc.data(), remoteId: doc.id } as CardProgress))
+}
+
 export async function addCardProgress(progress: CardProgress): Promise<string> {
   const docRef = await addDoc(collection(db, 'card_progress'), progress)
   return docRef.id

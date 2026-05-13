@@ -66,7 +66,8 @@ import {
   getAllAttemptLogs,
   getAllCardProgress,
   getLearningItems,
-  getCollections
+  getCollections,
+  syncAll
 } from '../database'
 import type { AttemptLog, CardProgress, LearningItem, Collection } from '../database/types'
 
@@ -303,8 +304,9 @@ const goBack = () => {
   router.push({ name: 'collections' })
 }
 
-onMounted(() => {
-  loadData()
+onMounted(async () => {
+  await syncAll()
+  await loadData()
 })
 </script>
 

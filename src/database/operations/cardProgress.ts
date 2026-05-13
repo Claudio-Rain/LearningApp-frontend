@@ -2,6 +2,28 @@ import type { CardProgress } from '../types'
 import * as local from '../local'
 import * as remote from '../remote'
 
+export async function pullCardProgress() {
+  try {
+    const remoteProgress = await remote.getAllCardProgress()
+    const localProgress = await local.getAllCardProgress()
+    const localMap = new Map(localProgress.map(p => [p.id, p]))
+
+    for (const remoteP of remoteProgress) {
+      const localP = localMap.get(remoteP.remoteId || remoteP.id)
+
+      if (localP?.syncStatus === 'pending') {
+        continue
+      }
+
+      if (!localP || new Date(remoteP.last_reviewed_at) > new Date(localP.last_reviewed_at)) {
+        await local.updateCardProgress({ ...remoteP, id: remoteP.remoteId || remoteP.id })
+      }
+    }
+  } catch (err) {
+    console.error('Failed to pull card progress:', err)
+  }
+}
+
 export async function createCardProgress(data: Omit<CardProgress, 'id' | 'syncStatus'>) {
   return local.addCardProgress({
     ...data,

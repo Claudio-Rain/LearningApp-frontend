@@ -47,7 +47,8 @@ import {
   editCollection,
   syncLearningItems,
   syncCollections,
-  startSyncEngine
+  startSyncEngine,
+  pullLearningItems
 } from '../database'
 
 import type { Collection, LearningItem } from '../database/types'
@@ -128,6 +129,7 @@ const handleTitleUpdate = (id: string, title: string) => {
 
 onMounted(async () => {
   startSyncEngine()
+  if (navigator.onLine) await pullLearningItems(collectionId)
   await loadData()
 })
 

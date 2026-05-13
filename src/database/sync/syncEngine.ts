@@ -1,5 +1,20 @@
 import * as local from '../local'
 import * as remote from '../remote'
+import {
+  pullCollections,
+  pullLearningItems,
+  pullCardProgress,
+  pullAttemptLogs
+} from '../operations'
+
+export { pullCollections, pullLearningItems, pullCardProgress, pullAttemptLogs }
+
+export async function pullAllLearningItems() {
+  const collections = await local.getCollections()
+  for (const col of collections) {
+    if (col.id) await pullLearningItems(col.id)
+  }
+}
 
 export async function syncCollections() {
   const collections = await local.getCollections()
@@ -59,6 +74,10 @@ export async function syncAttemptLogs() {
 
 export async function syncAll() {
   if (!navigator.onLine) return
+  await pullCollections()
+  await pullAllLearningItems()
+  await pullCardProgress()
+  await pullAttemptLogs()
   await syncCollections()
   await syncLearningItems()
   await syncCardProgress()
