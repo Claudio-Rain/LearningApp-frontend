@@ -16,24 +16,16 @@
         <div class="stat-label">Total Attempts</div>
       </div>
       <div class="stat-card">
-        <div class="stat-value">{{ overallAccuracy }}%</div>
-        <div class="stat-label">Overall Accuracy</div>
-      </div>
-      <div class="stat-card">
         <div class="stat-value">{{ cardsLearned }}</div>
         <div class="stat-label">Cards Learned</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">{{ streakDays }}</div>
-        <div class="stat-label">Day Streak</div>
       </div>
     </div>
 
     <!-- Charts -->
     <div class="charts-container">
-      <!-- Accuracy Chart -->
+      <!-- Weak vs Strong Chart -->
       <div class="chart-wrapper">
-        <h3>Accuracy Distribution</h3>
+        <h3>Weak vs Strong Cards</h3>
         <div ref="accuracyChartRef" class="chart"></div>
       </div>
 
@@ -54,13 +46,27 @@
         <h3>Most Challenging Cards</h3>
         <div ref="challengingChartRef" class="chart"></div>
       </div>
+
+      <!-- Learning Curve -->
+      <div class="chart-wrapper full-width">
+        <h3>Learning Curve</h3>
+        <p class="chart-subtitle">Your daily accuracy rate over time — where you started vs. where you are now</p>
+        <div ref="learningCurveChartRef" class="chart"></div>
+      </div>
+
+      <!-- Strength Composition Over Time -->
+      <div class="chart-wrapper full-width">
+        <h3>Strength Composition Over Time</h3>
+        <p class="chart-subtitle">How your card distribution shifted across strength tiers over time</p>
+        <div ref="compositionChartRef" class="chart"></div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { parseISO, compareDesc, startOfDay, differenceInCalendarDays, subDays, format } from 'date-fns'
+import { parseISO, subDays, format } from 'date-fns'
 import { useRouter } from 'vue-router'
 import Highcharts from 'highcharts'
 import {
@@ -77,11 +83,13 @@ const accuracyChartRef = ref<HTMLElement>()
 const strengthChartRef = ref<HTMLElement>()
 const timelineChartRef = ref<HTMLElement>()
 const challengingChartRef = ref<HTMLElement>()
+const learningCurveChartRef = ref<HTMLElement>()
+const compositionChartRef = ref<HTMLElement>()
+
+const availableDates = ref<string[]>([])
 
 const totalAttempts = ref(0)
-const overallAccuracy = ref(0)
 const cardsLearned = ref(0)
-const streakDays = ref(0)
 
 let attemptLogs: AttemptLog[] = []
 let cardProgress: CardProgress[] = []
@@ -107,69 +115,74 @@ const loadData = async () => {
 
 const calculateStats = () => {
   totalAttempts.value = attemptLogs.length
-
-  const correctAttempts = attemptLogs.filter(log => log.is_correct).length
-  overallAccuracy.value = totalAttempts.value > 0
-    ? Math.round((correctAttempts / totalAttempts.value) * 100)
-    : 0
-
-  cardsLearned.value = cardProgress.filter(p => p.strength_score >= 0.7).length
-
-  // Calculate streak
-  if (attemptLogs.length > 0) {
-    const sortedLogs = [...attemptLogs].sort(
-      (a, b) => compareDesc(parseISO(a.created_at), parseISO(b.created_at))
-    )
-
-    let streak = 0
-    let currentDate = startOfDay(new Date())
-
-    for (const log of sortedLogs) {
-      const logDate = startOfDay(parseISO(log.created_at))
-      const diffDays = differenceInCalendarDays(currentDate, logDate)
-
-      if (diffDays === streak) {
-        streak++
-        currentDate = subDays(currentDate, 1)
-      } else {
-        break
-      }
-    }
-
-    streakDays.value = streak
-  }
+  cardsLearned.value = cardProgress.filter(p => p.strength_score >= 0.5).length
 }
 
 const renderCharts = () => {
+  Highcharts.setOptions({
+    xAxis: { lineColor: 'rgba(0,0,0,0.2)', tickColor: 'rgba(0,0,0,0.2)' },
+    yAxis: { lineColor: 'rgba(0,0,0,0.2)' }
+  })
   renderAccuracyChart()
   renderStrengthChart()
   renderTimelineChart()
   renderChallengingChart()
+  renderLearningCurveChart()
 }
 
 const renderAccuracyChart = () => {
   if (!accuracyChartRef.value) return
 
-  const correctCount = attemptLogs.filter(log => log.is_correct).length
-  const incorrectCount = totalAttempts.value - correctCount
+  // Classify each card by its latest strength_score from cardProgress
+  // Weak: strength_score < 0.5 (struggling), Strong: >= 0.5 (doing well)
+  const weakCards = cardProgress.filter(p => p.strength_score < 0.5)
+  const strongCards = cardProgress.filter(p => p.strength_score >= 0.5)
+
+  // Break weak into "Critical" (<0.25) and "Struggling" (0.25–0.5)
+  // Break strong into "Good" (0.5–0.75) and "Mastered" (>=0.75)
+  const critical = cardProgress.filter(p => p.strength_score < 0.25).length
+  const struggling = cardProgress.filter(p => p.strength_score >= 0.25 && p.strength_score < 0.5).length
+  const good = cardProgress.filter(p => p.strength_score >= 0.5 && p.strength_score < 0.75).length
+  const mastered = cardProgress.filter(p => p.strength_score >= 0.75).length
 
   Highcharts.chart(accuracyChartRef.value, {
     chart: { type: 'pie' },
     title: { text: '' },
+    subtitle: {
+      text: (() => {
+        const total = cardProgress.length
+        const weakPct = total > 0 ? Math.round((weakCards.length / total) * 100) : 0
+        const strongPct = total > 0 ? Math.round((strongCards.length / total) * 100) : 0
+        return `${weakPct}% weak · ${strongPct}% strong`
+      })(),
+      style: { color: '#666', fontSize: '13px' }
+    },
     series: [
       {
-        name: 'Attempts',
+        name: 'Cards',
+        innerSize: '55%',
         data: [
-          { name: 'Correct', y: correctCount, color: '#4CAF50' },
-          { name: 'Incorrect', y: incorrectCount, color: '#F44336' }
+          { name: 'Critical', y: critical, color: '#F44336' },
+          { name: 'Struggling', y: struggling, color: '#FF9800' },
+          { name: 'Good', y: good, color: '#8BC34A' },
+          { name: 'Mastered', y: mastered, color: '#4CAF50' }
         ],
         type: 'pie'
       }
     ],
+    plotOptions: {
+      pie: {
+        dataLabels: {
+          enabled: true,
+          format: '{point.percentage:.0f}%',
+          style: { fontSize: '13px', fontWeight: '600' }
+        }
+      }
+    },
     legend: { enabled: true },
     credits: { enabled: false },
     tooltip: {
-      pointFormat: '<b>{point.y}</b> ({point.percentage:.1f}%)'
+      pointFormat: '<b>{point.y} cards</b> ({point.percentage:.1f}%)'
     }
   } as any)
 }
@@ -178,13 +191,13 @@ const renderStrengthChart = () => {
   if (!strengthChartRef.value) return
 
   const strengthBuckets = {
-    'Weak (0-0.3)': cardProgress.filter(p => p.strength_score < 0.3).length,
-    'Fair (0.3-0.6)': cardProgress.filter(p => p.strength_score >= 0.3 && p.strength_score < 0.6).length,
-    'Good (0.6-0.8)': cardProgress.filter(p => p.strength_score >= 0.6 && p.strength_score < 0.8).length,
-    'Mastered (0.8+)': cardProgress.filter(p => p.strength_score >= 0.8).length
+    'Critical': cardProgress.filter(p => p.strength_score < 0.25).length,
+    'Struggling': cardProgress.filter(p => p.strength_score >= 0.25 && p.strength_score < 0.5).length,
+    'Good': cardProgress.filter(p => p.strength_score >= 0.5 && p.strength_score < 0.75).length,
+    'Mastered': cardProgress.filter(p => p.strength_score >= 0.75).length
   }
 
-  const colors = ['#FF6B6B', '#FFC107', '#4CAF50', '#2196F3']
+  const colors = ['#F44336', '#FF9800', '#8BC34A', '#4CAF50']
 
   Highcharts.chart(strengthChartRef.value, {
     chart: { type: 'column' },
@@ -195,7 +208,9 @@ const renderStrengthChart = () => {
     },
     yAxis: {
       title: { text: 'Number of Cards' },
-      min: 0
+      min: 0,
+      gridLineWidth: 1,
+      gridLineColor: 'rgba(0,0,0,0.08)'
     },
     series: [
       {
@@ -231,24 +246,29 @@ const renderTimelineChart = () => {
 
   const dates = Array.from(dateMap.keys())
   const counts = Array.from(dateMap.values())
+  const dateLabels = dates.map(d => format(parseISO(d), 'MMM d, yy'))
 
   Highcharts.chart(timelineChartRef.value, {
-    chart: { type: 'line' },
+    chart: { type: 'spline' },
     title: { text: '' },
     xAxis: {
-      categories: dates,
+      categories: dateLabels,
       tickInterval: 5
     },
     yAxis: {
       title: { text: 'Attempts' },
-      min: 0
+      min: 0,
+      gridLineWidth: 1,
+      gridLineColor: 'rgba(0,0,0,0.08)'
     },
     series: [
       {
         name: 'Daily Attempts',
         data: counts,
         color: '#2196F3',
-        type: 'line'
+        type: 'spline',
+        lineWidth: 2,
+        marker: { enabled: false }
       }
     ],
     legend: { enabled: false },
@@ -280,7 +300,9 @@ const renderChallengingChart = () => {
     yAxis: {
       title: { text: 'Strength Score (%)' },
       min: 0,
-      max: 100
+      max: 100,
+      gridLineWidth: 1,
+      gridLineColor: 'rgba(0,0,0,0.08)'
     },
     series: [
       {
@@ -295,6 +317,162 @@ const renderChallengingChart = () => {
   } as any)
 }
 
+const renderLearningCurveChart = () => {
+  if (!learningCurveChartRef.value) return
+
+  // Replay attempts chronologically. Per-card state mirrors CardProgress:
+  // strength = weighted_attempts / total_attempts.
+  // After each day, snapshot the average strength across ALL cards seen so far.
+  const sortedLogs = [...attemptLogs].sort(
+    (a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime()
+  )
+
+  const cardState = new Map<string, { total: number; weighted: number }>()
+  const dailyAvg = new Map<string, number>()
+
+  sortedLogs.forEach(log => {
+    const dateStr = format(parseISO(log.created_at), 'yyyy-MM-dd')
+    const s = cardState.get(log.learning_item_id) ?? { total: 0, weighted: 0 }
+    s.total += 1
+    // Match CardProgress.strength_score: weighted_attempts is the raw sum of
+    // ease_score values (incl. negatives like -0.3 for wrong answers).
+    s.weighted += log.ease_score
+    cardState.set(log.learning_item_id, s)
+
+    // Same definition as the "Cards Learned" stat & pie chart:
+    // fraction of cards whose current strength_score is >= 0.5.
+    let learned = 0
+    cardState.forEach(v => {
+      if (v.weighted / v.total >= 0.5) learned += 1
+    })
+    dailyAvg.set(dateStr, learned / cardState.size)
+  })
+
+  const sorted = Array.from(dailyAvg.entries()).sort(([a], [b]) => a.localeCompare(b))
+  const dates = sorted.map(([d]) => d)
+  const dateLabels = dates.map(d => format(parseISO(d), 'MMM d, yy'))
+  const mastery = sorted.map(([, v]) => Math.round(v * 100))
+
+  availableDates.value = dates
+  const cardCounts: number[] = []
+  // Recompute "cards seen so far" per day for the tooltip
+  const seen = new Set<string>()
+  let cursor = 0
+  dates.forEach(d => {
+    while (cursor < sortedLogs.length) {
+      const log = sortedLogs[cursor]
+      if (!log || format(parseISO(log.created_at), 'yyyy-MM-dd') > d) break
+      seen.add(log.learning_item_id)
+      cursor++
+    }
+    cardCounts.push(seen.size)
+  })
+
+  Highcharts.chart(learningCurveChartRef.value, {
+    chart: { type: 'areaspline' },
+    title: { text: '' },
+    xAxis: { categories: dateLabels, tickInterval: Math.max(1, Math.floor(dateLabels.length / 8)) },
+    yAxis: {
+      title: { text: 'Cards Learned (%)' },
+      min: 0,
+      max: 100,
+      labels: { format: '{value}%' },
+      gridLineWidth: 1,
+      gridLineColor: 'rgba(0,0,0,0.08)'
+    },
+    series: [
+      {
+        name: 'Cards Learned',
+        data: mastery.map((y, i) => ({ y, cards: cardCounts[i] })),
+        color: '#4CAF50',
+        fillOpacity: 0.2,
+        lineWidth: 2,
+        type: 'areaspline',
+        marker: { enabled: false }
+      }
+    ],
+    legend: { enabled: false },
+    credits: { enabled: false },
+    tooltip: {
+      pointFormat: '<b>{point.y}%</b> learned<br/>across {point.cards} cards seen'
+    }
+  } as any)
+}
+
+const renderCompositionChart = () => {
+  if (!compositionChartRef.value || availableDates.value.length === 0) return
+
+  const sortedLogs = [...attemptLogs].sort(
+    (a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime()
+  )
+
+  // For each date, compute the composition breakdown
+  const compositionByDate = new Map<string, { Critical: number; Struggling: number; Good: number; Mastered: number }>()
+  const cardState = new Map<string, { total: number; weighted: number }>()
+
+  sortedLogs.forEach(log => {
+    const dateStr = format(parseISO(log.created_at), 'yyyy-MM-dd')
+    const s = cardState.get(log.learning_item_id) ?? { total: 0, weighted: 0 }
+    s.total += 1
+    s.weighted += log.ease_score
+    cardState.set(log.learning_item_id, s)
+
+    // Snapshot the composition at this date
+    const buckets = { Critical: 0, Struggling: 0, Good: 0, Mastered: 0 }
+    cardState.forEach(v => {
+      const strength = v.weighted / v.total
+      if (strength < 0.25) buckets.Critical += 1
+      else if (strength < 0.5) buckets.Struggling += 1
+      else if (strength < 0.75) buckets.Good += 1
+      else buckets.Mastered += 1
+    })
+    compositionByDate.set(dateStr, buckets)
+  })
+
+  const dates = availableDates.value
+  const dateLabels = dates.map(d => format(parseISO(d), 'MMM d, yy'))
+  const critical = dates.map(d => {
+    const comp = compositionByDate.get(d)
+    return comp ? Math.round((comp.Critical / (comp.Critical + comp.Struggling + comp.Good + comp.Mastered)) * 100) : 0
+  })
+  const struggling = dates.map(d => {
+    const comp = compositionByDate.get(d)
+    return comp ? Math.round((comp.Struggling / (comp.Critical + comp.Struggling + comp.Good + comp.Mastered)) * 100) : 0
+  })
+  const good = dates.map(d => {
+    const comp = compositionByDate.get(d)
+    return comp ? Math.round((comp.Good / (comp.Critical + comp.Struggling + comp.Good + comp.Mastered)) * 100) : 0
+  })
+  const mastered = dates.map(d => {
+    const comp = compositionByDate.get(d)
+    return comp ? Math.round((comp.Mastered / (comp.Critical + comp.Struggling + comp.Good + comp.Mastered)) * 100) : 0
+  })
+
+  Highcharts.chart(compositionChartRef.value, {
+    chart: { type: 'areaspline' },
+    title: { text: '' },
+    xAxis: { categories: dateLabels, tickInterval: Math.max(1, Math.floor(dateLabels.length / 8)) },
+    yAxis: { title: { text: 'Composition (%)' }, min: 0, max: 100, stackLabels: { enabled: false }, gridLineWidth: 1, gridLineColor: 'rgba(0,0,0,0.08)' },
+    plotOptions: {
+      areaspline: {
+        stacking: 'percent',
+        lineWidth: 0,
+        marker: { enabled: false },
+        dataLabels: { enabled: false }
+      }
+    },
+    series: [
+      { name: 'Critical', data: critical, color: '#EF9A9A', type: 'areaspline' },
+      { name: 'Struggling', data: struggling, color: '#FFCC80', type: 'areaspline' },
+      { name: 'Good', data: good, color: '#C5E1A5', type: 'areaspline' },
+      { name: 'Mastered', data: mastered, color: '#A5D6A7', type: 'areaspline' }
+    ],
+    legend: { enabled: true },
+    credits: { enabled: false },
+    tooltip: { pointFormat: '<b>{point.percentage:.0f}%</b> {series.name}' }
+  } as any)
+}
+
 const goBack = () => {
   router.push({ name: 'collections' })
 }
@@ -302,13 +480,14 @@ const goBack = () => {
 onMounted(async () => {
   await syncAll()
   await loadData()
+  renderCompositionChart()
 })
 </script>
 
 <style scoped>
 .progress-view {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: transparent;
   padding-bottom: 40px;
 }
 
@@ -344,7 +523,7 @@ onMounted(async () => {
   background: white;
   border-radius: 8px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   text-align: center;
 }
 
@@ -373,13 +552,19 @@ onMounted(async () => {
   background: white;
   border-radius: 8px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 .chart-wrapper h3 {
-  margin: 0 0 16px;
+  margin: 0 0 4px;
   font-size: 1.1rem;
   color: rgba(0, 0, 0, 0.87);
+}
+
+.chart-subtitle {
+  margin: 0 0 16px;
+  font-size: 0.8rem;
+  color: rgba(0, 0, 0, 0.45);
 }
 
 .chart-wrapper.full-width {
