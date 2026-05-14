@@ -154,6 +154,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { formatISO, parseISO } from 'date-fns'
 import type { JSONContent } from '@tiptap/vue-3'
 import { useRoute, useRouter } from 'vue-router'
 import TiptapDisplay from '../shared/components/TiptapDisplay.vue'
@@ -287,8 +288,8 @@ const loadData = async () => {
       }
 
       // Secondary: if strength is equal, sort by last_reviewed_at (least recently reviewed first)
-      const aReviewed = a.progress?.last_reviewed_at ? new Date(a.progress.last_reviewed_at).getTime() : Number.MAX_VALUE
-      const bReviewed = b.progress?.last_reviewed_at ? new Date(b.progress.last_reviewed_at).getTime() : Number.MAX_VALUE
+      const aReviewed = a.progress?.last_reviewed_at ? parseISO(a.progress.last_reviewed_at).getTime() : Number.MAX_VALUE
+      const bReviewed = b.progress?.last_reviewed_at ? parseISO(b.progress.last_reviewed_at).getTime() : Number.MAX_VALUE
       if (aReviewed !== bReviewed) {
         return aReviewed - bReviewed
       }
@@ -304,7 +305,7 @@ const recordAttempt = async (easeScore: number) => {
   try {
     if (!currentItem.value?.id) return
 
-    const now = new Date().toISOString()
+    const now = formatISO(new Date())
 
     const attemptLogResult = await createAttemptLog({
       learning_item_id: currentItem.value.id,

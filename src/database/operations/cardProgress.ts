@@ -1,3 +1,4 @@
+import { isAfter, parseISO } from 'date-fns'
 import type { CardProgress } from '../types'
 import * as local from '../local'
 import * as remote from '../remote'
@@ -15,7 +16,7 @@ export async function pullCardProgress() {
         continue
       }
 
-      if (!localP || new Date(remoteP.last_reviewed_at) > new Date(localP.last_reviewed_at)) {
+      if (!localP || isAfter(parseISO(remoteP.last_reviewed_at), parseISO(localP.last_reviewed_at))) {
         await local.updateCardProgress({ ...remoteP, id: remoteP.remoteId || remoteP.id })
       }
     }

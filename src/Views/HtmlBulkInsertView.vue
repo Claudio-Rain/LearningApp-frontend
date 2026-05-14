@@ -89,6 +89,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { formatISO } from 'date-fns'
 import {
   getCollections,
   createCollection,
@@ -279,7 +280,7 @@ const handleBulkInsert = async () => {
     let collectionId: string
 
     if (collectionMode.value === 'new') {
-      const now = new Date().toISOString()
+      const now = formatISO(new Date())
       collectionId = (await createCollection({
         title: newCollectionTitle.value.trim(),
         dateCreated: now,
@@ -291,7 +292,7 @@ const handleBulkInsert = async () => {
       collectionId = selectedCollectionId.value!
     }
 
-    const now = new Date().toISOString()
+    const now = formatISO(new Date())
     for (const item of validItems.value) {
       await createLearningItem({
         collectionId,

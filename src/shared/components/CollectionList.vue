@@ -45,6 +45,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { formatISO } from 'date-fns'
 import { useRouter } from 'vue-router'
 import {
   getCollections,
@@ -73,7 +74,7 @@ const handleAdd = async () => {
   const title = prompt('Collection name?')
   if (!title) return
 
-  const now = new Date().toISOString()
+  const now = formatISO(new Date())
 
   await createCollection({
     title,
@@ -93,7 +94,7 @@ const handleEdit = async (collection: Collection) => {
   await editCollection({
     ...collection,
     title: newTitle,
-    lastModified: new Date().toISOString()
+    lastModified: formatISO(new Date())
   })
   await syncCollections() 
   await loadCollections()

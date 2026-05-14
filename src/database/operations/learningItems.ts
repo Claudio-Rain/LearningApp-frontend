@@ -1,3 +1,4 @@
+import { isAfter, parseISO } from 'date-fns'
 import type { LearningItem } from '../types'
 import * as local from '../local'
 import * as remote from '../remote'
@@ -15,7 +16,7 @@ export async function pullLearningItems(collectionId: string) {
         continue
       }
 
-      if (!localItem || new Date(remoteItem.lastModified) > new Date(localItem.lastModified)) {
+      if (!localItem || isAfter(parseISO(remoteItem.lastModified), parseISO(localItem.lastModified))) {
         await local.updateLearningItem({ ...remoteItem, id: remoteItem.remoteId || remoteItem.id })
       }
     }

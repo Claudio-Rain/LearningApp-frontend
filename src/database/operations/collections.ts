@@ -1,3 +1,4 @@
+import { isAfter, parseISO } from 'date-fns'
 import type { Collection } from '../types'
 import * as local from '../local'
 import * as remote from '../remote'
@@ -16,7 +17,7 @@ export async function pullCollections() {
         continue
       }
 
-      if (!localCol || new Date(remoteCol.lastModified) > new Date(localCol.lastModified)) {
+      if (!localCol || isAfter(parseISO(remoteCol.lastModified), parseISO(localCol.lastModified))) {
         await local.updateCollection({ ...remoteCol, id: remoteCol.remoteId || remoteCol.id })
       }
     }

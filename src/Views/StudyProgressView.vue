@@ -60,6 +60,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { parseISO, compareDesc, startOfDay, differenceInCalendarDays, subDays, format } from 'date-fns'
 import { useRouter } from 'vue-router'
 import Highcharts from 'highcharts'
 import {
@@ -117,23 +118,19 @@ const calculateStats = () => {
   // Calculate streak
   if (attemptLogs.length > 0) {
     const sortedLogs = [...attemptLogs].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      (a, b) => compareDesc(parseISO(a.created_at), parseISO(b.created_at))
     )
 
     let streak = 0
-    let currentDate = new Date()
-    currentDate.setHours(0, 0, 0, 0)
+    let currentDate = startOfDay(new Date())
 
     for (const log of sortedLogs) {
-      const logDate = new Date(log.created_at)
-      logDate.setHours(0, 0, 0, 0)
-
-      const diffTime = currentDate.getTime() - logDate.getTime()
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+      const logDate = startOfDay(parseISO(log.created_at))
+      const diffDays = differenceInCalendarDays(currentDate, logDate)
 
       if (diffDays === streak) {
         streak++
-        currentDate.setDate(currentDate.getDate() - 1)
+        currentDate = subDays(currentDate, 1)
       } else {
         break
       }
@@ -222,14 +219,12 @@ const renderTimelineChart = () => {
   const today = new Date()
 
   for (let i = 29; i >= 0; i--) {
-    const date = new Date(today)
-    date.setDate(date.getDate() - i)
-    const dateStr = date.toISOString().split('T')[0] as string
+    const dateStr = format(subDays(today, i), 'yyyy-MM-dd')
     dateMap.set(dateStr, 0)
   }
 
   attemptLogs.forEach(log => {
-    const dateStr = log.created_at.split('T')[0] as string
+    const dateStr = format(parseISO(log.created_at), 'yyyy-MM-dd')
     const current = dateMap.get(dateStr) ?? 0
     dateMap.set(dateStr, current + 1)
   })

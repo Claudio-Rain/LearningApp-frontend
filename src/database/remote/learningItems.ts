@@ -1,3 +1,4 @@
+import { formatISO } from 'date-fns'
 import {
   collection,
   getDocs,
@@ -38,7 +39,7 @@ export async function updateLearningItem(item: LearningItem): Promise<void> {
 export async function updateLearningItemTitle(remoteId: string, title: string): Promise<void> {
   await updateDoc(doc(db, 'learning_items', remoteId), {
     title,
-    lastModified: new Date().toISOString()
+    lastModified: formatISO(new Date())
   })
 }
 

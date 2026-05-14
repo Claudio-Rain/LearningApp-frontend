@@ -1,3 +1,4 @@
+import { formatISO, getHours } from 'date-fns'
 import {
   getLearningItems,
   getAllCardProgress,
@@ -78,7 +79,7 @@ function createAlarms() {
   });
 
   const endTime = Date.now() + SESSION_DURATION_MINUTES * 60 * 1000;
-  console.log('[background] createAlarms: setting storage endTime', new Date(endTime).toISOString());
+  console.log('[background] createAlarms: setting storage endTime', formatISO(new Date(endTime)));
 
   chrome.storage.local.set({
     endTime,
@@ -112,7 +113,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 function checkSessionTime() {
-  const hour = new Date().getHours();
+  const hour = getHours(new Date());
   console.log('[background] checkSessionTime: hour =', hour, '| sessionActive =', sessionActive);
 
   if (hour === SESSION_START_HOUR && !sessionActive) {
@@ -185,7 +186,7 @@ chrome.notifications.onButtonClicked.addListener(async (notificationId, buttonIn
     return;
   }
 
-  const now = new Date().toISOString();
+  const now = formatISO(new Date());
   const buttonLabels = ["Review Later", "Answered Correctly"];
   const buttonLabel = buttonLabels[buttonIndex];
   console.log('[background] onButtonClicked: button =', buttonLabel, '| item id =', currentNotificationItem.id);

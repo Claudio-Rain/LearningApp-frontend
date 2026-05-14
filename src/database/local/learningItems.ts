@@ -1,3 +1,4 @@
+import { formatISO } from 'date-fns'
 import type { LearningItem } from '../types'
 import { dbPromise, LEARNING_ITEMS_STORE } from './db'
 
@@ -27,5 +28,5 @@ export async function updateLearningItem(item: LearningItem): Promise<void> {
 export async function updateLearningItemTitle(id: string, title: string): Promise<void> {
   const db = await dbPromise
   const item = await db.get(LEARNING_ITEMS_STORE, id)
-  await db.put(LEARNING_ITEMS_STORE, { ...item, title, lastModified: new Date().toISOString() })
+  await db.put(LEARNING_ITEMS_STORE, { ...item, title, lastModified: formatISO(new Date()) })
 }

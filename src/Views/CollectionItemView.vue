@@ -35,6 +35,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { formatISO, parseISO, compareDesc } from 'date-fns'
 import { useRoute, useRouter } from 'vue-router'
 import LearningItemView from './LearningItemView.vue'
 import type { JSONContent } from '@tiptap/vue-3'
@@ -72,7 +73,7 @@ const loadData = async () => {
 
   const items = await getLearningItems(collectionId)
   learningItems.value = items.sort((a, b) =>
-    new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime()
+    compareDesc(parseISO(a.dateCreated), parseISO(b.dateCreated))
   )
 
   if (learningItems.value.length > 0) {
@@ -87,7 +88,7 @@ const handleAddLearningItem = async () => {
   const title = prompt('Learning item title?')
   if (!title || !collection.value) return
 
-  const now = new Date().toISOString()
+  const now = formatISO(new Date())
   await createLearningItem({
     collectionId: collection.value.id!,
     title,
@@ -112,7 +113,7 @@ const handleDeleteLearningItem = async (item: LearningItem) => {
     await editCollection({
       ...collection.value,
       numberOfItems: collection.value.numberOfItems - 1,
-      lastModified: new Date().toISOString()
+      lastModified: formatISO(new Date())
     })
   }
   await syncLearningItems()

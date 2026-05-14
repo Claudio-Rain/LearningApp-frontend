@@ -1,3 +1,4 @@
+import { isAfter, parseISO } from 'date-fns'
 import type { AttemptLog } from '../types'
 import * as local from '../local'
 import * as remote from '../remote'
@@ -16,7 +17,7 @@ export async function pullAttemptLogs() {
       }
 
       // Attempt logs are append-only; insert if missing, otherwise prefer the newer record.
-      if (!localLog || new Date(remoteLog.created_at) > new Date(localLog.created_at)) {
+      if (!localLog || isAfter(parseISO(remoteLog.created_at), parseISO(localLog.created_at))) {
         await local.updateAttemptLog({ ...remoteLog, id: remoteLog.remoteId || remoteLog.id })
       }
     }

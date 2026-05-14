@@ -20,6 +20,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import { formatISO } from 'date-fns'
 import type { JSONContent } from '@tiptap/vue-3'
 import { editLearningItem } from '../database'
 import type { LearningItem } from '../database/types'
@@ -60,7 +61,7 @@ const handleContentChange = (val: JSONContent) => {
     await editLearningItem({
       ...props.item,
       content: val,
-      lastModified: new Date().toISOString()
+      lastModified: formatISO(new Date())
     })
     emit('update:content', props.item.id!, val)
   }, 500)
@@ -74,7 +75,7 @@ const handleTitleInput = () => {
     await editLearningItem({
       ...props.item,
       title: trimmed,
-      lastModified: new Date().toISOString()
+      lastModified: formatISO(new Date())
     })
     emit('update:title', props.item.id!, trimmed)
   }, 500)
