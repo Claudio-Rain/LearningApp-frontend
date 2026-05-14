@@ -70,7 +70,10 @@ const loadData = async () => {
     return
   }
 
-  learningItems.value = await getLearningItems(collectionId)
+  const items = await getLearningItems(collectionId)
+  learningItems.value = items.sort((a, b) =>
+    new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime()
+  )
 
   if (learningItems.value.length > 0) {
     const stillExists = learningItems.value.find(i => i.id === selectedItem.value?.id) ?? null

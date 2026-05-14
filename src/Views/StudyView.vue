@@ -4,18 +4,65 @@
     <div class="study-header">
       <div>
         <div class="study-title">{{ collection?.title }}</div>
-        <div class="study-subtitle">{{ currentIndex + 1 }} / {{ studyQueue.length }}</div>
+        <div class="study-subtitle">
+          {{ currentIndex + 1 }} / {{ studyQueue.length }}
+          <span class="strength-badge" :class="currentStrengthClass">{{ currentStrengthLabel }}</span>
+        </div>
         <div class="study-stats">
           <span class="stat-badge new-badge" :class="{ glowing: isCurrentCardNew }">New: {{ newCards }}</span>
           <span class="stat-badge revised-badge" :class="{ glowing: !isCurrentCardNew }">Revised: {{ revisedCards }}</span>
           <span class="stat-badge total-badge">Total: {{ totalCards }}</span>
         </div>
       </div>
-      <v-btn icon="mdi-arrow-left" variant="text" @click="goBack" />
+      <div class="header-actions">
+        <template v-if="editDialog">
+          <v-btn variant="tonal" color="primary" size="small" @click="editDialog = false">Done</v-btn>
+        </template>
+        <template v-else>
+          <v-btn
+            v-if="currentItem"
+            icon="mdi-pencil-outline"
+            variant="text"
+            @click="editDialog = true"
+          />
+          <v-btn
+            v-if="currentItem"
+            icon="mdi-delete-outline"
+            variant="text"
+            color="error"
+            @click="confirmDelete"
+          />
+        </template>
+        <v-btn icon="mdi-arrow-left" variant="text" @click="goBack" />
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Dialog -->
+    <v-dialog v-model="deleteDialog" max-width="340">
+      <v-card>
+        <v-card-title>Delete item?</v-card-title>
+        <v-card-text>
+          "<strong>{{ currentItem?.title }}</strong>" will be permanently deleted along with its progress and attempt history.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="deleteDialog = false">Cancel</v-btn>
+          <v-btn color="error" variant="tonal" :loading="deleting" @click="deleteCurrentItem">Delete</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Inline Edit Mode -->
+    <div v-if="editDialog && editableItem" class="edit-mode">
+      <LearningItemView
+        :item="editableItem"
+        @update:title="onEditTitle"
+        @update:content="onEditContent"
+      />
     </div>
 
     <!-- Main Content -->
-    <div class="study-container">
+    <div v-else class="study-container">
       <div v-if="studyQueue.length > 0 && currentItem" class="flashcard-wrapper">
         <!-- Card -->
         <div class="flashcard" :class="{ flipped: isFlipped }">
@@ -107,8 +154,10 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import type { JSONContent } from '@tiptap/vue-3'
 import { useRoute, useRouter } from 'vue-router'
 import TiptapDisplay from '../shared/components/TiptapDisplay.vue'
+import LearningItemView from './LearningItemView.vue'
 import {
   getCollections,
   getLearningItems,
@@ -120,7 +169,8 @@ import {
   syncAttemptLogs,
   startSyncEngine,
   pullLearningItems,
-  pullCardProgress
+  pullCardProgress,
+  removeLearningItem
 } from '../database'
 import type { Collection, LearningItem, CardProgress } from '../database/types'
 
@@ -138,6 +188,23 @@ const cardProgressMap = ref<Map<string, CardProgress>>(new Map())
 const studyQueue = ref<StudyItem[]>([])
 const currentIndex = ref(0)
 const isFlipped = ref(false)
+const deleteDialog = ref(false)
+const deleting = ref(false)
+const editDialog = ref(false)
+
+const editableItem = computed<LearningItem | null>(() => {
+  if (!currentItem.value) return null
+  const { progress: _progress, ...item } = currentItem.value as StudyItem & { progress?: unknown }
+  return item as LearningItem
+})
+
+const onEditTitle = (_id: string, title: string) => {
+  if (currentItem.value) currentItem.value.title = title
+}
+
+const onEditContent = (_id: string, content: JSONContent) => {
+  if (currentItem.value) currentItem.value.content = content
+}
 
 const currentItem = computed(() => studyQueue.value[currentIndex.value])
 
@@ -160,6 +227,24 @@ const revisedCards = computed(() => {
 })
 
 const totalCards = computed(() => studyQueue.value.length)
+
+const currentStrengthLabel = computed(() => {
+  const score = currentItem.value?.progress?.strength_score
+  if (score === undefined || score === null) return 'New'
+  if (score < 0.25) return 'Weak'
+  if (score < 0.5) return 'Fair'
+  if (score < 0.75) return 'Good'
+  return 'Mastered'
+})
+
+const currentStrengthClass = computed(() => {
+  const score = currentItem.value?.progress?.strength_score
+  if (score === undefined || score === null) return 'strength-new'
+  if (score < 0.25) return 'strength-weak'
+  if (score < 0.5) return 'strength-fair'
+  if (score < 0.75) return 'strength-good'
+  return 'strength-mastered'
+})
 
 const isCurrentCardNew = computed(() => {
   if (!currentItem.value) return false
@@ -282,6 +367,34 @@ const goBack = () => {
   router.push({ name: 'collections' })
 }
 
+const confirmDelete = () => {
+  deleteDialog.value = true
+}
+
+const deleteCurrentItem = async () => {
+  if (!currentItem.value?.id) return
+  deleting.value = true
+  try {
+    const id = currentItem.value.id
+    studyQueue.value.splice(currentIndex.value, 1)
+    learningItems.value = learningItems.value.filter(i => i.id !== id)
+    if (currentIndex.value >= studyQueue.value.length) {
+      currentIndex.value = Math.max(0, studyQueue.value.length - 1)
+    }
+    isFlipped.value = false
+    deleteDialog.value = false
+    await removeLearningItem(id)
+    if (studyQueue.value.length === 0) {
+      alert('No more items to study!')
+      goBack()
+    }
+  } catch (error) {
+    console.error('Error deleting item:', error)
+  } finally {
+    deleting.value = false
+  }
+}
+
 onMounted(async () => {
   startSyncEngine()
   if (navigator.onLine) {
@@ -307,6 +420,18 @@ onMounted(async () => {
   padding: 12px 20px;
   background-color: rgba(255, 255, 255, 0.95);
   flex-shrink: 0;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.edit-mode {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
 }
 
 .study-title {
@@ -464,6 +589,24 @@ onMounted(async () => {
   color: rgba(0, 0, 0, 0.35);
   font-size: 0.85rem;
 }
+
+.strength-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.strength-new      { background: rgba(33,150,243,0.15); color: #1976D2; }
+.strength-weak     { background: rgba(244,67,54,0.15);  color: #D32F2F; }
+.strength-fair     { background: rgba(255,152,0,0.15);  color: #E65100; }
+.strength-good     { background: rgba(33,150,243,0.15); color: #1565C0; }
+.strength-mastered { background: rgba(76,175,80,0.15);  color: #2E7D32; }
 
 .title-display {
   margin: 0;
