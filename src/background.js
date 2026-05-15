@@ -10,14 +10,29 @@ import {
 } from './database';
 
 const SESSION_CHECK_INTERVAL_MINUTES = 1;
-const NOTIFICATION_INTERVAL_SECONDS = 30;
-const NOTIFICATION_INTERVAL_MINUTES = NOTIFICATION_INTERVAL_SECONDS / 60;
-const SESSION_START_HOUR = 9;
-const SESSION_END_HOUR = 10;
-const SESSION_DURATION_MINUTES = 1;
-const COLLECTION_ID = "8366d809-1495-4b6c-a184-330158ad1da0";
 const NOTIFICATION_TIMEOUT_MS = 30000;
 const NOTIFICATION_PRIORITY = 2;
+
+// Defaults — overridden by values saved from StudyOptionsView
+const DEFAULT_NOTIFICATION_INTERVAL_SECONDS = 30;
+const DEFAULT_SESSION_START_HOUR = 9;
+const DEFAULT_SESSION_END_HOUR = 10;
+const DEFAULT_COLLECTION_ID = "8366d809-1495-4b6c-a184-330158ad1da0";
+
+async function getStudySettings() {
+  const stored = await chrome.storage.local.get([
+    'notifCollectionId',
+    'sessionStartHour',
+    'sessionEndHour',
+    'notificationIntervalSeconds',
+  ]);
+  return {
+    collectionId: stored.notifCollectionId ?? DEFAULT_COLLECTION_ID,
+    startHour: stored.sessionStartHour ?? DEFAULT_SESSION_START_HOUR,
+    endHour: stored.sessionEndHour ?? DEFAULT_SESSION_END_HOUR,
+    intervalSeconds: stored.notificationIntervalSeconds ?? DEFAULT_NOTIFICATION_INTERVAL_SECONDS,
+  };
+}
 
 let sessionActive = false;
 
@@ -72,24 +87,18 @@ chrome.runtime.onStartup.addListener(() => {
   initializeAlarms();
 });
 
-function createAlarms() {
+async function createAlarms() {
+  const { intervalSeconds } = await getStudySettings();
+  const intervalMinutes = intervalSeconds / 60;
+
   console.log('[background] createAlarms: creating sessionAlarm every', SESSION_CHECK_INTERVAL_MINUTES, 'min');
   chrome.alarms.create("sessionAlarm", {
     periodInMinutes: SESSION_CHECK_INTERVAL_MINUTES,
   });
 
-  const endTime = Date.now() + SESSION_DURATION_MINUTES * 60 * 1000;
-  console.log('[background] createAlarms: setting storage endTime', formatISO(new Date(endTime)));
-
-  chrome.storage.local.set({
-    endTime,
-    lastMinutes: SESSION_DURATION_MINUTES,
-    intervalSeconds: NOTIFICATION_INTERVAL_SECONDS,
-  });
-
-  console.log('[background] createAlarms: creating notificationAlarm every', NOTIFICATION_INTERVAL_MINUTES, 'min');
+  console.log('[background] createAlarms: creating notificationAlarm every', intervalMinutes, 'min');
   chrome.alarms.create("notificationAlarm", {
-    periodInMinutes: NOTIFICATION_INTERVAL_MINUTES,
+    periodInMinutes: intervalMinutes,
   });
 }
 
@@ -112,25 +121,28 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   }
 });
 
-function checkSessionTime() {
+async function checkSessionTime() {
+  const { startHour, endHour } = await getStudySettings();
   const hour = getHours(new Date());
   console.log('[background] checkSessionTime: hour =', hour, '| sessionActive =', sessionActive);
 
-  if (hour === SESSION_START_HOUR && !sessionActive) {
+  const shouldBeActive = hour >= startHour && hour < endHour;
+  if (shouldBeActive && !sessionActive) {
     console.log('[background] session STARTED');
     sessionActive = true;
-  } else if (hour === SESSION_END_HOUR && sessionActive) {
+  } else if (!shouldBeActive && sessionActive) {
     console.log('[background] session ENDED');
     sessionActive = false;
   } else {
-    console.log('[background] no session state change (START_HOUR:', SESSION_START_HOUR, 'END_HOUR:', SESSION_END_HOUR, ')');
+    console.log('[background] no session state change (START_HOUR:', startHour, 'END_HOUR:', endHour, ')');
   }
 }
 
 async function sendNotification() {
-  console.log('[background] sendNotification: fetching items for collection', COLLECTION_ID);
+  const { collectionId } = await getStudySettings();
+  console.log('[background] sendNotification: fetching items for collection', collectionId);
   const [items, allProgress] = await Promise.all([
-    getLearningItems(COLLECTION_ID),
+    getLearningItems(collectionId),
     getAllCardProgress()
   ]);
   console.log('[background] sendNotification: items fetched, count =', items?.length ?? 0);
@@ -192,8 +204,8 @@ chrome.notifications.onButtonClicked.addListener(async (notificationId, buttonIn
   console.log('[background] onButtonClicked: button =', buttonLabel, '| item id =', currentNotificationItem.id);
 
   const easeScores = {
-    "Review Later": -0.3,
-    "Answered Correctly": 1.0
+    "Review Later": -0.1,
+    "Answered Correctly": 0.15
   };
 
   const easeScore = easeScores[buttonLabel] ?? 0.0;
@@ -217,23 +229,22 @@ chrome.notifications.onButtonClicked.addListener(async (notificationId, buttonIn
 
     if (progress) {
       const totalAttempts = progress.total_attempts + 1;
-      const weightedSum = progress.weighted_attempts + easeScore;
-      const newStrength = weightedSum / totalAttempts;
+      const newStrength = Math.max(0, Math.min(1, progress.strength_score + easeScore));
       console.log('[background] onButtonClicked: updating card progress, newStrength =', newStrength);
 
       await updateCardProgress({
         ...progress,
-        strength_score: Math.max(0, Math.min(1, newStrength)),
+        strength_score: newStrength,
         last_reviewed_at: now,
         total_attempts: totalAttempts,
-        weighted_attempts: weightedSum
+        weighted_attempts: progress.weighted_attempts + easeScore
       });
       console.log('[background] onButtonClicked: card progress updated');
     } else {
       console.log('[background] onButtonClicked: no existing progress, creating new card progress');
       await createCardProgress({
         learning_item_id: currentNotificationItem.id,
-        strength_score: easeScore,
+        strength_score: Math.max(0, easeScore),
         last_reviewed_at: now,
         total_attempts: 1,
         weighted_attempts: easeScore

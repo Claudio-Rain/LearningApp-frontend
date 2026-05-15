@@ -5,6 +5,7 @@ import BulkInsertView from '../views/BulkInsertView.vue'
 import HtmlBulkInsertView from '../views/HtmlBulkInsertView.vue'
 import StudyView from '../views/StudyView.vue'
 import StudyProgressView from '../views/StudyProgressView.vue'
+import StudyOptionsView from '../views/StudyOptionsView.vue'
 
 const routes = [
   { path: '/', redirect: '/collections' },
@@ -29,6 +30,11 @@ const routes = [
     path: '/progress',
     name: 'progress',
     component: StudyProgressView
+  },
+  {
+    path: '/study-options',
+    name: 'studyOptions',
+    component: StudyOptionsView
   },
   {
     path: '/bulk-insert',

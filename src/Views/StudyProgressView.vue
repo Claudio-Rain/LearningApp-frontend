@@ -41,12 +41,6 @@
         <div ref="timelineChartRef" class="chart"></div>
       </div>
 
-      <!-- Top Challenging Cards -->
-      <div class="chart-wrapper full-width">
-        <h3>Most Challenging Cards</h3>
-        <div ref="challengingChartRef" class="chart"></div>
-      </div>
-
       <!-- Learning Curve -->
       <div class="chart-wrapper full-width">
         <h3>Learning Curve</h3>
@@ -59,6 +53,14 @@
         <h3>Strength Composition Over Time</h3>
         <p class="chart-subtitle">How your card distribution shifted across strength tiers over time</p>
         <div ref="compositionChartRef" class="chart"></div>
+      </div>
+
+      <!-- Top Challenging Cards -->
+      <div class="chart-wrapper full-width">
+        <h3>Most Challenging Cards</h3>
+        <div class="chart-scroll-container">
+          <div ref="challengingChartRef" class="chart"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -281,18 +283,24 @@ const renderChallengingChart = () => {
   if (!challengingChartRef.value) return
 
   const sorted = [...cardProgress]
+    .filter(p => p.strength_score < 0.5 && learningItems.some(i => i.id === p.learning_item_id))
     .sort((a, b) => a.strength_score - b.strength_score)
-    .slice(0, 10)
 
   const labels = sorted.map(p => {
     const item = learningItems.find(i => i.id === p.learning_item_id)
-    return item?.title?.substring(0, 30) || 'Unknown'
+    return item!.title.substring(0, 30)
   })
 
-  const strengths = sorted.map(p => Math.round(p.strength_score * 100))
+  const strengths = sorted.map(p => ({
+    y: Math.round(p.strength_score * 100),
+    color: p.strength_score < 0.25 ? '#F44336' : '#FF9800'
+  }))
+
+  const rowHeight = 35
+  const chartHeight = Math.max(300, sorted.length * rowHeight)
 
   Highcharts.chart(challengingChartRef.value, {
-    chart: { type: 'bar' },
+    chart: { type: 'bar', height: chartHeight },
     title: { text: '' },
     xAxis: {
       categories: labels
@@ -308,7 +316,7 @@ const renderChallengingChart = () => {
       {
         name: 'Strength',
         data: strengths,
-        color: '#FF6B6B'
+        colorByPoint: true
       }
     ],
     legend: { enabled: false },
@@ -573,6 +581,11 @@ onMounted(async () => {
 
 .chart {
   min-height: 350px;
+}
+
+.chart-scroll-container {
+  max-height: 500px;
+  overflow-y: auto;
 }
 
 @media (max-width: 1024px) {

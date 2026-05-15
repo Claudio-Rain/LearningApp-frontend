@@ -16,6 +16,13 @@
           <v-list-item-title>Collections</v-list-item-title>
         </v-list-item>
 
+        <v-list-item :to="{ name: 'studyOptions' }" rounded="lg" class="my-1">
+          <template #prepend>
+            <v-icon>mdi-cog-outline</v-icon>
+          </template>
+          <v-list-item-title>Study Options</v-list-item-title>
+        </v-list-item>
+
         <v-list-item :to="{ name: 'bulkInsert' }" rounded="lg" class="my-1">
           <template #prepend>
             <v-icon>mdi-import</v-icon>
@@ -25,7 +32,7 @@
 
         <v-list-item :to="{ name: 'htmlBulkInsert' }" rounded="lg" class="my-1">
           <template #prepend>
-            <v-icon>mdi-code-html5</v-icon>
+            <v-icon>mdi-language-html5</v-icon>
           </template>
           <v-list-item-title>HTML Bulk Insert</v-list-item-title>
         </v-list-item>
