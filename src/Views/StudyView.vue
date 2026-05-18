@@ -90,6 +90,7 @@
             color="primary"
             size="large"
             rounded
+            :elevation="0"
           >
             {{ isFlipped ? 'Hide Answer' : 'Show Answer' }}
           </v-btn>
@@ -98,7 +99,7 @@
         <!-- Rating Buttons (show when flipped) -->
         <div v-if="isFlipped" class="rating-buttons">
           <v-btn
-            @click="recordAttempt(0.0)"
+            @click="recordAttempt(-0.15)"
             color="error"
             variant="tonal"
             size="large"
@@ -107,7 +108,7 @@
             Very Hard
           </v-btn>
           <v-btn
-            @click="recordAttempt(0.4)"
+            @click="recordAttempt(-0.10)"
             color="warning"
             variant="tonal"
             size="large"
@@ -116,7 +117,7 @@
             Hard
           </v-btn>
           <v-btn
-            @click="recordAttempt(0.75)"
+            @click="recordAttempt(0.10)"
             color="info"
             variant="tonal"
             size="large"
@@ -125,7 +126,7 @@
             Good
           </v-btn>
           <v-btn
-            @click="recordAttempt(1.0)"
+            @click="recordAttempt(0.15)"
             color="success"
             variant="tonal"
             size="large"
@@ -153,7 +154,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { formatISO, parseISO } from 'date-fns'
 import type { JSONContent } from '@tiptap/vue-3'
 import { useRoute, useRouter } from 'vue-router'
@@ -302,56 +303,49 @@ const loadData = async () => {
 }
 
 const recordAttempt = async (easeScore: number) => {
-  try {
-    if (!currentItem.value?.id) return
+  if (!currentItem.value?.id) return
 
-    const now = formatISO(new Date())
+  const now = formatISO(new Date())
+  const itemId = currentItem.value.id
 
-    const attemptLogResult = await createAttemptLog({
-      learning_item_id: currentItem.value.id,
-      ease_score: easeScore,
-      is_correct: easeScore > 0.3,
-      created_at: now
-    })
-    console.log('Attempt log created:', attemptLogResult)
-    await syncAttemptLogs()
+  // Write to local DB and update UI immediately
+  createAttemptLog({
+    learning_item_id: itemId,
+    ease_score: easeScore,
+    is_correct: easeScore > 0,
+    created_at: now
+  }).then(() => {
+    syncAttemptLogs()
+    new BroadcastChannel('study-progress').postMessage('attempt')
+  }).catch(console.error)
 
-    const progress = cardProgressMap.value.get(currentItem.value.id)
-    if (progress) {
-      const totalAttempts = progress.total_attempts + 1
-      const weightedSum = progress.weighted_attempts + easeScore
-      const newStrength = weightedSum / totalAttempts
-      const updatedProgress = {
-        ...progress,
-        strength_score: Math.max(0, Math.min(1, newStrength)),
-        last_reviewed_at: now,
-        total_attempts: totalAttempts,
-        weighted_attempts: weightedSum
-      }
-
-      console.log('Updating existing progress:', updatedProgress)
-      await updateCardProgress(updatedProgress)
-      cardProgressMap.value.set(currentItem.value.id, updatedProgress)
-    } else {
-      const newProgress = {
-        learning_item_id: currentItem.value.id,
-        strength_score: easeScore,
-        last_reviewed_at: now,
-        total_attempts: 1,
-        weighted_attempts: easeScore
-      }
-
-      console.log('Creating new progress:', newProgress)
-      const result = await createCardProgress(newProgress)
-      console.log('CardProgress created with ID:', result)
-      cardProgressMap.value.set(currentItem.value.id, { ...newProgress, id: result as string, syncStatus: 'pending' })
+  const progress = cardProgressMap.value.get(itemId)
+  if (progress) {
+    const newStrength = Math.max(0, Math.min(1, progress.strength_score + easeScore))
+    const updatedProgress = {
+      ...progress,
+      strength_score: newStrength,
+      last_reviewed_at: now,
+      total_attempts: progress.total_attempts + 1,
+      weighted_attempts: progress.weighted_attempts + easeScore
     }
-
-    await syncCardProgress()
-    moveToNext()
-  } catch (error) {
-    console.error('Error recording attempt:', error)
+    cardProgressMap.value.set(itemId, updatedProgress)
+    updateCardProgress(updatedProgress).then(() => syncCardProgress()).catch(console.error)
+  } else {
+    const newProgress = {
+      learning_item_id: itemId,
+      strength_score: Math.max(0, easeScore),
+      last_reviewed_at: now,
+      total_attempts: 1,
+      weighted_attempts: easeScore
+    }
+    createCardProgress(newProgress).then(result => {
+      cardProgressMap.value.set(itemId, { ...newProgress, id: result as string, syncStatus: 'pending' })
+      return syncCardProgress()
+    }).catch(console.error)
   }
+
+  moveToNext()
 }
 
 const moveToNext = () => {
@@ -396,13 +390,31 @@ const deleteCurrentItem = async () => {
   }
 }
 
+const handleKeydown = (e: KeyboardEvent) => {
+  if (editDialog.value || deleteDialog.value) return
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault()
+    isFlipped.value = !isFlipped.value
+  } else if (isFlipped.value) {
+    if (e.key === '1') recordAttempt(-0.15)
+    else if (e.key === '2') recordAttempt(-0.10)
+    else if (e.key === '3') recordAttempt(0.10)
+    else if (e.key === '4') recordAttempt(0.15)
+  }
+}
+
 onMounted(async () => {
   startSyncEngine()
+window.addEventListener('keydown', handleKeydown)
   if (navigator.onLine) {
     await pullLearningItems(collectionId)
     await pullCardProgress()
   }
   await loadData()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
 })
 </script>
 
@@ -427,6 +439,7 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .edit-mode {
@@ -616,4 +629,58 @@ onMounted(async () => {
   line-height: 1.3;
   color: rgba(0, 0, 0, 0.87);
   text-align: center;
-}</style>
+}
+
+@media (max-width: 600px) {
+  .study-header {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .study-title {
+    font-size: 1rem;
+  }
+
+  .study-subtitle {
+    font-size: 0.7rem;
+  }
+
+  .study-stats {
+    gap: 6px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+  }
+
+  .stat-badge {
+    font-size: 0.6rem;
+    padding: 2px 6px;
+  }
+
+  .study-container {
+    padding: 8px 12px;
+  }
+
+  .flashcard {
+    aspect-ratio: unset;
+    min-height: 200px;
+    max-height: unset;
+  }
+
+  .card-content {
+    font-size: 1rem;
+  }
+
+  .title-display {
+    font-size: 1.3rem;
+  }
+
+  .rating-buttons {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .rating-buttons .v-btn {
+    font-size: 0.75rem;
+  }
+}
+</style>

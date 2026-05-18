@@ -9,6 +9,21 @@
     <!-- Navigation Drawer -->
     <v-navigation-drawer v-model="drawer" :permanent="permanent" width="180" class="pa-4">
       <v-list nav>
+        <v-list-item
+          v-if="lastCollectionId"
+          :to="{ name: 'study', params: { id: lastCollectionId } }"
+          rounded="lg"
+          class="my-1 study-btn"
+          color="primary"
+          active-color="primary"
+          base-color="primary"
+        >
+          <template #prepend>
+            <v-icon>mdi-play-circle-outline</v-icon>
+          </template>
+          <v-list-item-title class="font-weight-bold">Study</v-list-item-title>
+        </v-list-item>
+
         <v-list-item :to="{ name: 'collections' }" rounded="lg" class="my-1">
           <template #prepend>
             <v-icon>mdi-book-open-variant</v-icon>
@@ -42,12 +57,53 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useDisplay } from 'vuetify'
+import { useRouter, useRoute } from 'vue-router'
+import { getAllAttemptLogs, getCollections, getLearningItems } from '../database'
 
 const { mobile } = useDisplay()
+const router = useRouter()
+const route = useRoute()
 
-// En popup siempre será "mobile", así que forzamos permanent
 const permanent = computed(() => !mobile.value)
 const drawer = ref(true)
+const lastCollectionId = ref<string | null>(null)
+
+const handleKeydown = (e: KeyboardEvent) => {
+  if (e.key !== 'Enter') return
+  if (!lastCollectionId.value) return
+  if (route.name === 'study') return
+  router.push({ name: 'study', params: { id: lastCollectionId.value } })
+}
+
+onMounted(async () => {
+  window.addEventListener('keydown', handleKeydown)
+
+  const [logs, collections] = await Promise.all([getAllAttemptLogs(), getCollections()])
+  if (collections.length === 0) return
+
+  if (logs.length > 0) {
+    const latestLog = logs.reduce((a, b) => (a.created_at > b.created_at ? a : b))
+    for (const col of collections) {
+      const items = await getLearningItems(col.id!)
+      if (items.some(i => i.id === latestLog.learning_item_id)) {
+        lastCollectionId.value = col.id!
+        return
+      }
+    }
+  }
+
+  lastCollectionId.value = collections[Math.floor(Math.random() * collections.length)].id!
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
 </script>
+
+<style scoped>
+.study-btn {
+  background: rgba(var(--v-theme-primary), 0.12);
+}
+</style>

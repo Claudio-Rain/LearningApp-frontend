@@ -154,14 +154,35 @@ async function sendNotification() {
 
   const progressMap = new Map(allProgress.map(p => [p.learning_item_id, p]));
 
-  const weighted = items.map(item => {
-    const strength = progressMap.get(item.id)?.strength_score ?? 0;
-    return { item, weight: (1 - strength) + 0.1 };
-  });
+  const withStrength = items.map(item => ({
+    item,
+    strength: progressMap.get(item.id)?.strength_score ?? 0,
+  }));
+
+  const weak = withStrength.filter(x => x.strength < 0.5);
+  const good = withStrength.filter(x => x.strength >= 0.5 && x.strength < 0.8);
+
+  // Tier priority: weak → good (only when no weak remain) → weakest (cycle back)
+  let candidates;
+  if (weak.length > 0) {
+    candidates = weak;
+  } else if (good.length > 0) {
+    candidates = good;
+  } else {
+    // All items are mastered — cycle back by picking the lowest-strength items
+    const sorted = [...withStrength].sort((a, b) => a.strength - b.strength);
+    const lowestStrength = sorted[0].strength;
+    candidates = sorted.filter(x => x.strength <= lowestStrength + 0.05);
+  }
+
+  const weighted = candidates.map(({ item, strength }) => ({
+    item,
+    weight: (1 - strength) + 0.1,
+  }));
 
   const totalWeight = weighted.reduce((sum, w) => sum + w.weight, 0);
   let rand = Math.random() * totalWeight;
-  const nextItem = weighted.find(w => (rand -= w.weight) <= 0)?.item ?? items[0];
+  const nextItem = weighted.find(w => (rand -= w.weight) <= 0)?.item ?? candidates[0].item;
 
   const notificationId = `flashcard-${Date.now()}`;
   console.log('[background] sendNotification: selected item (strength:', nextItem.progress?.strength_score ?? 'new', ')', nextItem.title);

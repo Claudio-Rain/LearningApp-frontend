@@ -6,7 +6,16 @@
         <h1>Study Progress</h1>
         <p class="subtitle">Track your learning journey</p>
       </div>
-      <v-btn icon="mdi-arrow-left" variant="text" @click="goBack" />
+      <div class="header-actions">
+        <v-btn
+          :icon="syncing ? undefined : 'mdi-sync'"
+          :loading="syncing"
+          variant="text"
+          title="Sync latest data"
+          @click="syncAndReload"
+        />
+        <v-btn icon="mdi-arrow-left" variant="text" @click="goBack" />
+      </div>
     </div>
 
     <!-- Stats Cards -->
@@ -67,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { parseISO, subDays, format } from 'date-fns'
 import { useRouter } from 'vue-router'
 import Highcharts from 'highcharts'
@@ -92,11 +101,14 @@ const availableDates = ref<string[]>([])
 
 const totalAttempts = ref(0)
 const cardsLearned = ref(0)
+const syncing = ref(false)
 
 let attemptLogs: AttemptLog[] = []
 let cardProgress: CardProgress[] = []
 let learningItems: LearningItem[] = []
 let collections: Collection[] = []
+
+let chartInstances: Record<string, Highcharts.Chart> = {}
 
 const loadData = async () => {
   attemptLogs = await getAllAttemptLogs()
@@ -120,109 +132,100 @@ const calculateStats = () => {
   cardsLearned.value = cardProgress.filter(p => p.strength_score >= 0.5).length
 }
 
+// Single-pass bucket computation shared by accuracy and strength charts
+const computeStrengthBuckets = () => {
+  let critical = 0, struggling = 0, good = 0, mastered = 0
+  for (const p of cardProgress) {
+    const s = p.strength_score
+    if (s < 0.25) critical++
+    else if (s < 0.5) struggling++
+    else if (s < 0.75) good++
+    else mastered++
+  }
+  return { critical, struggling, good, mastered }
+}
+
 const renderCharts = () => {
   Highcharts.setOptions({
     xAxis: { lineColor: 'rgba(0,0,0,0.2)', tickColor: 'rgba(0,0,0,0.2)' },
     yAxis: { lineColor: 'rgba(0,0,0,0.2)' }
   })
-  renderAccuracyChart()
-  renderStrengthChart()
-  renderTimelineChart()
-  renderChallengingChart()
-  renderLearningCurveChart()
+  // Stagger renders across animation frames to avoid blocking the main thread
+  const renders = [
+    renderAccuracyChart,
+    renderStrengthChart,
+    renderTimelineChart,
+    renderChallengingChart,
+    renderLearningCurveChart,
+    renderCompositionChart,
+  ]
+  let i = 0
+  const next = () => {
+    const fn = renders[i++]
+    if (fn) {
+      fn()
+      requestAnimationFrame(next)
+    }
+  }
+  requestAnimationFrame(next)
 }
 
 const renderAccuracyChart = () => {
   if (!accuracyChartRef.value) return
 
-  // Classify each card by its latest strength_score from cardProgress
-  // Weak: strength_score < 0.5 (struggling), Strong: >= 0.5 (doing well)
-  const weakCards = cardProgress.filter(p => p.strength_score < 0.5)
-  const strongCards = cardProgress.filter(p => p.strength_score >= 0.5)
+  const { critical, struggling, good, mastered } = computeStrengthBuckets()
+  const weakCards = critical + struggling
+  const strongCards = good + mastered
+  const total = cardProgress.length
+  const weakPct = total > 0 ? Math.round((weakCards / total) * 100) : 0
+  const strongPct = total > 0 ? Math.round((strongCards / total) * 100) : 0
+  const subtitle = `${weakPct}% weak · ${strongPct}% strong`
+  const data = [
+    { name: 'Critical', y: critical, color: '#F44336' },
+    { name: 'Struggling', y: struggling, color: '#FF9800' },
+    { name: 'Good', y: good, color: '#8BC34A' },
+    { name: 'Mastered', y: mastered, color: '#4CAF50' }
+  ]
 
-  // Break weak into "Critical" (<0.25) and "Struggling" (0.25–0.5)
-  // Break strong into "Good" (0.5–0.75) and "Mastered" (>=0.75)
-  const critical = cardProgress.filter(p => p.strength_score < 0.25).length
-  const struggling = cardProgress.filter(p => p.strength_score >= 0.25 && p.strength_score < 0.5).length
-  const good = cardProgress.filter(p => p.strength_score >= 0.5 && p.strength_score < 0.75).length
-  const mastered = cardProgress.filter(p => p.strength_score >= 0.75).length
+  if (chartInstances.accuracy) {
+    chartInstances.accuracy.series[0]?.setData(data, true, { duration: 300 })
+    chartInstances.accuracy.setTitle(null as any, { text: subtitle })
+    return
+  }
 
-  Highcharts.chart(accuracyChartRef.value, {
+  chartInstances.accuracy = Highcharts.chart(accuracyChartRef.value, {
     chart: { type: 'pie' },
     title: { text: '' },
-    subtitle: {
-      text: (() => {
-        const total = cardProgress.length
-        const weakPct = total > 0 ? Math.round((weakCards.length / total) * 100) : 0
-        const strongPct = total > 0 ? Math.round((strongCards.length / total) * 100) : 0
-        return `${weakPct}% weak · ${strongPct}% strong`
-      })(),
-      style: { color: '#666', fontSize: '13px' }
-    },
-    series: [
-      {
-        name: 'Cards',
-        innerSize: '55%',
-        data: [
-          { name: 'Critical', y: critical, color: '#F44336' },
-          { name: 'Struggling', y: struggling, color: '#FF9800' },
-          { name: 'Good', y: good, color: '#8BC34A' },
-          { name: 'Mastered', y: mastered, color: '#4CAF50' }
-        ],
-        type: 'pie'
-      }
-    ],
+    subtitle: { text: subtitle, style: { color: '#666', fontSize: '13px' } },
+    series: [{ name: 'Cards', innerSize: '55%', data, type: 'pie' }],
     plotOptions: {
       pie: {
-        dataLabels: {
-          enabled: true,
-          format: '{point.percentage:.0f}%',
-          style: { fontSize: '13px', fontWeight: '600' }
-        }
+        dataLabels: { enabled: true, format: '{point.percentage:.0f}%', style: { fontSize: '13px', fontWeight: '600' } }
       }
     },
     legend: { enabled: true },
     credits: { enabled: false },
-    tooltip: {
-      pointFormat: '<b>{point.y} cards</b> ({point.percentage:.1f}%)'
-    }
+    tooltip: { pointFormat: '<b>{point.y} cards</b> ({point.percentage:.1f}%)' }
   } as any)
 }
 
 const renderStrengthChart = () => {
   if (!strengthChartRef.value) return
 
-  const strengthBuckets = {
-    'Critical': cardProgress.filter(p => p.strength_score < 0.25).length,
-    'Struggling': cardProgress.filter(p => p.strength_score >= 0.25 && p.strength_score < 0.5).length,
-    'Good': cardProgress.filter(p => p.strength_score >= 0.5 && p.strength_score < 0.75).length,
-    'Mastered': cardProgress.filter(p => p.strength_score >= 0.75).length
+  const { critical, struggling, good, mastered } = computeStrengthBuckets()
+  const data = [critical, struggling, good, mastered]
+
+  if (chartInstances.strength) {
+    chartInstances.strength.series[0]?.setData(data, true, { duration: 300 })
+    return
   }
 
-  const colors = ['#F44336', '#FF9800', '#8BC34A', '#4CAF50']
-
-  Highcharts.chart(strengthChartRef.value, {
+  chartInstances.strength = Highcharts.chart(strengthChartRef.value, {
     chart: { type: 'column' },
     title: { text: '' },
-    xAxis: {
-      categories: Object.keys(strengthBuckets),
-      crosshair: true
-    },
-    yAxis: {
-      title: { text: 'Number of Cards' },
-      min: 0,
-      gridLineWidth: 1,
-      gridLineColor: 'rgba(0,0,0,0.08)'
-    },
-    series: [
-      {
-        name: 'Cards',
-        data: Object.values(strengthBuckets),
-        colorByPoint: true,
-        colors: colors,
-        type: 'column'
-      }
-    ],
+    xAxis: { categories: ['Critical', 'Struggling', 'Good', 'Mastered'], crosshair: true },
+    yAxis: { title: { text: 'Number of Cards' }, min: 0, gridLineWidth: 1, gridLineColor: 'rgba(0,0,0,0.08)' },
+    series: [{ name: 'Cards', data, colorByPoint: true, colors: ['#F44336', '#FF9800', '#8BC34A', '#4CAF50'], type: 'column' }],
     legend: { enabled: false },
     credits: { enabled: false },
     tooltip: { pointFormat: '<b>{point.y}</b> cards' }
@@ -250,29 +253,18 @@ const renderTimelineChart = () => {
   const counts = Array.from(dateMap.values())
   const dateLabels = dates.map(d => format(parseISO(d), 'MMM d, yy'))
 
-  Highcharts.chart(timelineChartRef.value, {
+  if (chartInstances.timeline) {
+    chartInstances.timeline.xAxis[0]?.setCategories(dateLabels, false)
+    chartInstances.timeline.series[0]?.setData(counts, true, { duration: 300 })
+    return
+  }
+
+  chartInstances.timeline = Highcharts.chart(timelineChartRef.value, {
     chart: { type: 'spline' },
     title: { text: '' },
-    xAxis: {
-      categories: dateLabels,
-      tickInterval: 5
-    },
-    yAxis: {
-      title: { text: 'Attempts' },
-      min: 0,
-      gridLineWidth: 1,
-      gridLineColor: 'rgba(0,0,0,0.08)'
-    },
-    series: [
-      {
-        name: 'Daily Attempts',
-        data: counts,
-        color: '#2196F3',
-        type: 'spline',
-        lineWidth: 2,
-        marker: { enabled: false }
-      }
-    ],
+    xAxis: { categories: dateLabels, tickInterval: 5 },
+    yAxis: { title: { text: 'Attempts' }, min: 0, gridLineWidth: 1, gridLineColor: 'rgba(0,0,0,0.08)' },
+    series: [{ name: 'Daily Attempts', data: counts, color: '#2196F3', type: 'spline', lineWidth: 2, marker: { enabled: false } }],
     legend: { enabled: false },
     credits: { enabled: false },
     tooltip: { pointFormat: '<b>{point.y}</b> attempts' }
@@ -299,26 +291,19 @@ const renderChallengingChart = () => {
   const rowHeight = 35
   const chartHeight = Math.max(300, sorted.length * rowHeight)
 
-  Highcharts.chart(challengingChartRef.value, {
+  if (chartInstances.challenging) {
+    chartInstances.challenging.xAxis[0]?.setCategories(labels, false)
+    chartInstances.challenging.setSize(undefined, chartHeight, false)
+    chartInstances.challenging.series[0]?.setData(strengths, true, { duration: 300 })
+    return
+  }
+
+  chartInstances.challenging = Highcharts.chart(challengingChartRef.value, {
     chart: { type: 'bar', height: chartHeight },
     title: { text: '' },
-    xAxis: {
-      categories: labels
-    },
-    yAxis: {
-      title: { text: 'Strength Score (%)' },
-      min: 0,
-      max: 100,
-      gridLineWidth: 1,
-      gridLineColor: 'rgba(0,0,0,0.08)'
-    },
-    series: [
-      {
-        name: 'Strength',
-        data: strengths,
-        colorByPoint: true
-      }
-    ],
+    xAxis: { categories: labels },
+    yAxis: { title: { text: 'Strength Score (%)' }, min: 0, max: 100, gridLineWidth: 1, gridLineColor: 'rgba(0,0,0,0.08)' },
+    series: [{ name: 'Strength', data: strengths, colorByPoint: true }],
     legend: { enabled: false },
     credits: { enabled: false },
     tooltip: { pointFormat: '<b>{point.y}%</b> strength' }
@@ -376,34 +361,23 @@ const renderLearningCurveChart = () => {
     cardCounts.push(seen.size)
   })
 
-  Highcharts.chart(learningCurveChartRef.value, {
+  const seriesData = mastery.map((y, i) => ({ y, cards: cardCounts[i] }))
+
+  if (chartInstances.learningCurve) {
+    chartInstances.learningCurve.xAxis[0]?.setCategories(dateLabels, false)
+    chartInstances.learningCurve.series[0]?.setData(seriesData, true, { duration: 300 })
+    return
+  }
+
+  chartInstances.learningCurve = Highcharts.chart(learningCurveChartRef.value, {
     chart: { type: 'areaspline' },
     title: { text: '' },
     xAxis: { categories: dateLabels, tickInterval: Math.max(1, Math.floor(dateLabels.length / 8)) },
-    yAxis: {
-      title: { text: 'Cards Learned (%)' },
-      min: 0,
-      max: 100,
-      labels: { format: '{value}%' },
-      gridLineWidth: 1,
-      gridLineColor: 'rgba(0,0,0,0.08)'
-    },
-    series: [
-      {
-        name: 'Cards Learned',
-        data: mastery.map((y, i) => ({ y, cards: cardCounts[i] })),
-        color: '#4CAF50',
-        fillOpacity: 0.2,
-        lineWidth: 2,
-        type: 'areaspline',
-        marker: { enabled: false }
-      }
-    ],
+    yAxis: { title: { text: 'Cards Learned (%)' }, min: 0, max: 100, labels: { format: '{value}%' }, gridLineWidth: 1, gridLineColor: 'rgba(0,0,0,0.08)' },
+    series: [{ name: 'Cards Learned', data: seriesData, color: '#4CAF50', fillOpacity: 0.2, lineWidth: 2, type: 'areaspline', marker: { enabled: false } }],
     legend: { enabled: false },
     credits: { enabled: false },
-    tooltip: {
-      pointFormat: '<b>{point.y}%</b> learned<br/>across {point.cards} cards seen'
-    }
+    tooltip: { pointFormat: '<b>{point.y}%</b> learned<br/>across {point.cards} cards seen' }
   } as any)
 }
 
@@ -416,22 +390,21 @@ const renderCompositionChart = () => {
 
   // For each date, compute the composition breakdown
   const compositionByDate = new Map<string, { Critical: number; Struggling: number; Good: number; Mastered: number }>()
-  const cardState = new Map<string, { total: number; weighted: number }>()
+  // Build a lookup from card id → current strength_score (same source as pie/bar charts)
+  const strengthByCard = new Map<string, number>(cardProgress.map(p => [p.learning_item_id, p.strength_score]))
+  const seenCards = new Set<string>()
 
   sortedLogs.forEach(log => {
     const dateStr = format(parseISO(log.created_at), 'yyyy-MM-dd')
-    const s = cardState.get(log.learning_item_id) ?? { total: 0, weighted: 0 }
-    s.total += 1
-    s.weighted += log.ease_score
-    cardState.set(log.learning_item_id, s)
+    seenCards.add(log.learning_item_id)
 
-    // Snapshot the composition at this date
+    // Bucket all cards seen so far using the same strength_score thresholds as pie/bar
     const buckets = { Critical: 0, Struggling: 0, Good: 0, Mastered: 0 }
-    cardState.forEach(v => {
-      const strength = v.weighted / v.total
-      if (strength < 0.25) buckets.Critical += 1
-      else if (strength < 0.5) buckets.Struggling += 1
-      else if (strength < 0.75) buckets.Good += 1
+    seenCards.forEach(id => {
+      const s = strengthByCard.get(id) ?? 0
+      if (s < 0.25) buckets.Critical += 1
+      else if (s < 0.5) buckets.Struggling += 1
+      else if (s < 0.75) buckets.Good += 1
       else buckets.Mastered += 1
     })
     compositionByDate.set(dateStr, buckets)
@@ -456,24 +429,26 @@ const renderCompositionChart = () => {
     return comp ? Math.round((comp.Mastered / (comp.Critical + comp.Struggling + comp.Good + comp.Mastered)) * 100) : 0
   })
 
-  Highcharts.chart(compositionChartRef.value, {
+  if (chartInstances.composition) {
+    chartInstances.composition.xAxis[0]?.setCategories(dateLabels, false)
+    chartInstances.composition.series[0]?.setData(critical, false)
+    chartInstances.composition.series[1]?.setData(struggling, false)
+    chartInstances.composition.series[2]?.setData(good, false)
+    chartInstances.composition.series[3]?.setData(mastered, true, { duration: 300 })
+    return
+  }
+
+  chartInstances.composition = Highcharts.chart(compositionChartRef.value, {
     chart: { type: 'areaspline' },
     title: { text: '' },
     xAxis: { categories: dateLabels, tickInterval: Math.max(1, Math.floor(dateLabels.length / 8)) },
     yAxis: { title: { text: 'Composition (%)' }, min: 0, max: 100, stackLabels: { enabled: false }, gridLineWidth: 1, gridLineColor: 'rgba(0,0,0,0.08)' },
-    plotOptions: {
-      areaspline: {
-        stacking: 'percent',
-        lineWidth: 0,
-        marker: { enabled: false },
-        dataLabels: { enabled: false }
-      }
-    },
+    plotOptions: { areaspline: { stacking: 'percent', lineWidth: 0, marker: { enabled: false }, dataLabels: { enabled: false } } },
     series: [
-      { name: 'Critical', data: critical, color: '#EF9A9A', type: 'areaspline' },
-      { name: 'Struggling', data: struggling, color: '#FFCC80', type: 'areaspline' },
-      { name: 'Good', data: good, color: '#C5E1A5', type: 'areaspline' },
-      { name: 'Mastered', data: mastered, color: '#A5D6A7', type: 'areaspline' }
+      { name: 'Critical', data: critical, color: '#F44336', type: 'areaspline' },
+      { name: 'Struggling', data: struggling, color: '#FF9800', type: 'areaspline' },
+      { name: 'Good', data: good, color: '#8BC34A', type: 'areaspline' },
+      { name: 'Mastered', data: mastered, color: '#4CAF50', type: 'areaspline' }
     ],
     legend: { enabled: true },
     credits: { enabled: false },
@@ -481,14 +456,34 @@ const renderCompositionChart = () => {
   } as any)
 }
 
+const syncAndReload = async () => {
+  syncing.value = true
+  await syncAll()
+  await loadData()
+  syncing.value = false
+}
+
 const goBack = () => {
   router.push({ name: 'collections' })
 }
 
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+let progressChannel: BroadcastChannel | null = null
+
 onMounted(async () => {
-  await syncAll()
   await loadData()
-  renderCompositionChart()
+  console.log(attemptLogs)
+  console.log(cardProgress)
+  progressChannel = new BroadcastChannel('study-progress')
+  progressChannel.onmessage = () => {
+    if (debounceTimer) clearTimeout(debounceTimer)
+    debounceTimer = setTimeout(loadData, 1000)
+  }
+})
+
+onUnmounted(() => {
+  progressChannel?.close()
+  if (debounceTimer) clearTimeout(debounceTimer)
 })
 </script>
 
@@ -512,6 +507,12 @@ onMounted(async () => {
   margin: 0;
   font-size: 1.5rem;
   font-weight: 600;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .subtitle {

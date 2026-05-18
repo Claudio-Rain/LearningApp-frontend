@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <v-main>
-      <v-container fluid :class="containerClass">
+      <v-container fluid class="pa-0">
         <AppBar />
         <router-view />
       </v-container>
@@ -10,16 +10,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { useDisplay } from 'vuetify';
 import AppBar from './layout/AppBar.vue';
-
-const { smAndDown, mdAndUp } = useDisplay();
-
-const containerClass = computed(() => ({
-  'px-4': smAndDown.value,
-  'px-8': mdAndUp.value,
-}));
 </script>
 
 <style>
@@ -38,7 +29,7 @@ body,
    the body. Force a comfortable popup footprint only in that case by
    detecting the small initial viewport. In a real browser tab the
    viewport is large, so we let the layout fill the available space. */
-@media (max-width: 800px) {
+@media (max-width: 400px) {
   html,
   body,
   #app {
