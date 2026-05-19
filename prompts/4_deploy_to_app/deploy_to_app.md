@@ -29,6 +29,8 @@ In `HtmlBulkInsertView.vue`, the TSV flow does:
 }
 ```
 
+> `syncStatus` is a local-only field used by IndexedDB to track sync state. It is stripped before writing to Firestore (see `src/database/remote/learningItems.ts` → `setLearningItem`). Do **not** include it in the Firestore document.
+
 The `content` field is a Tiptap `JSONContent` document. The app converts HTML to this format via `src/utils/htmlToTiptap.ts`. The script must produce the same JSON structure directly from the markdown answer — no browser DOM needed.
 
 ---
@@ -45,6 +47,7 @@ Parse each answer's markdown and map it to Tiptap nodes using these rules:
 | ` ```code block``` ` | `{ type: "codeBlock", attrs: { language: "plaintext" }, content: [{ type: "text", text: "..." }] }` |
 | `- bullet` | `{ type: "bulletList", content: [{ type: "listItem", content: [{ type: "paragraph", content: [...] }] }] }` |
 | `1. ordered` | `{ type: "orderedList", content: [...] }` |
+| `> blockquote` | Strip the `>` prefix and treat the line as a regular paragraph (no blockquote node in this app) |
 
 For each answer, the content structure is:
 1. **Bottom line** sentence → `paragraph` with the text wrapped in `bold` marks
@@ -55,9 +58,18 @@ For each answer, the content structure is:
 
 ## Script requirements
 
-- Use **Firebase Admin SDK** (`firebase-admin` npm package)
-- Use a service account key file at `prompts/4_deploy_to_app/serviceAccountKey.json`
-- The Firestore project ID is `learningapp-f7d22`
+- Use the **Firebase client SDK** (`firebase` npm package) — same SDK the app uses, no service account needed
+- Read the Firebase config from `src/database/remote/firebase.ts` — use these exact values:
+  ```js
+  const firebaseConfig = {
+    apiKey: "AIzaSyCMwyu5jelRDJ39rEeq0_huAntu52ne8EQ",
+    authDomain: "learningapp-f7d22.firebaseapp.com",
+    projectId: "learningapp-f7d22",
+    storageBucket: "learningapp-f7d22.firebasestorage.app",
+    messagingSenderId: "89331298111",
+    appId: "1:89331298111:web:91475d009ad1af427a2d8a"
+  }
+  ```
 - Parse all answers from a single topic file, then batch-insert using Firestore `WriteBatch`
 - Create the collection document first, then all learning items referencing its ID
 - Use `new Date().toISOString()` for all date fields
@@ -68,22 +80,37 @@ For each answer, the content structure is:
 ## Script structure
 
 ```js
-import { initializeApp, cert } from 'firebase-admin/app'
-import { getFirestore } from 'firebase-admin/firestore'
+import { initializeApp } from 'firebase/app'
+import { getFirestore, collection, doc, writeBatch } from 'firebase/firestore'
 import { readFileSync } from 'fs'
-import { createRequire } from 'module'
 
-const serviceAccount = JSON.parse(readFileSync('./prompts/4_deploy_to_app/serviceAccountKey.json', 'utf8'))
+const firebaseConfig = {
+  apiKey: "AIzaSyCMwyu5jelRDJ39rEeq0_huAntu52ne8EQ",
+  authDomain: "learningapp-f7d22.firebaseapp.com",
+  projectId: "learningapp-f7d22",
+  storageBucket: "learningapp-f7d22.firebasestorage.app",
+  messagingSenderId: "89331298111",
+  appId: "1:89331298111:web:91475d009ad1af427a2d8a"
+}
 
-initializeApp({ credential: cert(serviceAccount) })
-const db = getFirestore()
+const app = initializeApp(firebaseConfig)
+const db = getFirestore(app)
 
 // 1. Parse prompts/3_output/answers/<topic_slug>.md into Q&A pairs
 // 2. Convert each answer from markdown to Tiptap JSONContent
-// 3. Create collection document
-// 4. Batch-insert all learning_items
-// 5. Log: "Inserted X items into collection '<title>' (id: <id>)"
+// 3. Create collection document ref (doc(collection(db, 'collections')))
+// 4. WriteBatch: set collection doc + all learning_items docs
+// 5. await batch.commit()
+// 6. Log: "Inserted X items into collection '<title>' (id: <id>)"
 ```
+
+---
+
+## Local database
+
+The local database is IndexedDB (browser-only) and cannot be written to from Node. It is not necessary to do so directly — the app's sync engine (`src/database/sync/syncEngine.ts`) pulls from Firestore into IndexedDB automatically when the app is opened. When it does, it marks each pulled document with `syncStatus: "synced"` locally, so there are no duplicates or conflicts. The script does **not** need to set this field (it is stripped from Firestore writes anyway).
+
+**After running the script, open the app — the new collection will appear immediately.**
 
 ---
 
@@ -94,13 +121,6 @@ Run it with:
 node prompts/4_deploy_to_app/scripts/<topic_slug>.mjs
 ```
 
-If `serviceAccountKey.json` does not exist, stop and print:
-```
-⚠ Missing service account key.
-Download it from Firebase Console → Project Settings → Service accounts → Generate new private key
-Save it to: prompts/4_deploy_to_app/serviceAccountKey.json
-```
-
 ---
 
 ## Output
@@ -109,4 +129,4 @@ After all scripts have run successfully, print a summary:
 
 | Topic | Collection ID | Items inserted |
 |---|---|---|
-| dotnet_regex | abc123 | 42 |
+| regex | abc123 | 61 |

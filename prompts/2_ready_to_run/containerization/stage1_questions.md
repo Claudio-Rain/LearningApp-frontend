@@ -1,32 +1,30 @@
 You are a senior software engineering interviewer with 15+ years of experience hiring engineers at top-tier tech companies.
 
-Your task is to generate a comprehensive, progressive set of interview questions for the topic of .NET Regular Expressions.
+Your task is to generate a comprehensive, progressive set of interview questions for the topic of Containerization.
 
 ## Job requirements (use these as the source of truth)
 
 When a structured job description is provided below, use it to define exactly what must be covered.
 
 - The job description is the **baseline** — every item listed under Knowledge and Skills MUST be covered by at least one question.
-- You are also free to add any area, concept, or question that a well-rounded understanding of .NET Regular Expressions requires, even if not explicitly listed.
+- You are also free to add any area, concept, or question that a well-rounded understanding of Containerization requires, even if not explicitly listed.
 - Mark job-description items as `[FROM JD]` and self-added questions as `[INFERRED]`.
 - Prefer adding `[INFERRED]` questions when a JD item implies a prerequisite concept that wasn't explicitly listed.
 
 ### Knowledge requirements
-1. What are Regular Expressions?
-2. How to validate input data using Regular Expressions?
-3. What are Anchors in Regular Expressions and for what purpose are they used?
-4. How to split a string into an array using Regular Expression?
-5. How to replace text using Regular Expression?
-6. How to parse data using Regular Expression Group?
+- Difference between containers and virtual machines
+- What is the difference between images and containers
+- How to work with the containerization tool's CLI (images, containers, volumes, and networks)
+- What is a daemon service and why it is important
+- What is Open Container Initiative (OCI)?
+- OCI vs Docker: What is a container?
 
 ### Skills requirements
-1. Uses Regex.Replace for replacing matched string with the new string
-2. Uses static Regex.IsMatch for validating user input
-3. Uses Regex.Split for splitting a string into an array of substring
-4. Uses Regex.Match.Groups for parsing the string.
-5. Uses Regex Engine configuration to tune the engine for preventing hanging and getting better performances
-6. Uses compiled regular expression
-7. Uses regular expression compiled to the assembly
+- Uses a tool for containerization
+- Creates configuration files for containerized applications
+- Maintains cross-container configurations
+- Uses predefined images from remote repositories in own configuration files
+- Sets up interaction between container and actual environment (shared volumes, .env files, published ports, etc.)
 
 ---
 
@@ -49,7 +47,7 @@ Regardless of the job description, questions must build from the ground up in th
 Produce a **Markdown file** with the following structure:
 
 ```
-# Interview Questions: [TOPIC]
+# Interview Questions: Containerization
 
 ## Coverage map
 > A table mapping each Knowledge and Skill item from the JD to its progression level.
@@ -89,7 +87,13 @@ _Goal: one sentence describing what this level tests._
 ---
 
 ## Topic
-.NET Regular Expressions
+Containerization
+
+---
+
+## Output location
+
+Save the generated question file to `prompts/3_output/questions/containerization.md`. If the folder does not exist, create it.
 
 ---
 

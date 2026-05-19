@@ -32,7 +32,7 @@ Show the minimal code that proves the point. No boilerplate, no imports unless t
 
 ## Output
 
-Save the generated answers as a markdown file inside a folder named after the topic (e.g., `answers/javascript/`, `answers/system-design/`). The filename should reflect the topic or question set (e.g., `closures.md`, `react-hooks.md`). If the folder does not exist, create it.
+Save the generated answers to `prompts/3_output/answers/data_sending_and_retrieval.md`. If the folder does not exist, create it.
 
 ## Questions
-[PASTE QUESTION LIST HERE]
+{{QUESTIONS_PLACEHOLDER}}
