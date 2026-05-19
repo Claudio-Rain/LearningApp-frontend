@@ -21,13 +21,13 @@ const DEFAULT_COLLECTION_ID = "8366d809-1495-4b6c-a184-330158ad1da0";
 
 async function getStudySettings() {
   const stored = await chrome.storage.local.get([
-    'notifCollectionId',
+    'notificationCollectionId',
     'sessionStartHour',
     'sessionEndHour',
     'notificationIntervalSeconds',
   ]);
   return {
-    collectionId: stored.notifCollectionId ?? DEFAULT_COLLECTION_ID,
+    collectionId: stored.notificationCollectionId ?? DEFAULT_COLLECTION_ID,
     startHour: stored.sessionStartHour ?? DEFAULT_SESSION_START_HOUR,
     endHour: stored.sessionEndHour ?? DEFAULT_SESSION_END_HOUR,
     intervalSeconds: stored.notificationIntervalSeconds ?? DEFAULT_NOTIFICATION_INTERVAL_SECONDS,

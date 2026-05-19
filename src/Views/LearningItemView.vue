@@ -2,16 +2,19 @@
 <template>
   <div class="content-panel">
     <div class="content-header">
-      <v-text-field
+      <v-textarea
         v-model="title"
         class="content-title-input"
         variant="plain"
         hide-details
+        auto-grow
+        rows="1"
         @update:model-value="handleTitleInput"
       />
     </div>
 
     <LearningItemEditor
+      class="editor-fill"
       :value="content"
       @change="handleContentChange"
     />
@@ -86,16 +89,21 @@ const handleTitleInput = () => {
 .content-panel {
   padding-left: .5rem;
   width: 100%;
-  height: 100%;
   flex: 1;
   min-width: 0;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 .content-header {
   margin-bottom: 24px;
   padding-bottom: 16px;
 }
-.content-title-input :deep(input) {
+.editor-fill {
+  flex: 1;
+  min-height: 0;
+}
+.content-title-input :deep(textarea) {
   font-size: 1.5rem;
   font-weight: 600;
   line-height: 1.3;

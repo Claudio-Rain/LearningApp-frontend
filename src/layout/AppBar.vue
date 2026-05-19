@@ -74,6 +74,9 @@ const handleKeydown = (e: KeyboardEvent) => {
   if (e.key !== 'Enter') return
   if (!lastCollectionId.value) return
   if (route.name === 'study') return
+  const tag = (e.target as HTMLElement).tagName
+  const isEditable = (e.target as HTMLElement).isContentEditable
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || isEditable) return
   router.push({ name: 'study', params: { id: lastCollectionId.value } })
 }
 

@@ -11,16 +11,32 @@
         </v-btn>
       </div>
 
-      <v-list v-if="learningItems.length > 0" lines="two" class="item-list">
-        <v-list-item v-for="item in learningItems" :key="item.id" :active="selectedItem?.id === item.id" color="primary"
-          rounded="lg" class="item-entry" @click="selectedItem = item">
-          <v-list-item-title>{{ item.title }}</v-list-item-title>
-          <template #append>
-            <v-btn icon="mdi-delete" size="x-small" variant="text" color="error"
-              @click.stop="handleDeleteLearningItem(item)" />
-          </template>
-        </v-list-item>
-      </v-list>
+      <v-data-table
+        v-if="learningItems.length > 0"
+        :headers="headers"
+        :items="learningItems"
+        :items-per-page="-1"
+        density="compact"
+        class="item-table"
+        hover
+        @click:row="(_: any, { item }: any) => selectedItem = item"
+      >
+        <template #item.title="{ item }">
+          <span :class="['item-title', { 'text-primary font-weight-medium': selectedItem?.id === item.id }]">
+            {{ item.title }}
+          </span>
+        </template>
+        <template #item.dateCreated="{ item }">
+          {{ formatDate(item.dateCreated) }}
+        </template>
+        <template #item.lastModified="{ item }">
+          {{ formatDate(item.lastModified) }}
+        </template>
+        <template #item.actions="{ item }">
+          <v-btn icon="mdi-delete" size="x-small" variant="text" color="error"
+            @click.stop="handleDeleteLearningItem(item)" />
+        </template>
+      </v-data-table>
 
       <div v-else class="empty-state">
         <v-icon size="40" color="grey-lighten-1">mdi-book-open-outline</v-icon>
@@ -28,14 +44,16 @@
       </div>
     </div>
 
-    <LearningItemView v-if="selectedItem" :item="selectedItem" @update:content="handleContentUpdate"
-      @update:title="handleTitleUpdate" />
+    <div v-if="selectedItem" class="split-right">
+      <LearningItemView :item="selectedItem" @update:content="handleContentUpdate"
+        @update:title="handleTitleUpdate" />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { formatISO, parseISO, compareDesc } from 'date-fns'
+import { formatISO, parseISO, format } from 'date-fns'
 import { useRoute, useRouter } from 'vue-router'
 import LearningItemView from './LearningItemView.vue'
 import type { JSONContent } from '@tiptap/vue-3'
@@ -62,6 +80,22 @@ const collection = ref<Collection | null>(null)
 const learningItems = ref<LearningItem[]>([])
 const selectedItem = ref<LearningItem | null>(null)
 
+const dateSort = (a: string, b: string) =>
+  parseISO(a).getTime() - parseISO(b).getTime()
+const headers = [
+  { title: 'Title', key: 'title', sortable: true },
+  { title: 'Created', key: 'dateCreated', sortable: true, sort: dateSort },
+  { title: 'Modified', key: 'lastModified', sortable: true, sort: dateSort },
+  { title: '', key: 'actions', sortable: false, align: 'center' as const },
+]
+const formatDate = (iso: string) => {
+  try {
+    return format(parseISO(iso), 'MMM d, yyyy h:mm a')
+  } catch {
+    return iso
+  }
+}
+
 const loadData = async () => {
   const allCollections = await getCollections()
   collection.value = allCollections.find(c => c.id === collectionId) ?? null
@@ -72,10 +106,7 @@ const loadData = async () => {
   }
 
   const items = await getLearningItems(collectionId)
-  learningItems.value = items.sort((a, b) =>
-    compareDesc(parseISO(a.dateCreated), parseISO(b.dateCreated))
-  )
-
+  learningItems.value = items
   if (learningItems.value.length > 0) {
     const stillExists = learningItems.value.find(i => i.id === selectedItem.value?.id) ?? null
     selectedItem.value = stillExists ?? (learningItems.value[0] as LearningItem)
@@ -147,8 +178,8 @@ onMounted(async () => {
 
 /* Left panel — fixed width, scrollable */
 .split-left {
-  width: 320px;
-  min-width: 320px;
+  width: 520px;
+  min-width: 520px;
   display: flex;
   flex-direction: column;
   /* border-right: 1px solid rgba(0, 0, 0, 0.12); */
@@ -182,8 +213,18 @@ onMounted(async () => {
   padding: 8px;
 }
 
-.item-entry {
-  margin-bottom: 2px;
+.item-table {
+  flex: 1;
+  overflow-y: auto;
+  cursor: pointer;
+}
+
+.item-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+  display: inline-block;
 }
 
 .empty-state {
@@ -202,6 +243,9 @@ onMounted(async () => {
 /* Right panel — fills remaining space */
 .split-right {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
 }
 
