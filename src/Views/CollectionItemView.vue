@@ -16,11 +16,15 @@
         :headers="headers"
         :items="learningItems"
         :items-per-page="-1"
+        :sort-by="[{ key: 'title', order: 'asc' }]"
         density="compact"
         class="item-table"
         hover
         @click:row="(_: any, { item }: any) => selectedItem = item"
       >
+        <template #item.rowNumber="{ index }">
+          <span style="font-size: 0.75rem; color: rgba(0, 0, 0, 0.5);">{{ index + 1 }}</span>
+        </template>
         <template #item.title="{ item }">
           <span :class="['item-title', { 'text-primary font-weight-medium': selectedItem?.id === item.id }]">
             {{ item.title }}
@@ -83,6 +87,7 @@ const selectedItem = ref<LearningItem | null>(null)
 const dateSort = (a: string, b: string) =>
   parseISO(a).getTime() - parseISO(b).getTime()
 const headers = [
+  { title: '#', key: 'rowNumber', sortable: false, align: 'center' as const, width: '50px' },
   { title: 'Title', key: 'title', sortable: true },
   { title: 'Created', key: 'dateCreated', sortable: true, sort: dateSort },
   { title: 'Modified', key: 'lastModified', sortable: true, sort: dateSort },
@@ -217,6 +222,15 @@ onMounted(async () => {
   flex: 1;
   overflow-y: auto;
   cursor: pointer;
+}
+
+:deep(.v-table__wrapper) {
+  border: none;
+}
+
+:deep(.v-table td),
+:deep(.v-table th) {
+  border: none !important;
 }
 
 .item-title {

@@ -9,6 +9,13 @@
     <!-- Navigation Drawer -->
     <v-navigation-drawer v-model="drawer" :permanent="permanent" width="180" class="pa-4">
       <v-list nav>
+        <v-list-item :to="{ name: 'collections' }" rounded="lg" class="my-1">
+          <template #prepend>
+            <v-icon>mdi-book-open-variant</v-icon>
+          </template>
+          <v-list-item-title>Collections</v-list-item-title>
+        </v-list-item>
+
         <v-list-item
           v-if="lastCollectionId"
           :to="{ name: 'study', params: { id: lastCollectionId } }"
@@ -22,13 +29,6 @@
             <v-icon>mdi-play-circle-outline</v-icon>
           </template>
           <v-list-item-title class="font-weight-bold">Study</v-list-item-title>
-        </v-list-item>
-
-        <v-list-item :to="{ name: 'collections' }" rounded="lg" class="my-1">
-          <template #prepend>
-            <v-icon>mdi-book-open-variant</v-icon>
-          </template>
-          <v-list-item-title>Collections</v-list-item-title>
         </v-list-item>
 
         <v-list-item :to="{ name: 'studyOptions' }" rounded="lg" class="my-1">
@@ -97,7 +97,8 @@ onMounted(async () => {
     }
   }
 
-  lastCollectionId.value = collections[Math.floor(Math.random() * collections.length)].id!
+  const random = collections[Math.floor(Math.random() * collections.length)]
+  if (random) lastCollectionId.value = random.id!
 })
 
 onUnmounted(() => {

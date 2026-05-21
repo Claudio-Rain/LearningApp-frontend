@@ -190,7 +190,7 @@ onBeforeUnmount(() => editor.destroy())
       padding: 0;
     }
 
-    .hljs-comment, .hljs-quote { color: #616161; }
+    .hljs-comment, .hljs-quote { color: #6dbf67; }
     .hljs-variable, .hljs-template-variable, .hljs-attribute,
     .hljs-tag, .hljs-regexp, .hljs-link, .hljs-selector-id,
     .hljs-selector-class { color: #f98181; }

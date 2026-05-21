@@ -22,7 +22,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, toRaw } from 'vue'
 import { formatISO } from 'date-fns'
 import type { JSONContent } from '@tiptap/vue-3'
 import { editLearningItem } from '../database'
@@ -62,7 +62,7 @@ const handleContentChange = (val: JSONContent) => {
   if (contentTimer) clearTimeout(contentTimer)
   contentTimer = setTimeout(async () => {
     await editLearningItem({
-      ...props.item,
+      ...toRaw(props.item),
       content: val,
       lastModified: formatISO(new Date())
     })
@@ -76,7 +76,7 @@ const handleTitleInput = () => {
   titleTimer = setTimeout(async () => {
     const trimmed = title.value.trim()
     await editLearningItem({
-      ...props.item,
+      ...toRaw(props.item),
       title: trimmed,
       lastModified: formatISO(new Date())
     })

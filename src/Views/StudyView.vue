@@ -64,11 +64,29 @@
     <!-- Main Content -->
     <div v-else class="study-container">
       <div v-if="studyQueue.length > 0 && currentItem" class="flashcard-wrapper">
+        <!-- Timer bar (always visible) -->
+        <div class="timer-wrapper">
+          <div class="timer-bar-bg">
+            <div
+              class="timer-bar-fill"
+              :class="{ 'timer-low': timeLeft <= 30 }"
+              :style="{ width: (timeLeft / 180 * 100) + '%' }"
+            ></div>
+          </div>
+          <div class="timer-label" :class="{ 'timer-label-low': timeLeft <= 30 }">
+            {{ Math.floor(timeLeft / 60) }}:{{ String(timeLeft % 60).padStart(2, '0') }}
+          </div>
+          <div v-if="timerExpired" class="timer-expired-banner">
+            ⏰ Move to the next question to avoid losing time!
+          </div>
+        </div>
+
         <!-- Card -->
-        <div class="flashcard" :class="{ flipped: isFlipped }">
+        <div class="flashcard" :class="{ flipped: isFlipped }" @click="isFlipped = !isFlipped">
           <!-- Front (Question) -->
           <div class="card-side front">
             <div class="side-label">Question</div>
+
             <div class="card-content">
               <h2 class="title-display">{{ currentItem.title }}</h2>
             </div>
@@ -81,19 +99,6 @@
               <TiptapDisplay :content="currentItem.content || { type: 'doc', content: [] }" />
             </div>
           </div>
-        </div>
-
-        <!-- Flip Button -->
-        <div class="flip-button-container">
-          <v-btn
-            @click="isFlipped = !isFlipped"
-            color="primary"
-            size="large"
-            rounded
-            :elevation="0"
-          >
-            {{ isFlipped ? 'Hide Answer' : 'Show Answer' }}
-          </v-btn>
         </div>
 
         <!-- Rating Buttons (show when flipped) -->
@@ -154,7 +159,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { formatISO, parseISO } from 'date-fns'
 import type { JSONContent } from '@tiptap/vue-3'
 import { useRoute, useRouter } from 'vue-router'
@@ -193,6 +198,10 @@ const isFlipped = ref(false)
 const deleteDialog = ref(false)
 const deleting = ref(false)
 const editDialog = ref(false)
+
+const timeLeft = ref(180)
+const timerExpired = ref(false)
+let timerInterval: ReturnType<typeof setInterval> | null = null
 
 const editableItem = computed<LearningItem | null>(() => {
   if (!currentItem.value) return null
@@ -254,6 +263,27 @@ const isCurrentCardNew = computed(() => {
   return !progress || progress.total_attempts === 0
 })
 
+const startTimer = () => {
+  clearTimer()
+  timeLeft.value = 180
+  timerExpired.value = false
+  timerInterval = setInterval(() => {
+    if (timeLeft.value > 0) {
+      timeLeft.value--
+    } else {
+      timerExpired.value = true
+      clearTimer()
+    }
+  }, 1000)
+}
+
+const clearTimer = () => {
+  if (timerInterval) {
+    clearInterval(timerInterval)
+    timerInterval = null
+  }
+}
+
 const loadData = async () => {
   const allCollections = await getCollections()
   collection.value = allCollections.find(c => c.id === collectionId) ?? null
@@ -280,22 +310,23 @@ const loadData = async () => {
       progress: progressMap.get(item.id!)
     }))
     .sort((a, b) => {
+      const aIsNew = !a.progress || a.progress.total_attempts === 0
+      const bIsNew = !b.progress || b.progress.total_attempts === 0
+
+      // Primary: new (never revised) items first
+      if (aIsNew !== bIsNew) return aIsNew ? -1 : 1
+
       const aStrength = a.progress?.strength_score ?? 0
       const bStrength = b.progress?.strength_score ?? 0
 
-      // Primary: sort by strength ascending (weakest items first)
-      if (aStrength !== bStrength) {
-        return aStrength - bStrength
-      }
+      // Secondary: weakest items first
+      if (aStrength !== bStrength) return aStrength - bStrength
 
-      // Secondary: if strength is equal, sort by last_reviewed_at (least recently reviewed first)
+      // Tertiary: least recently reviewed first
       const aReviewed = a.progress?.last_reviewed_at ? parseISO(a.progress.last_reviewed_at).getTime() : Number.MAX_VALUE
       const bReviewed = b.progress?.last_reviewed_at ? parseISO(b.progress.last_reviewed_at).getTime() : Number.MAX_VALUE
-      if (aReviewed !== bReviewed) {
-        return aReviewed - bReviewed
-      }
+      if (aReviewed !== bReviewed) return aReviewed - bReviewed
 
-      // Tertiary: sort by title alphabetically for consistent ordering
       return a.title.localeCompare(b.title)
     })
 
@@ -403,6 +434,10 @@ const handleKeydown = (e: KeyboardEvent) => {
   }
 }
 
+watch(currentIndex, () => {
+  startTimer()
+})
+
 onMounted(async () => {
   startSyncEngine()
 window.addEventListener('keydown', handleKeydown)
@@ -411,10 +446,12 @@ window.addEventListener('keydown', handleKeydown)
     await pullCardProgress()
   }
   await loadData()
+  startTimer()
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeydown)
+  clearTimer()
 })
 </script>
 
@@ -424,6 +461,7 @@ onUnmounted(() => {
   flex-direction: column;
   background: white;
   overflow: hidden;
+  height: calc(100svh - var(--v-layout-top, 0px));
 }
 
 .study-header {
@@ -500,7 +538,7 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   justify-content: center;
-  padding: 12px 20px;
+  padding: 4px 16px;
   overflow: hidden;
 }
 
@@ -509,19 +547,20 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   width: 100%;
-  max-width: 700px;
-  gap: 8px;
+  gap: 4px;
+  flex: 1;
+  min-height: 0;
+  margin: 0 48px;
 }
 
 .flashcard {
   width: 100%;
-  aspect-ratio: 16 / 9;
+  flex: 1;
   background: white;
   border-radius: 12px;
   position: relative;
   cursor: pointer;
-  transition: transform 0.3s ease;
-  max-height: 350px;
+  min-height: 120px;
 }
 
 .card-side {
@@ -538,15 +577,13 @@ onUnmounted(() => {
 .front {
   background: white;
   z-index: 2;
-  transition: opacity 0.3s ease;
 }
 
 .back {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: white;
+  color: inherit;
   opacity: 0;
   z-index: 1;
-  transition: opacity 0.3s ease;
 }
 
 .flashcard.flipped .front {
@@ -570,18 +607,14 @@ onUnmounted(() => {
 
 .card-content {
   flex: 1;
-  display: flex;
-  align-items: center;
+  min-height: 0;
   overflow-y: auto;
-  font-size: 1.3rem;
+  display: flex;
+  flex-direction: column;
+  font-size: 1.2rem;
   line-height: 1.4;
 }
 
-.flip-button-container {
-  display: flex;
-  justify-content: center;
-  margin: 12px 0;
-}
 
 .rating-buttons {
   display: grid;
@@ -623,12 +656,71 @@ onUnmounted(() => {
 .strength-mastered { background: rgba(76,175,80,0.15);  color: #2E7D32; }
 
 .title-display {
-  margin: 0;
-  font-size: 2rem;
+  margin: auto;
+  font-size: clamp(1rem, 2.5vw, 1.6rem);
   font-weight: 600;
   line-height: 1.3;
   color: rgba(0, 0, 0, 0.87);
   text-align: center;
+}
+
+.timer-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.timer-bar-bg {
+  width: 100%;
+  height: 6px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.timer-bar-fill {
+  height: 100%;
+  background: #4caf50;
+  border-radius: 3px;
+  transition: width 1s linear, background 0.5s;
+}
+
+.timer-bar-fill.timer-low {
+  background: #f44336;
+}
+
+.timer-label {
+  font-size: 0.85rem;
+  color: rgba(0, 0, 0, 0.6);
+  font-variant-numeric: tabular-nums;
+  transition: color 0.5s;
+  font-weight: 500;
+}
+
+.timer-label-low {
+  color: #f44336;
+  font-weight: bold;
+}
+
+.timer-expired-banner {
+  margin-top: 8px;
+  padding: 8px 16px;
+  background: #f44336;
+  color: white;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 0.95rem;
+  animation: pump 0.8s ease-in-out infinite;
+  width: 100%;
+  text-align: center;
+}
+
+@keyframes pump {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
 }
 
 @media (max-width: 600px) {
@@ -661,13 +753,11 @@ onUnmounted(() => {
   }
 
   .flashcard {
-    aspect-ratio: unset;
-    min-height: 200px;
-    max-height: unset;
+    flex: 1;
   }
 
   .card-content {
-    font-size: 1rem;
+    font-size: 1.2rem;
   }
 
   .title-display {
@@ -681,6 +771,19 @@ onUnmounted(() => {
 
   .rating-buttons .v-btn {
     font-size: 0.75rem;
+  }
+
+  .timer-wrapper {
+    width: 90%;
+  }
+
+  .timer-label {
+    font-size: 0.75rem;
+  }
+
+  .timer-expired-banner {
+    font-size: 0.85rem;
+    padding: 6px 12px;
   }
 }
 </style>

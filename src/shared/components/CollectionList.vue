@@ -7,6 +7,9 @@
       <v-btn variant="outlined" @click="goToProgress" prepend-icon="mdi-chart-line">
         Progress
       </v-btn>
+      <v-btn variant="outlined" @click="handleRefresh" prepend-icon="mdi-refresh" :loading="isSyncing">
+        Pull
+      </v-btn>
     </div>
 
     <v-data-table
@@ -75,6 +78,7 @@ import type {
 
 const router = useRouter()
 const collections = ref<Collection[]>([])
+const isSyncing = ref(false)
 
 const headers = [
   { title: 'Title', key: 'title', sortable: true },
@@ -149,10 +153,20 @@ const goToProgress = () => {
   router.push({ name: 'progress' })
 }
 
+const handleRefresh = async () => {
+  isSyncing.value = true
+  try {
+    await syncAll()
+    await loadCollections()
+  } finally {
+    isSyncing.value = false
+  }
+}
+
 onMounted(async () => {
-  await syncAll()
-  startSyncEngine()
   await loadCollections()
+  startSyncEngine()
+  syncAll()
 })
 
 </script>
