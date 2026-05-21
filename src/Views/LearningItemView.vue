@@ -34,8 +34,8 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'update:content', id: string, content: JSONContent): void
-  (e: 'update:title', id: string, title: string): void
+  (e: 'update:content', id: string, content: JSONContent, lastModified: string): void
+  (e: 'update:title', id: string, title: string, lastModified: string): void
 }>()
 
 const content = ref<JSONContent>(
@@ -61,12 +61,13 @@ const handleContentChange = (val: JSONContent) => {
   content.value = val
   if (contentTimer) clearTimeout(contentTimer)
   contentTimer = setTimeout(async () => {
+    const lastModified = formatISO(new Date())
     await editLearningItem({
       ...toRaw(props.item),
       content: val,
-      lastModified: formatISO(new Date())
+      lastModified
     })
-    emit('update:content', props.item.id!, val)
+    emit('update:content', props.item.id!, val, lastModified)
   }, 500)
 }
 
@@ -75,12 +76,13 @@ const handleTitleInput = () => {
   if (titleTimer) clearTimeout(titleTimer)
   titleTimer = setTimeout(async () => {
     const trimmed = title.value.trim()
+    const lastModified = formatISO(new Date())
     await editLearningItem({
       ...toRaw(props.item),
       title: trimmed,
-      lastModified: formatISO(new Date())
+      lastModified
     })
-    emit('update:title', props.item.id!, trimmed)
+    emit('update:title', props.item.id!, trimmed, lastModified)
   }, 500)
 }
 </script>

@@ -157,14 +157,30 @@ const handleDeleteLearningItem = async (item: LearningItem) => {
   await loadData()
 }
 
-const handleContentUpdate = (id: string, content: JSONContent) => {
+const handleContentUpdate = async (id: string, content: JSONContent, lastModified: string) => {
   const item = learningItems.value.find(i => i.id === id)
-  if (item) item.content = content
+  if (item) {
+    item.content = content
+    item.lastModified = lastModified
+  }
+  if (collection.value) {
+    collection.value.lastModified = lastModified
+    await editCollection(collection.value)
+    await syncCollections()
+  }
 }
 
-const handleTitleUpdate = (id: string, title: string) => {
+const handleTitleUpdate = async (id: string, title: string, lastModified: string) => {
   const item = learningItems.value.find(i => i.id === id)
-  if (item) item.title = title
+  if (item) {
+    item.title = title
+    item.lastModified = lastModified
+  }
+  if (collection.value) {
+    collection.value.lastModified = lastModified
+    await editCollection(collection.value)
+    await syncCollections()
+  }
 }
 
 onMounted(async () => {

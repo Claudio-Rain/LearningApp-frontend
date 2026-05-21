@@ -13,10 +13,12 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    minify: false,
     rollupOptions: {
       input: {
         popup: resolve(__dirname, 'index.html'),
-        background: resolve(__dirname, 'src/background.js')
+        background: resolve(__dirname, 'src/background.js'),
+        content: resolve(__dirname, 'src/content.js')
       },
       output: {
         entryFileNames: '[name].js'
