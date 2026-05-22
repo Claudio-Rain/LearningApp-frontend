@@ -4,7 +4,7 @@
 
 ## Level 1 — Definition & Basics
 
-**Q: Define data validation and distinguish it from sanitization.**
+**Q: L1 Define data validation and distinguish it from sanitization.**
 
 > Validation asks "is this input acceptable?" — sanitization asks "how do I make this input safe to use?"
 
@@ -37,7 +37,7 @@ public class ValidationAndSanitization
 
 ---
 
-**Q: What are the most common validation categories and examples?**
+**Q: L1 What are the most common validation categories and examples?**
 
 > Presence (required?), Type (integer?), Format (pattern match?), Range (0-120?), Uniqueness (no duplicates?), Business-rule (end > start?).
 
@@ -82,7 +82,7 @@ public class ValidationCategories
 
 ---
 
-**Q: Why validate input? What happens if you skip it?**
+**Q: L1 Why validate input? What happens if you skip it?**
 
 > Unvalidated input is the root cause of most injection attacks and data-integrity disasters.
 
@@ -129,7 +129,7 @@ public class InputValidationExample
 
 ---
 
-**Q: Where should validation occur in the application stack?**
+**Q: L1 Where should validation occur in the application stack?**
 
 > Validate at every boundary — frontend for UX, backend for correctness, database for last-resort integrity.
 
@@ -176,7 +176,7 @@ public class ValidationLayersExample
 
 ---
 
-**Q: What is lenient validation?**
+**Q: L1 What is lenient validation?**
 
 >  Lenient means flexible — you accept "Jan 5", "01/05", "2025-01-05", and "5 January" as valid dates instead of rejecting all but one format. 
 
@@ -208,7 +208,7 @@ if (IsValidDateStrict(userInput))   // FALSE — good for API
 
 ---
 
-**Q: Strict vs. lenient validation — which do you prefer?**
+**Q: L1 Strict vs. lenient validation — which do you prefer?**
 
 > Strict at system boundaries (APIs, persistence), lenient only in the UI layer for UX.
 
@@ -252,7 +252,7 @@ public class StrictVsLenientExample
 
 ## Level 2 — Core Concepts
 
-**Q: Client-side vs. server-side validation — why is client-side alone insufficient?**
+**Q: L2 Client-side vs. server-side validation — why is client-side alone insufficient?**
 
 > Client-side validation is a UX courtesy; server-side validation is the actual security control.
 
@@ -290,7 +290,7 @@ public class ClientServerValidationExample
 
 ---
 
-**Q: What vulnerabilities arise from relying only on HTML5 validation attributes?**
+**Q: L2 What vulnerabilities arise from relying only on HTML5 validation attributes?**
 
 > Any attacker who sends a raw HTTP request bypasses HTML5 constraints completely.
 
@@ -330,7 +330,7 @@ public class HtmlValidationBypassExample
 
 ---
 
-**Q: How do you validate an email address? Which RFC rules do you actually need?**
+**Q: L2 How do you validate an email address? Which RFC rules do you actually need?**
 
 > Full RFC compliance is impractical — use a simple regex (non-empty local, @, domain with dot) plus MX lookup for critical flows.
 
@@ -391,7 +391,7 @@ public class EmailValidatorExample
 
 ---
 
-**Q: What issues does this regex have for production email validation?**
+**Q: L2 What issues does this regex have for production email validation?**
 
 > It rejects quoted local parts, IP-literal domains, and non-ASCII characters — edge cases that affect ~0.1% of users.
 
@@ -399,7 +399,7 @@ For 99.9% of legitimate addresses it works fine. The risk is alienating users wh
 
 ---
 
-**Q: What are guard clauses? How do they differ from service-layer validation?**
+**Q: L2 What are guard clauses? How do they differ from service-layer validation?**
 
 > A guard clause is a fast-fail check at the top of a method that enforces preconditions on arguments, separate from business-rule validation in a service layer.
 
@@ -442,7 +442,7 @@ public class PaymentService
 
 ---
 
-**Q: How should library methods handle validation failures?**
+**Q: L2 How should library methods handle validation failures?**
 
 > Throw typed exceptions for argument violations (null userId, malformed input); return a result object for business-rule failures.
 
@@ -450,7 +450,7 @@ Exceptions signal programming errors that callers should fix. Result objects let
 
 ---
 
-**Q: A teammate says "just sanitize inputs; validation isn't needed." Your response?**
+**Q: L2 A teammate says "just sanitize inputs; validation isn't needed." Your response?**
 
 > Sanitization and validation solve different problems and can't substitute for each other.
 
@@ -460,7 +460,7 @@ Sanitization makes data safe to process but doesn't enforce correctness. A sanit
 
 ## Level 3 — Practical Usage
 
-**Q: How do you validate international phone numbers? Why is regex inadequate?**
+**Q: L3 How do you validate international phone numbers? Why is regex inadequate?**
 
 > Use Google's `libphonenumber` — phone number rules are country-specific and change over time, making regex-based validation a maintenance nightmare.
 
@@ -518,7 +518,7 @@ public class PhoneValidator
 
 ---
 
-**Q: Normalize `"(800) 555-0199"` to E.164 format. Walk through the steps.**
+**Q: L3 Normalize `"(800) 555-0199"` to E.164 format. Walk through the steps.**
 
 > Strip formatting, infer country code from context, parse with libphonenumber, then format as E.164.
 
@@ -526,7 +526,7 @@ Strip non-digits → `8005550199`. Infer country code (stored locale, GeoIP, or 
 
 ---
 
-**Q: What's the core challenge validating ambiguous dates like `"02/03/2025"`?**
+**Q: L3 What's the core challenge validating ambiguous dates like `"02/03/2025"`?**
 
 > `02/03` is Feb 3 in the US, March 2 in Europe — you can't know which without user context.
 
@@ -575,7 +575,7 @@ public class DateValidationExample
 
 ---
 
-**Q: How do you share booking-date validation logic between React and Node.js?**
+**Q: L3 How do you share booking-date validation logic between React and Node.js?**
 
 > Create a shared TypeScript module in a monorepo (`packages/validation`) that both frontend and backend import.
 
@@ -583,7 +583,7 @@ One gotcha: "not in the past" must be rechecked server-side with the server's cl
 
 ---
 
-**Q: How does FQDN validation differ between DNS records and browser URLs?**
+**Q: L3 How does FQDN validation differ between DNS records and browser URLs?**
 
 > FQDN rules (each label 1–63 chars, no leading hyphens) differ from URL rules (must handle schemes, ports, paths, IDN).
 
@@ -646,7 +646,7 @@ public class DomainValidatorExample
 
 ---
 
-**Q: Why is the IPv4 regex `\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}` insufficient?**
+**Q: L3 Why is the IPv4 regex `\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}` insufficient?**
 
 > The regex matches structurally but accepts octets like `999`, so you must also verify each octet is 0–255 after splitting.
 
@@ -700,7 +700,7 @@ public class IpValidator
 
 ---
 
-**Q: Is `"2001:db8::1"` valid? What IPv6 edge cases exist?**
+**Q: L3 Is `"2001:db8::1"` valid? What IPv6 edge cases exist?**
 
 > Yes, it's valid — `::` is legal zero compression, and `2001:db8::/32` is a documented example range.
 
@@ -708,7 +708,7 @@ IPv6 edge cases that IPv4 doesn't have: `::` can appear at most once and expands
 
 ---
 
-**Q: How do you validate IBAN (International Bank Account Number)?**
+**Q: L3 How do you validate IBAN (International Bank Account Number)?**
 
 > Validate structure: 2-letter country code, 2 check digits, then country-specific BBAN. Use a library or lookup table for country-specific lengths.
 
@@ -758,7 +758,7 @@ public class IbanValidator
 
 ---
 
-**Q: How do you validate locale-aware currency amounts?**
+**Q: L3 How do you validate locale-aware currency amounts?**
 
 > Parse with locale awareness (US: 1,234.56; Germany: 1.234,56), then store as integers in the smallest currency unit, never as floats.
 
@@ -766,7 +766,7 @@ You must know the user's locale before parsing — `1.234` means different thing
 
 ---
 
-**Q: Why is floating-point arithmetic dangerous for currency?**
+**Q: L3 Why is floating-point arithmetic dangerous for currency?**
 
 > Floating-point can't represent most decimal fractions exactly, so rounding errors accumulate and you get incorrect financial totals.
 
@@ -828,7 +828,7 @@ public class CurrencyValidator
 
 ## Level 4 — Common Pitfalls
 
-**Q: How does Luhn work? Why isn't it enough for credit card validation?**
+**Q: L4 How does Luhn work? Why isn't it enough for credit card validation?**
 
 > Luhn catches transcription errors but passes ~10% of random 16-digit strings — it's not a security check.
 
@@ -909,7 +909,7 @@ public class CreditCardValidator
 
 ---
 
-**Q: Why does the validator accept `"4111 1111 1111 1111"` but reject `"4111111111111111"`?**
+**Q: L4 Why does the validator accept `"4111 1111 1111 1111"` but reject `"4111111111111111"`?**
 
 > The validator is not stripping spaces before running the Luhn check or length validation.
 
@@ -958,7 +958,7 @@ public class CreditCardNormalizationExample
 
 ---
 
-**Q: Should you store raw credit card numbers after validation?**
+**Q: L4 Should you store raw credit card numbers after validation?**
 
 > Never store raw PANs — immediately tokenize through a PCI-DSS compliant vault like Stripe or Braintree.
 
@@ -1008,7 +1008,7 @@ public class CreditCardStorageExample
 
 ---
 
-**Q: Users are registering with invalid emails. What are the five most likely causes?**
+**Q: L4 Users are registering with invalid emails. What are the five most likely causes?**
 
 > A code path bypasses the validation layer — a direct DB call, legacy API version, feature flag, migration script, or race condition.
 
@@ -1072,7 +1072,7 @@ public class InvalidEmailDebugExample
 
 ---
 
-**Q: Domain model vs. service-layer validation — which approach and why?**
+**Q: L4 Domain model vs. service-layer validation — which approach and why?**
 
 > Use both: enforce hard invariants (non-null ID, positive amounts) in the domain model; business rules (uniqueness, cross-field dependencies) in the service layer.
 
@@ -1150,7 +1150,7 @@ public class OrderService
 
 ## Level 5 — Internals & Deep Mechanics
 
-**Q: What is catastrophic backtracking (ReDoS) and how does it become a DoS vector?**
+**Q: L5 What is catastrophic backtracking (ReDoS) and how does it become a DoS vector?**
 
 > Catastrophic backtracking occurs when nested quantifiers cause a regex engine to explore exponentially many match paths, turning one request into a CPU spike.
 
@@ -1209,7 +1209,7 @@ public class ReDoSExample
 
 ---
 
-**Q: How do possessive quantifiers and atomic groups prevent ReDoS?**
+**Q: L5 How do possessive quantifiers and atomic groups prevent ReDoS?**
 
 > They prevent the engine from giving back already-matched characters, eliminating the backtracking paths that cause exponential behavior.
 
@@ -1217,7 +1217,7 @@ A possessive quantifier (`++`, `*+`) matches as much as possible and never backt
 
 ---
 
-**Q: Why is phone validation locale-dependent? Give a concrete example.**
+**Q: L5 Why is phone validation locale-dependent? Give a concrete example.**
 
 > Phone number length, area code structure, and valid prefix ranges are defined per-country by ITU-T and national regulators.
 
@@ -1225,7 +1225,7 @@ A possessive quantifier (`++`, `*+`) matches as much as possible and never backt
 
 ---
 
-**Q: For 50k email submissions/day: regex validator or full RFC compliance?**
+**Q: L5 For 50k email submissions/day: regex validator or full RFC compliance?**
 
 > Use regex — throughput is irrelevant at 0.6/second, and RFC compliance brings complexity without benefit.
 
@@ -1235,7 +1235,7 @@ Full RFC 5321 would accept quoted local parts that your mail server doesn't supp
 
 ## Level 6 — Trade-offs & Design Decisions
 
-**Q: Third-party validation libraries vs. custom logic — advantages?**
+**Q: L6 Third-party validation libraries vs. custom logic — advantages?**
 
 > Libraries save days of work: declarative schemas, composability, structured errors, and type inference from a single source of truth.
 
@@ -1306,7 +1306,7 @@ public class UserController
 
 ---
 
-**Q: What are the risks of third-party validation libraries and how do you mitigate them?**
+**Q: L6 What are the risks of third-party validation libraries and how do you mitigate them?**
 
 > Breaking changes and abandonment — mitigate by wrapping the library behind an internal `validate` module instead of calling it directly everywhere.
 
@@ -1398,7 +1398,7 @@ public class ValidationResult { public bool IsValid { get; set; } public List<st
 
 ---
 
-**Q: Choosing between a popular stale library and an active smaller one — factors?**
+**Q: L6 Choosing between a popular stale library and an active smaller one — factors?**
 
 > Maintenance activity matters more than download count — pick the actively maintained one.
 
@@ -1406,7 +1406,7 @@ Check: are issues being responded to? Is there responsible vulnerability disclos
 
 ---
 
-**Q: Schema-based vs. imperative validation — when does each excel?**
+**Q: L6 Schema-based vs. imperative validation — when does each excel?**
 
 > Schema-based for well-defined shapes (API bodies); imperative for context-dependent rules.
 
@@ -1468,7 +1468,7 @@ public class OrderService
 
 ---
 
-**Q: How do you share validation rules between TypeScript frontend and Node.js backend?**
+**Q: L6 How do you share validation rules between TypeScript frontend and Node.js backend?**
 
 > Extract validation schemas into a shared TypeScript package in a monorepo and import it on both sides.
 
@@ -1516,7 +1516,7 @@ public class UserRequest { public string Email { get; set; } public int Age { ge
 
 ---
 
-**Q: Should validation error messages be verbose or terse? Trade-offs?**
+**Q: L6 Should validation error messages be verbose or terse? Trade-offs?**
 
 > Be verbose about what's wrong with the input, terse about internals — never leak schema details, server paths, or stack traces.
 
@@ -1581,7 +1581,7 @@ public class ErrorMessageExample
 
 ## Level 7 — Advanced & Expert
 
-**Q: How do you prevent validation logic from drifting across microservices?**
+**Q: L7 How do you prevent validation logic from drifting across microservices?**
 
 > A shared library (tight coupling, consistent) or schema registry (loose coupling, language-agnostic) — never copy-paste.
 
@@ -1644,7 +1644,7 @@ public class CreateOrderRequest { public string CustomerEmail { get; set; } }
 
 ---
 
-**Q: How does eventual consistency complicate uniqueness validation?**
+**Q: L7 How does eventual consistency complicate uniqueness validation?**
 
 > Two requests can both pass "is this email taken?" checks simultaneously and both insert — only database constraints prevent duplicates.
 
@@ -1717,7 +1717,7 @@ public class UniquenessRaceConditionExample
 
 ---
 
-**Q: How do you make a validation framework internationalization-aware?**
+**Q: L7 How do you make a validation framework internationalization-aware?**
 
 > Emit error code keys from validators, resolve them to locale strings at the boundary layer, and store locale-specific format rules separately from validation logic.
 
@@ -1802,7 +1802,7 @@ public class I18nValidationExample
 
 ---
 
-**Q: Validating at the database layer only — advantages and limitations?**
+**Q: L7 Validating at the database layer only — advantages and limitations?**
 
 > Database-layer validation is truly universal but produces cryptic errors and is hard to test in isolation.
 
@@ -1861,7 +1861,7 @@ public class UserService
 
 ---
 
-**Q: Single standardized validation library across teams or let teams choose?**
+**Q: L7 Single standardized validation library across teams or let teams choose?**
 
 > Standardize per language but not across languages.
 

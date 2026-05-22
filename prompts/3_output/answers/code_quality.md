@@ -6,7 +6,7 @@
 
 ### Code Quality Fundamentals
 
-**Q: Define code quality and name its key properties.**
+**Q: L1 Define code quality and name its key properties.**
 
 > High-quality code is code that works correctly today and is easy to change tomorrow.
 
@@ -14,7 +14,7 @@ Correctness means the code does what it's supposed to do and has tests that prov
 
 ---
 
-**Q: Name four categories of quality metrics with one example each and what they measure.**
+**Q: L1 Name four categories of quality metrics with one example each and what they measure.**
 
 > Quality metrics fall into four main categories: complexity, maintainability, coupling/structure, and test coverage.
 
@@ -22,7 +22,7 @@ Cyclomatic complexity counts execution paths (higher = harder to test). Maintain
 
 ---
 
-**Q: Why is automated measurement useful over code review alone? What limits does human review have?**
+**Q: L1 Why is automated measurement useful over code review alone? What limits does human review have?**
 
 > Automated metrics catch things consistently and at scale that humans miss due to fatigue, bias, and bandwidth.
 
@@ -32,7 +32,7 @@ Humans catch intent and design but miss structural issues consistently. Tools ru
 
 ### Metrics Basics
 
-**Q: Define cyclomatic complexity, who introduced it, and what the numeric value means.**
+**Q: L1 Define cyclomatic complexity, who introduced it, and what the numeric value means.**
 
 > Cyclomatic complexity, introduced by Thomas McCabe in 1976, counts the number of independent paths through a piece of code.
 
@@ -71,7 +71,7 @@ public string ValidatePayment(Payment p)
 
 ---
 
-**Q: What is the maintainability index, its value range, and what the scale means?**
+**Q: L1 What is the maintainability index, its value range, and what the scale means?**
 
 > The maintainability index is a composite score from 0 to 100 that estimates how easy a code unit is to maintain, where higher is better.
 
@@ -79,7 +79,7 @@ The formula combines Halstead volume, cyclomatic complexity, and lines of code o
 
 ---
 
-**Q: Explain afferent and efferent coupling. Why is high coupling a problem?**
+**Q: L1 Explain afferent and efferent coupling. Why is high coupling a problem?**
 
 > Class coupling measures how many other types a class depends on or is depended upon by, and high coupling makes changes expensive and unpredictable.
 
@@ -117,7 +117,7 @@ public class OrderService
 
 ---
 
-**Q: What is depth of inheritance? What does DIT=1 vs DIT=8 signify?**
+**Q: L1 What is depth of inheritance? What does DIT=1 vs DIT=8 signify?**
 
 > DIT measures how many ancestor classes a class has, and a high value signals that behavior is spread across a deep chain that's hard to reason about.
 
@@ -125,7 +125,7 @@ DIT=1 is flat and easy to understand. DIT=8 requires tracing through seven level
 
 ---
 
-**Q: Is lower cyclomatic complexity always better? When might reducing it harm code?**
+**Q: L1 Is lower cyclomatic complexity always better? When might reducing it harm code?**
 
 > No — blindly reducing cyclomatic complexity can obscure intent and fragment logic into meaningless fragments.
 
@@ -137,7 +137,7 @@ Extracting complex conditionals into many tiny methods (`CheckA()`, `CheckB()`) 
 
 ### Cyclomatic Complexity
 
-**Q: How does cyclomatic complexity relate to minimum test cases needed for full branch coverage?**
+**Q: L2 How does cyclomatic complexity relate to minimum test cases needed for full branch coverage?**
 
 > Cyclomatic complexity equals the minimum number of linearly independent paths, which directly corresponds to the minimum test cases for full branch coverage.
 
@@ -145,7 +145,7 @@ CC directly maps to minimum test cases needed for branch coverage: CC=8 requires
 
 ---
 
-**Q: How does high cyclomatic complexity relate to Single Responsibility Principle violations?**
+**Q: L2 How does high cyclomatic complexity relate to Single Responsibility Principle violations?**
 
 > High cyclomatic complexity is almost always a symptom of an SRP violation — a method handling multiple concerns accumulates branches for each one.
 
@@ -155,7 +155,7 @@ A method handling validation, transformation, persistence, and error handling ac
 
 ### Maintainability Index
 
-**Q: A class has maintainability index of 12 (red zone). What issues would you investigate first?**
+**Q: L2 A class has maintainability index of 12 (red zone). What issues would you investigate first?**
 
 > I'd start by looking at method length and cyclomatic complexity, because those are the most actionable levers.
 
@@ -163,7 +163,7 @@ Start with the longest methods—a single 300-line method usually accounts for m
 
 ---
 
-**Q: What are the maintainability index's known shortcomings and when might it mislead?**
+**Q: L2 What are the maintainability index's known shortcomings and when might it mislead?**
 
 > The MI was calibrated on Fortran and C code, and its formula breaks down for modern object-oriented and functional patterns.
 
@@ -173,7 +173,7 @@ MI penalizes LINQ chains and functional pipelines (Halstead volume counts all op
 
 ### Class Coupling & Depth of Inheritance
 
-**Q: Define the instability metric (I = efferent / (afferent + efferent)) and its use in refactoring priority.**
+**Q: L2 Define the instability metric (I = efferent / (afferent + efferent)) and its use in refactoring priority.**
 
 > Instability measures how likely a class is to change when its dependencies change, and pairing it with afferent coupling tells you which unstable classes are also widely used.
 
@@ -181,7 +181,7 @@ I=1.0 (pure efferent) is unstable but low-risk to change; nothing depends on it.
 
 ---
 
-**Q: Why does high depth of inheritance increase coupling and reduce testability? Give an example.**
+**Q: L2 Why does high depth of inheritance increase coupling and reduce testability? Give an example.**
 
 > Deep inheritance couples every subclass to all ancestor implementations, making it impossible to test a subclass in isolation.
 
@@ -252,7 +252,7 @@ public void GetReport_ShouldReturn200()
 
 ---
 
-**Q: How do you distinguish framework-imposed depth of inheritance from design-problem depth?**
+**Q: L2 How do you distinguish framework-imposed depth of inheritance from design-problem depth?**
 
 > I exclude the framework's own inheritance chain from the DIT count and measure only the depth your team added on top of it.
 
@@ -262,7 +262,7 @@ Subtract framework DIT from the total. Ask: does the chain carry meaningful beha
 
 ### Code Smells
 
-**Q: Name five code smells and map each to metrics it affects.**
+**Q: L2 Name five code smells and map each to metrics it affects.**
 
 > Long Method inflates CC, LOC, and volume. Feature Envy shows as high efferent coupling. Data Clumps inflate size and coupling. Deep Inheritance maps to high DIT. Shotgun Surgery appears as high afferent coupling and scattered duplication.
 
@@ -312,7 +312,7 @@ public class PaymentService
 
 ### Measuring Metrics
 
-**Q: What inline code quality tools are available in Visual Studio for .NET? How do they complement SonarQube?**
+**Q: L3 What inline code quality tools are available in Visual Studio for .NET? How do they complement SonarQube?**
 
 > Roslyn-based analyzers, built-in Code Metrics, and SonarLint provide real-time IDE feedback; SonarQube provides project-wide enforcement and trends.
 
@@ -324,7 +324,7 @@ Together: SonarLint catches issues as you type, SonarQube enforces in CI and tra
 
 ---
 
-**Q: How do you set up SonarQube for C#? Show the workflow and where results appear.**
+**Q: L3 How do you set up SonarQube for C#? Show the workflow and where results appear.**
 
 > You install SonarScanner for .NET, configure a `sonar-project.properties` file or pass properties inline, wrap the build, and metrics appear under the project's Measures tab.
 
@@ -334,7 +334,7 @@ Create the project in SonarQube, get a token, then run: `sonarscanner begin`, `d
 
 ### Configuring Static Analysis
 
-**Q: What is a Quality Profile? How do you create a custom one with stricter cyclomatic complexity thresholds?**
+**Q: L3 What is a Quality Profile? How do you create a custom one with stricter cyclomatic complexity thresholds?**
 
 > A Quality Profile is a named collection of active rules and their parameters, and you create a custom one by copying "Sonar way" and modifying specific rule thresholds.
 
@@ -344,7 +344,7 @@ In SonarQube, go to Quality Profiles, copy "Sonar way", find rule S1541 (CC), ch
 
 ### Refactoring for Quality
 
-**Q: Refactor a method with cyclomatic complexity 22, maintainability index 8 without breaking behavior.**
+**Q: L3 Refactor a method with cyclomatic complexity 22, maintainability index 8 without breaking behavior.**
 
 > I'd first add characterization tests to lock in current behavior, then decompose by responsibility, never touching functionality until tests are green.
 
@@ -449,7 +449,7 @@ private void NotifyCustomer(Order order)
 
 ---
 
-**Q: Legacy codebase with depth of inheritance 9, coupling 47. How do you prioritize improvements?**
+**Q: L3 Legacy codebase with depth of inheritance 9, coupling 47. How do you prioritize improvements?**
 
 > I'd start with the classes that are both high-coupling and on the critical path of current feature work, not the worst numbers overall.
 
@@ -461,7 +461,7 @@ Don't refactor the worst metrics in isolation—prioritize classes that change f
 
 ### Tool Misconfiguration
 
-**Q: CI shows 0 coverage despite tests passing locally. What are three likely causes and how do you diagnose?**
+**Q: L4 CI shows 0 coverage despite tests passing locally. What are three likely causes and how do you diagnose?**
 
 > The three most likely causes are missing coverage report paths, the wrong coverage format, and tests not running before the SonarScanner end command.
 
@@ -469,7 +469,7 @@ Check: (1) coverage report is generated in CI at expected path; (2) format is Op
 
 ---
 
-**Q: Enabling StyleCop creates 4,000 warnings. What's the right strategy?**
+**Q: L4 Enabling StyleCop creates 4,000 warnings. What's the right strategy?**
 
 > Triage rules by value and risk, suppress pre-existing violations as a baseline, and enforce rules only on new code going forward.
 
@@ -477,7 +477,7 @@ Categorize warnings: cosmetic (documentation, spacing) vs substantive (unused va
 
 ---
 
-**Q: A dev suppresses 30 warnings in one file. How do you handle it and prevent it?**
+**Q: L4 A dev suppresses 30 warnings in one file. How do you handle it and prevent it?**
 
 > I'd reject the PR as-is, require each suppression to have a justification comment, and look at why 30 warnings exist in a single file.
 
@@ -487,7 +487,7 @@ Thirty suppressions signal the file needs refactoring, not silencing. In review,
 
 ### Metric Misinterpretation
 
-**Q: Should generated files be in quality gates? How do you exclude them in SonarQube?**
+**Q: L4 Should generated files be in quality gates? How do you exclude them in SonarQube?**
 
 > Generated code should be excluded from quality gates because the metrics measure problems you can fix, and you can't fix generated output.
 
@@ -495,7 +495,7 @@ Generated code pollutes baselines and hides real regressions. Exclude in SonarQu
 
 ---
 
-**Q: Average cyclomatic complexity drops but code isn't better. What two mechanisms explain this?**
+**Q: L4 Average cyclomatic complexity drops but code isn't better. What two mechanisms explain this?**
 
 > The average can drop by deleting or hiding complex code, or by adding a large volume of trivially simple new code that pulls the average down.
 
@@ -503,7 +503,7 @@ Developers extract complex logic into private methods (numbers improve, complexi
 
 ---
 
-**Q: 95% code coverage but methods still flagged as high-risk. Why is coverage a poor proxy? What additional metrics help?**
+**Q: L4 95% code coverage but methods still flagged as high-risk. Why is coverage a poor proxy? What additional metrics help?**
 
 > Coverage tells you which lines were executed, not whether the tests actually assert correct behavior — you can have 100% coverage with zero meaningful assertions.
 
@@ -513,7 +513,7 @@ A test calling every method with no assertions has perfect coverage and zero qua
 
 ### Refactoring Pitfalls
 
-**Q: Colleague says splitting into 12 methods made code harder. How do you evaluate the refactoring?**
+**Q: L4 Colleague says splitting into 12 methods made code harder. How do you evaluate the refactoring?**
 
 > The refactoring was worthwhile if each extracted method has a name that communicates intent and can be understood independently — if you need to read all 12 to understand any one of them, it wasn't.
 
@@ -521,7 +521,7 @@ Can a developer read the high-level method without reading the extracted methods
 
 ---
 
-**Q: What is shotgun surgery? How can strict rules accidentally encourage it?**
+**Q: L4 What is shotgun surgery? How can strict rules accidentally encourage it?**
 
 > Shotgun surgery is when one logical change requires edits in many unrelated classes, and static analysis can induce it by forcing developers to touch every class that uses a pattern rather than fixing the root abstraction.
 
@@ -533,7 +533,7 @@ A rule requiring parameter validation creates 40 boilerplate copies across 15 cl
 
 ### How Static Analyzers Work
 
-**Q: How do Roslyn analyzers work? Define syntax tree, semantic model, and diagnostic.**
+**Q: L5 How do Roslyn analyzers work? Define syntax tree, semantic model, and diagnostic.**
 
 > A Roslyn analyzer registers for syntax or semantic events on the compilation, inspects the tree or model, and emits a diagnostic if a rule is violated.
 
@@ -541,7 +541,7 @@ The syntax tree is the structural representation (tokens, keywords, punctuation)
 
 ---
 
-**Q: How does cognitive complexity differ from cyclomatic complexity? Which nesting constructs are penalized more heavily?**
+**Q: L5 How does cognitive complexity differ from cyclomatic complexity? Which nesting constructs are penalized more heavily?**
 
 > Cognitive complexity penalizes nesting depth with increasing weight, while cyclomatic complexity counts all branches equally regardless of where they appear.
 
@@ -585,7 +585,7 @@ public bool IsValid(User u, Order o)
 
 ### Writing Custom Rules
 
-**Q: Write a Roslyn analyzer flagging public methods with >4 params. Interfaces and pattern?**
+**Q: L5 Write a Roslyn analyzer flagging public methods with >4 params. Interfaces and pattern?**
 
 > You inherit `DiagnosticAnalyzer`, register for `MethodDeclaration` syntax nodes, and emit a diagnostic if the parameter count exceeds 4 and the method is public.
 
@@ -626,7 +626,7 @@ public class TooManyParametersAnalyzer : DiagnosticAnalyzer
 
 ---
 
-**Q: Add a custom rule to SonarQube for C#. What are prerequisites and steps?**
+**Q: L5 Add a custom rule to SonarQube for C#. What are prerequisites and steps?**
 
 > You build a Java plugin that implements SonarQube's plugin API, defines a rule with metadata, and uses a Roslyn analyzer (packaged as a NuGet) as the actual analysis engine via the SonarQube C# plugin bridge.
 
@@ -634,7 +634,7 @@ Write a Roslyn analyzer, package as NuGet, then write a thin Java plugin registe
 
 ---
 
-**Q: When is a custom rule justified vs architecture or code generation?**
+**Q: L5 When is a custom rule justified vs architecture or code generation?**
 
 > Write a custom rule when the constraint is structural and can't be enforced by the type system or code generation — otherwise, make the wrong thing impossible by design.
 
@@ -644,7 +644,7 @@ Enforce via architecture when possible (DI container checks). Use analyzers for 
 
 ### Technical Debt
 
-**Q: SonarQube shows 47 days debt; stakeholder wants <5 days. What's wrong and how do you reframe?**
+**Q: L5 SonarQube shows 47 days debt; stakeholder wants <5 days. What's wrong and how do you reframe?**
 
 > The 47-day estimate is based on arbitrary remediation time assumptions, and cutting it to 5 days in one release would require either cosmetic fixes that don't reduce real risk or disabling rules.
 
@@ -652,7 +652,7 @@ Debt estimates multiply violations by fixed constants not calibrated to your cod
 
 ---
 
-**Q: How does SonarQube calculate debt? What SQALE assumptions can break down?**
+**Q: L5 How does SonarQube calculate debt? What SQALE assumptions can break down?**
 
 > SQALE assigns a fixed time cost to each rule violation and sums them up, assuming remediating any violation is independent and takes a predictable, uniform amount of time.
 
@@ -664,7 +664,7 @@ SQALE assumes each violation costs the same remediation time regardless of conte
 
 ### Policy & Process Design
 
-**Q: Should enforcement be at commit, merge, or IDE? What are the failure modes?**
+**Q: L6 Should enforcement be at commit, merge, or IDE? What are the failure modes?**
 
 > All three layers have value and different failure modes — IDE for fast feedback, CI gate for enforcement, pre-commit as optional middle ground.
 
@@ -672,7 +672,7 @@ IDE warnings are fast but ignored under pressure. Pre-commit hooks get skipped w
 
 ---
 
-**Q: Shared `.editorconfig` and profile across 20 teams (.NET, Python, TypeScript). Governance model?**
+**Q: L6 Shared `.editorconfig` and profile across 20 teams (.NET, Python, TypeScript). Governance model?**
 
 > I'd recommend a federated model: a platform team owns the baseline, and language guilds own language-specific rules, with a documented exception process.
 
@@ -680,7 +680,7 @@ Centralized: bottleneck and lack domain knowledge. Decentralized: no consistency
 
 ---
 
-**Q: Roll out stricter gates on legacy code without blocking work. "New code" vs "all code" strategy?**
+**Q: L6 Roll out stricter gates on legacy code without blocking work. "New code" vs "all code" strategy?**
 
 > Apply the new-code gate immediately to enforce quality going forward, and treat existing violations as bounded technical debt with a dedicated paydown plan.
 
@@ -688,7 +688,7 @@ Use "new code" gates for legacy codebases: new code passes strict rules, existin
 
 ---
 
-**Q: Engineer says code review alone is enough, tools have too many false positives. How do you respond with data?**
+**Q: L6 Engineer says code review alone is enough, tools have too many false positives. How do you respond with data?**
 
 > Human review and static analysis are complementary, and the research shows that even experienced reviewers consistently miss the classes of issues automated tools catch.
 
@@ -698,7 +698,7 @@ Empirical data: research shows metrics predict defect density better than human 
 
 ### Metrics as Leading Indicators
 
-**Q: Which metrics best predict bug density (per research)? How do you prioritize refactoring?**
+**Q: L6 Which metrics best predict bug density (per research)? How do you prioritize refactoring?**
 
 > Change frequency combined with complexity and coupling is more predictive than any single metric — files that change often and have high complexity are where bugs live.
 
@@ -706,7 +706,7 @@ No single metric predicts defects universally, but combinations of complexity, c
 
 ---
 
-**Q: Single metrics can be gamed. How do you design a harder-to-game quality score?**
+**Q: L6 Single metrics can be gamed. How do you design a harder-to-game quality score?**
 
 > Use a composite score with multiple independent dimensions, and track behavioral outcomes (defect rates, change failure rate) as a sanity check on the composite.
 
@@ -714,7 +714,7 @@ Composite scores are harder to game: improving one dimension usually worsens ano
 
 ---
 
-**Q: How do you measure if improvements reduced defects? What confounds the attribution?**
+**Q: L6 How do you measure if improvements reduced defects? What confounds the attribution?**
 
 > You need a controlled comparison — a before/after on the same modules, ideally with a control group of modules not touched by the initiative.
 
@@ -726,7 +726,7 @@ Confounds: personnel changes, product complexity changes, testing improvements. 
 
 ### Custom Tooling & Ecosystem Integration
 
-**Q: Design enforcement for 50 .NET microservices: balance team autonomy with global rules.**
+**Q: L7 Design enforcement for 50 .NET microservices: balance team autonomy with global rules.**
 
 > Use SonarQube's profile inheritance for global rules, per-service `.editorconfig` overrides within bounded permissions, and a tracked exception registry for justified deviations.
 
@@ -734,7 +734,7 @@ Root Quality Profile with non-overridable security and critical complexity rules
 
 ---
 
-**Q: Build a time-series dashboard tracking cyclomatic complexity, maintainability index, and coupling with anomaly alerts.**
+**Q: L7 Build a time-series dashboard tracking cyclomatic complexity, maintainability index, and coupling with anomaly alerts.**
 
 > Export SonarQube metrics via its Web API on each build, store in a time-series database, and apply a simple statistical anomaly model with alerting.
 
@@ -742,7 +742,7 @@ Export SonarQube metrics via REST API to InfluxDB/TimescaleDB per build. Visuali
 
 ---
 
-**Q: Good metrics but 60% of incidents. How do you investigate and what to add?**
+**Q: L7 Good metrics but 60% of incidents. How do you investigate and what to add?**
 
 > Good static metrics and high incident rates indicate the bugs are behavioral, not structural — I'd look at test quality, concurrency, external dependencies, and domain complexity.
 
@@ -752,7 +752,7 @@ Categorize incident root causes: logic errors, concurrency, integration, or perf
 
 ### Analyzer Internals & Extensibility
 
-**Q: Distinguish analyzer, source generator, and code fix. How do they work together?**
+**Q: L7 Distinguish analyzer, source generator, and code fix. How do they work together?**
 
 > An analyzer detects problems, a source generator produces code automatically, and a code fix provider offers IDE-triggered repairs — together they form a self-correcting code quality loop.
 
@@ -762,7 +762,7 @@ Example: ensure repository classes implement `IDisposable` for `DbConnection` fi
 
 ### Strategic & Organizational
 
-**Q: When is deliberately carrying tech debt rational? How do you keep it explicit and bounded?**
+**Q: L7 When is deliberately carrying tech debt rational? How do you keep it explicit and bounded?**
 
 > Deliberate debt is rational when the uncertain future value of clean code exceeds the known short-term cost of carrying debt — but it must be documented, bounded, and revisited.
 
@@ -770,7 +770,7 @@ Conditions: low change frequency, not critical path, concrete payoff plan. Failu
 
 ---
 
-**Q: As first developer-experience engineer in 200-person org, plan your first 90 days for quality tooling.**
+**Q: L7 As first developer-experience engineer in 200-person org, plan your first 90 days for quality tooling.**
 
 > Days 1–30 are listening and measuring, days 31–60 are finding quick wins that demonstrate value, and days 61–90 are proposing a federated governance model with evidence behind it.
 
@@ -778,7 +778,7 @@ Days 1–30: Run SonarQube, interview teams, map inconsistencies, find leaders a
 
 ---
 
-**Q: Choose three metrics to predict maintainability and defect rates org-wide. Weights and why?**
+**Q: L7 Choose three metrics to predict maintainability and defect rates org-wide. Weights and why?**
 
 > I'd choose change coupling (churn × complexity), efferent coupling, and mutation score — weighted roughly 40/35/25.
 

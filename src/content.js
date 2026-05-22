@@ -10,6 +10,12 @@ function injectContentDisplay() {
       <div class="content-body">
         <p id="content-text"></p>
       </div>
+      <div class="content-rating-buttons" style="display: none;">
+        <button class="content-rating-btn btn-very-hard" data-score="-0.15" title="Very Hard">✕</button>
+        <button class="content-rating-btn btn-hard" data-score="-0.10" title="Hard">−</button>
+        <button class="content-rating-btn btn-good" data-score="0.10" title="Good">✓</button>
+        <button class="content-rating-btn btn-easy" data-score="0.15" title="Easy">★</button>
+      </div>
     </div>
   `;
 
@@ -35,6 +41,12 @@ function injectContentDisplay() {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       display: flex;
       flex-direction: column;
+      transition: all 0.2s ease;
+    }
+
+    .learning-content-widget:hover {
+      max-height: 280px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
     }
 
     .content-header {
@@ -61,6 +73,63 @@ function injectContentDisplay() {
       font-size: 13px;
       line-height: 1.5;
       color: #374151;
+    }
+
+    .content-rating-buttons {
+      display: none;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      padding: 12px 16px;
+      border-top: 1px solid #e5e7eb;
+      background: #fafbfc;
+    }
+
+    .learning-content-widget:hover .content-rating-buttons {
+      display: grid;
+    }
+
+    .content-rating-btn {
+      padding: 8px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: white;
+      font-family: inherit;
+    }
+
+    .btn-very-hard {
+      background: #ef4444;
+    }
+
+    .btn-very-hard:hover {
+      background: #dc2626;
+    }
+
+    .btn-hard {
+      background: #f97316;
+    }
+
+    .btn-hard:hover {
+      background: #ea580c;
+    }
+
+    .btn-good {
+      background: #3b82f6;
+    }
+
+    .btn-good:hover {
+      background: #2563eb;
+    }
+
+    .btn-easy {
+      background: #22c55e;
+    }
+
+    .btn-easy:hover {
+      background: #16a34a;
     }
   `;
 
@@ -307,14 +376,12 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   }
 });
 
-// Inyectar modal y content display al cargar la página
+// Inyectar content display al cargar la página
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    injectModal();
     injectContentDisplay();
   });
 } else {
-  injectModal();
   injectContentDisplay();
 }
 
@@ -329,5 +396,12 @@ document.addEventListener('click', (e) => {
   } else if (e.target.id === 'modal-correct') {
     hideModal();
     chrome.runtime.sendMessage({ action: 'buttonClicked', buttonIndex: 1, notificationId: currentNotificationId });
+  } else if (e.target.classList.contains('content-rating-btn')) {
+    const score = parseFloat(e.target.getAttribute('data-score'));
+    chrome.runtime.sendMessage({
+      action: 'recordRating',
+      score: score,
+      notificationId: currentNotificationId
+    });
   }
 });

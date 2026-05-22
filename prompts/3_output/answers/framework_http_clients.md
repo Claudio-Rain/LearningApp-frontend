@@ -6,7 +6,7 @@
 
 ### HTTP Fundamentals
 
-**Q: What are HTTP request headers?**
+**Q: L1 What are HTTP request headers?**
 
 > Request headers are key-value metadata the client sends alongside the request to convey context about the payload, client capabilities, and authentication.
 
@@ -20,13 +20,13 @@ if (context.Request.Headers.TryGetValue("X-API-Key", out var apiKey))
 
 ---
 
-**Q: Name five common HTTP request headers and explain their purpose.**
+**Q: L1 Name five common HTTP request headers and explain their purpose.**
 
 `Content-Type` (body format), `Accept` (desired response format), `Authorization` (credentials/token), `X-Correlation-Id` (trace ID), `User-Agent` (client identity/version). Getting `Content-Type` vs `Accept` wrong is the most common cause of 415/406 errors.
 
 ---
 
-**Q: Explain the five HTTP status code classes (1xx–5xx) with one example each.**
+**Q: L1 Explain the five HTTP status code classes (1xx–5xx) with one example each.**
 
 > Status codes group by intent: informational, success, redirection, client error, and server error — each class tells the client who is responsible and what to do next.
 
@@ -45,7 +45,7 @@ public IActionResult CreateUser(UserDto dto)
 
 ---
 
-**Q: What's the difference between `Content-Type` and `Accept` headers?**
+**Q: L1 What's the difference between `Content-Type` and `Accept` headers?**
 
 > `Content-Type` describes what you are sending; `Accept` describes what you want to receive — they flow in opposite directions.
 
@@ -61,7 +61,7 @@ request.Headers.Add("Accept", "application/json");
 
 ---
 
-**Q: Why should `Authorization` headers never be logged verbatim?**
+**Q: L1 Why should `Authorization` headers never be logged verbatim?**
 
 > The `Authorization` header carries credentials or bearer tokens that grant access, so logging it verbatim means your log store becomes an attack surface equivalent to a leaked password file.
 
@@ -78,7 +78,7 @@ logger.LogInformation("Request auth: {AuthHeader}", redacted);
 
 ### ASP.NET Pipeline Basics
 
-**Q: What's the difference between `app.Use` and `app.Run`?**
+**Q: L1 What's the difference between `app.Use` and `app.Run`?**
 
 > `app.Use` is non-terminal and calls `next()` to continue the pipeline; `app.Run` is terminal and short-circuits it.
 
@@ -91,7 +91,7 @@ app.Run(async context => await context.Response.WriteAsync("Done")); // terminal
 
 ---
 
-**Q: Should cross-cutting concerns (logging, auth, CORS) go in middleware or action filters?**
+**Q: L1 Should cross-cutting concerns (logging, auth, CORS) go in middleware or action filters?**
 
 > Use middleware for infrastructure concerns that apply to all requests; use action filters for concerns that need MVC context like model state, action descriptors, or controller metadata.
 
@@ -113,7 +113,7 @@ public IActionResult MyAction() { }
 
 ### Middleware Pipeline
 
-**Q: What happens in the middleware pipeline when `next()` is called vs when it's not?**
+**Q: L2 What happens in the middleware pipeline when `next()` is called vs when it's not?**
 
 > The pipeline is a nested delegate chain — calling `next()` passes control inward toward the endpoint; not calling it short-circuits everything downstream.
 
@@ -132,7 +132,7 @@ app.Use(async (ctx, next) =>
 
 ---
 
-**Q: Why does middleware registration order matter? Give a security example.**
+**Q: L2 Why does middleware registration order matter? Give a security example.**
 
 > Order is execution order — registering authorization before authentication means you are checking permissions before you know who the user is, which always evaluates to "anonymous."
 
@@ -150,7 +150,7 @@ app.UseAuthorization(); // User is populated
 
 ---
 
-**Q: When should you use `IMiddleware` instead of convention-based middleware?**
+**Q: L2 When should you use `IMiddleware` instead of convention-based middleware?**
 
 > Use `IMiddleware` when your middleware has scoped or transient dependencies — it gets instantiated per-request from DI rather than once at startup.
 
@@ -169,7 +169,7 @@ app.UseMiddleware<MyMiddleware>();
 
 ---
 
-**Q: What are the common request feature interfaces and when would you use them?**
+**Q: L2 What are the common request feature interfaces and when would you use them?**
 
 > Feature interfaces like `IHttpRequestFeature`, `IHttpResponseFeature`, `IHttpConnectionFeature`, and `IHttpUpgradeFeature` provide direct access to low-level HTTP capabilities when you need to go beyond `HttpContext`'s convenience properties.
 
@@ -188,7 +188,7 @@ responseFeature?.ReasonPhrase = "Custom reason";
 
 ### HTTP Headers in ASP.NET
 
-**Q: How do you safely read an optional request header in ASP.NET Core?**
+**Q: L2 How do you safely read an optional request header in ASP.NET Core?**
 
 > Headers are exposed via `HttpContext.Request.Headers` as an `IHeaderDictionary`, and the safe read pattern is `TryGetValue` or the indexer with a null/StringValues check.
 
@@ -204,7 +204,7 @@ if (context.Request.Headers.TryGetValue("X-Correlation-Id", out var correlationI
 
 ---
 
-**Q: How does `HttpRequestHeaders` differ from `IHeaderDictionary`?**
+**Q: L2 How does `HttpRequestHeaders` differ from `IHeaderDictionary`?**
 
 > `HttpRequestHeaders` is the typed, strongly-validated header collection on an outgoing `HttpRequestMessage`; `IHeaderDictionary` is the raw key-value store on an incoming request.
 
@@ -221,7 +221,7 @@ var headerValue = context.Request.Headers["Authorization"]; // string/StringValu
 
 ---
 
-**Q: Why can't you set restricted headers like `Host` or `Content-Length` via `DefaultRequestHeaders`?**
+**Q: L2 Why can't you set restricted headers like `Host` or `Content-Length` via `DefaultRequestHeaders`?**
 
 > Restricted headers are automatically computed or controlled by the HTTP stack itself — letting user code override them would produce invalid or inconsistent requests.
 
@@ -240,7 +240,7 @@ msg.Headers.TryAddWithoutValidation("Content-Length", "100");
 
 ### Status Codes
 
-**Q: Why is tunneling errors through `200 OK` problematic?**
+**Q: L2 Why is tunneling errors through `200 OK` problematic?**
 
 > Tunneling errors through 200 breaks every layer that relies on HTTP semantics — retry logic, caches, monitoring, and client error handling all become blind.
 
@@ -259,7 +259,7 @@ return BadRequest(new { error = "Insufficient funds" });
 
 ---
 
-**Q: When should you return `400` vs `422`?**
+**Q: L2 When should you return `400` vs `422`?**
 
 > `400` means the request was malformed (can't be parsed); `422` means it was syntactically valid but semantically invalid (failed business rules or validation).
 
@@ -279,7 +279,7 @@ builder.Services.AddControllers(options =>
 
 ### Manipulating Headers
 
-**Q: Show how you would add a custom `X-Correlation-Id` header to every outgoing `HttpClient` request without duplicating code in each call site.**
+**Q: L3 Show how you would add a custom `X-Correlation-Id` header to every outgoing `HttpClient` request without duplicating code in each call site.**
 
 > Implement a `DelegatingHandler` and register it with `IHttpClientFactory` — it intercepts every request transparently.
 
@@ -304,7 +304,7 @@ builder.Services.AddHttpClient<MyApiClient>()
 
 ---
 
-**Q: How do you remove sensitive headers like `Server` from responses?**
+**Q: L3 How do you remove sensitive headers like `Server` from responses?**
 
 > Use `app.UseSecurityHeaders()` or configure Kestrel directly via `KestrelServerOptions.AddServerHeader = false`.
 
@@ -320,7 +320,7 @@ builder.WebHost.UseKestrel(options =>
 
 ---
 
-**Q: Why does `DefaultRequestHeaders` throw `InvalidOperationException` after the first request?**
+**Q: L3 Why does `DefaultRequestHeaders` throw `InvalidOperationException` after the first request?**
 
 > `DefaultRequestHeaders` cannot be mutated after the first request because `HttpClient` becomes "locked" — move per-request headers to `HttpRequestMessage.Headers` instead.
 
@@ -341,7 +341,7 @@ msg.Headers.Add("X-Custom", "val");
 
 ### Content Negotiation & Formatters
 
-**Q: What's the difference between `XmlSerializer` and `XmlDataContractSerializer` formatters?**
+**Q: L3 What's the difference between `XmlSerializer` and `XmlDataContractSerializer` formatters?**
 
 > It registers both XML formatters so the pipeline can serialize/deserialize XML — `XmlSerializer` uses public property convention while `XmlDataContractSerializer` uses `[DataContract]`/`[DataMember]` attributes.
 
@@ -362,7 +362,7 @@ public class User
 
 ---
 
-**Q: What does `RespectBrowserAcceptHeader` do and when should it be `true`?**
+**Q: L3 What does `RespectBrowserAcceptHeader` do and when should it be `true`?**
 
 > It controls whether the formatter pipeline honors a browser's `Accept: text/html` preference — it's `false` by default so browsers always get JSON from APIs instead of a 406.
 
@@ -378,7 +378,7 @@ builder.Services.AddControllers(options =>
 
 ---
 
-**Q: How does content negotiation select a formatter based on `Accept` headers?**
+**Q: L3 How does content negotiation select a formatter based on `Accept` headers?**
 
 > The selector scores each registered formatter against the Accept header by quality factor and picks the highest-scoring match; if nothing matches, it returns `406 Not Acceptable` by default.
 
@@ -395,7 +395,7 @@ builder.Services.AddControllers(options =>
 
 ---
 
-**Q: How do you force all responses to JSON regardless of `Accept` header?**
+**Q: L3 How do you force all responses to JSON regardless of `Accept` header?**
 
 > Set `MvcOptions.RespectBrowserAcceptHeader = false` (already default) and remove all non-JSON formatters — or set `ReturnHttpNotAcceptable = false` to always fall back to JSON.
 
@@ -413,7 +413,7 @@ builder.Services.AddControllers(options =>
 
 ### Consume and Produce Filters
 
-**Q: What's the difference between `[Consumes]` and `[Produces]`?**
+**Q: L3 What's the difference between `[Consumes]` and `[Produces]`?**
 
 > `[Consumes]` filters which actions match an incoming request by `Content-Type` and affects routing; `[Produces]` restricts the output formatter and signals to clients what the response will be.
 
@@ -428,7 +428,7 @@ public IActionResult Create(UserDto dto) => CreatedAtAction(nameof(GetUser), use
 
 ---
 
-**Q: What status code is returned when `Content-Type` doesn't match `[Consumes]`?**
+**Q: L3 What status code is returned when `Content-Type` doesn't match `[Consumes]`?**
 
 > `415 Unsupported Media Type` — ASP.NET Core's action selector rejects the request before the action method is ever invoked because no registered action accepts `text/plain`.
 
@@ -444,7 +444,7 @@ The MVC framework uses `[Consumes]` as a routing constraint, not just a document
 
 ### File Uploads
 
-**Q: How do you bind file uploads with `IFormFile` and what `Content-Type` is required?**
+**Q: L3 How do you bind file uploads with `IFormFile` and what `Content-Type` is required?**
 
 > Declare `IFormFile` as a parameter and the client must send `multipart/form-data` — the multipart boundary is what allows both file bytes and form fields to coexist in one body.
 
@@ -462,7 +462,7 @@ public async Task<IActionResult> Upload(IFormFile file)
 
 ---
 
-**Q: How do you increase the max request body size for a specific endpoint?**
+**Q: L3 How do you increase the max request body size for a specific endpoint?**
 
 > Kestrel's default max request body size is 30 MB — override it per-endpoint with `[RequestSizeLimit]` or `[DisableRequestSizeLimit]`.
 
@@ -484,7 +484,7 @@ public async Task<IActionResult> UploadLarge(IFormFile file)
 
 ### Middleware Pitfalls
 
-**Q: Why does reading `Request.Body` in middleware cause downstream handlers to receive empty models?**
+**Q: L4 Why does reading `Request.Body` in middleware cause downstream handlers to receive empty models?**
 
 > `Request.Body` is a forward-only stream — once read, the position is at the end and downstream middleware reads nothing; fix it by either enabling buffering or copying and replacing the stream.
 
@@ -502,7 +502,7 @@ app.Use(async (context, next) =>
 
 ---
 
-**Q: Why is capturing `HttpContext` in background tasks dangerous?**
+**Q: L4 Why is capturing `HttpContext` in background tasks dangerous?**
 
 > `HttpContext` is request-scoped and gets recycled after the response completes — accessing it from a background task after that point causes `ObjectDisposedException` or silently reads stale data from a recycled context.
 
@@ -519,7 +519,7 @@ _ = Task.Run(async () => { await Log(correlationId); });
 
 ---
 
-**Q: Should you use `HttpContext.Items` or scoped services for per-request state?**
+**Q: L4 Should you use `HttpContext.Items` or scoped services for per-request state?**
 
 > Scoped services are strongly typed, DI-testable, and don't require magic string keys; `HttpContext.Items` is a weakly typed dictionary that couples middleware to shared key constants.
 
@@ -538,7 +538,7 @@ context.Items["CorrelationId"] = Guid.NewGuid().ToString();
 
 ### Custom Formatters
 
-**Q: What base classes do you extend to create custom formatters?**
+**Q: L4 What base classes do you extend to create custom formatters?**
 
 > Extend `InputFormatter` (or `TextInputFormatter`) for reading request bodies and `OutputFormatter` (or `TextOutputFormatter`) for writing responses.
 
@@ -562,7 +562,7 @@ public class CsvOutputFormatter : TextOutputFormatter
 
 ---
 
-**Q: What three things do you check if a custom formatter isn't being selected?**
+**Q: L4 What three things do you check if a custom formatter isn't being selected?**
 
 > Check that `SupportedMediaTypes` is populated, that the client's `Accept` header actually matches one of those types, and that the formatter is registered before the catch-all JSON formatter.
 
@@ -584,7 +584,7 @@ public class CsvFormatter : OutputFormatter
 
 ### File Upload Pitfalls
 
-**Q: What layers enforce request body size limits (Kestrel, IIS, NGINX)?**
+**Q: L4 What layers enforce request body size limits (Kestrel, IIS, NGINX)?**
 
 > Three independent layers enforce body size limits — Kestrel, IIS (via `web.config`), and NGINX (via `client_max_body_size`) — all three must be raised.
 
@@ -601,7 +601,7 @@ builder.WebHost.UseKestrel(opt =>
 
 ---
 
-**Q: Why should you avoid `ReadToEnd()` for large file uploads?**
+**Q: L4 Why should you avoid `ReadToEnd()` for large file uploads?**
 
 > `ReadToEnd()` buffers the entire file in memory, which exhausts server RAM under concurrency; stream the file in chunks or pipe it directly to storage.
 
@@ -620,7 +620,7 @@ await file.CopyToAsync(targetStream);
 
 ### Headers Pitfalls
 
-**Q: Why is sharing a static `HttpClient` and mutating headers concurrently dangerous?**
+**Q: L4 Why is sharing a static `HttpClient` and mutating headers concurrently dangerous?**
 
 > `DefaultRequestHeaders` is not thread-safe — concurrent mutations corrupt the header collection, causing intermittent wrong headers or exceptions under load.
 
@@ -641,7 +641,7 @@ services.AddHttpClient<MyClient>();
 
 ### Pipeline Architecture
 
-**Q: Where should request validation go: middleware, action filters, or domain models?**
+**Q: L6 Where should request validation go: middleware, action filters, or domain models?**
 
 > Middleware for format/auth validation, action filters for MVC-specific cross-cutting concerns, and domain models for business-rule validation — pushing too early sacrifices context; pushing too late sacrifices performance.
 
@@ -668,7 +668,7 @@ public class User
 
 ---
 
-**Q: How do you structure formatter registration for easy extensibility?**
+**Q: L6 How do you structure formatter registration for easy extensibility?**
 
 > Register formatters in an extension method driven by feature flags or configuration, with a clear registration order, so adding a fourth format is a one-line addition.
 
@@ -693,7 +693,7 @@ builder.Services.AddApiFormatters(builder.Configuration);
 
 ---
 
-**Q: How do you strip PII from logs: middleware, sink, or enricher?**
+**Q: L6 How do you strip PII from logs: middleware, sink, or enricher?**
 
 > A structured-logging enricher is the right tool because PII scrubbing belongs in the logging pipeline, not in application code, and an enricher operates on structured properties before they reach any sink.
 
@@ -719,7 +719,7 @@ public class PiiRedactionEnricher : ILogEventEnricher
 
 ### Streaming vs Buffering
 
-**Q: What are the memory and latency trade-offs between buffering vs streaming file uploads?**
+**Q: L6 What are the memory and latency trade-offs between buffering vs streaming file uploads?**
 
 > Buffering enables seeking and re-reading at the cost of memory (and disk spill for large files); streaming minimizes memory footprint but requires single-pass processing.
 
@@ -738,7 +738,7 @@ Request.Body.Position = 0; // re-read
 
 ---
 
-**Q: How does `EnableBuffering()` work and what are its memory implications?**
+**Q: L6 How does `EnableBuffering()` work and what are its memory implications?**
 
 > `EnableBuffering()` replaces the raw request body stream with a `FileBufferingReadStream` that buffers in memory up to a threshold (default 30 KB) then spills to a temp file.
 
@@ -755,7 +755,7 @@ request.Body.Position = 0; // rewind for next reader
 
 ### Feature Collection Mutability
 
-**Q: Why would you swap `IHttpResponseBodyFeature` mid-pipeline and what are the risks?**
+**Q: L6 Why would you swap `IHttpResponseBodyFeature` mid-pipeline and what are the risks?**
 
 > Response compression middleware swaps `IHttpResponseBodyFeature` to wrap the response stream with a compressor — the risk is that any middleware that cached a reference to the original stream now writes to the wrong place.
 
@@ -774,7 +774,7 @@ await context.Response.Body.WriteAsync(...); // uses wrapped stream
 
 ---
 
-**Q: What formatter features do minimal APIs lose and how do you recover them?**
+**Q: L6 What formatter features do minimal APIs lose and how do you recover them?**
 
 > Minimal APIs don't run `ObjectResult` through `DefaultOutputFormatterSelector`, so you lose automatic Accept-header-driven content negotiation — you must implement it manually or return `Results.Content` with explicit media types.
 
@@ -800,7 +800,7 @@ app.MapGet("/users", (HttpContext ctx) =>
 
 ### Expert Debugging
 
-**Q: How do you diagnose `ObjectDisposedException` on `HttpContext.Response.Body`?**
+**Q: L7 How do you diagnose `ObjectDisposedException` on `HttpContext.Response.Body`?**
 
 > The most common cause is a middleware or background task writing to the response after `HttpContext` has been disposed — typically a fire-and-forget continuation that outlives the request lifetime.
 

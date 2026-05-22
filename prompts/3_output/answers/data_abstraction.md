@@ -6,7 +6,7 @@
 
 ---
 
-**Q: What is data abstraction and why is it essential in OOP?**
+**Q: L1 What is data abstraction and why is it essential in OOP?**
 
 > Data abstraction means hiding how something works internally and only exposing what callers need to use it.
 
@@ -20,7 +20,7 @@ numbers.Sort(); // Works the same regardless of internal algorithm
 
 ---
 
-**Q: What problems result from exposing all internal implementation details?**
+**Q: L1 What problems result from exposing all internal implementation details?**
 
 > Every caller becomes coupled to the internals, so any internal change can break unrelated code.
 
@@ -44,7 +44,7 @@ class User
 
 ---
 
-**Q: What's the difference between concrete and abstract types?**
+**Q: L1 What's the difference between concrete and abstract types?**
 
 > A concrete type is something you can create an instance of; an abstract type is a template that says "here's the shape, you fill it in."
 
@@ -60,7 +60,7 @@ Dog d = new Dog(); // works
 
 ---
 
-**Q: What is an abstract class, and what makes it different from a regular class?**
+**Q: L1 What is an abstract class, and what makes it different from a regular class?**
 
 > An abstract class is a class you cannot instantiate directly — it's meant to be a base that subclasses must complete.
 
@@ -68,7 +68,7 @@ It can have a mix of implemented and unimplemented members. The unimplemented on
 
 ---
 
-**Q: What is an interface, and what contract does it impose on any class that implements it?**
+**Q: L1 What is an interface, and what contract does it impose on any class that implements it?**
 
 > An interface defines a set of members that any implementing class must provide — it's a pure contract with no implementation.
 
@@ -86,7 +86,7 @@ class CreditCardProcessor : IPaymentProcessor
 
 ---
 
-**Q: Why can't you instantiate an abstract class directly?**
+**Q: L1 Why can't you instantiate an abstract class directly?**
 
 > It's intentionally incomplete — it has abstract members with no implementation. The restriction enforces that it's only useful as a base.
 
@@ -98,7 +98,7 @@ abstract class Logger { public abstract void Log(string msg); }
 
 ---
 
-**Q: Why does C# have both abstract classes and interfaces?**
+**Q: L1 Why does C# have both abstract classes and interfaces?**
 
 > Abstract classes let you share implementation and state; interfaces cannot. Abstract classes model "is a, with shared DNA" while interfaces model "can do."
 
@@ -118,7 +118,7 @@ class Dog : Animal, IMovable { public void Move() { } } // can mix with any clas
 
 ---
 
-**Q: What does `abstract` mean on a class vs. on a method?**
+**Q: L2 What does `abstract` mean on a class vs. on a method?**
 
 > On a class it means "not instantiable, must be subclassed"; on a member it means "no implementation here — subclasses must provide one."
 
@@ -133,7 +133,7 @@ class Derived : Base { public override void Foo() { } } // subclass fulfills the
 
 ---
 
-**Q: Can an abstract class have concrete members, and why would you mix both?**
+**Q: L2 Can an abstract class have concrete members, and why would you mix both?**
 
 > Yes — that's the main advantage over interfaces. Concrete members hold shared logic; abstract members define what subclasses must customize.
 
@@ -155,7 +155,7 @@ abstract class DataProcessor
 
 ---
 
-**Q: What happens if a subclass doesn't implement all inherited abstract members?**
+**Q: L2 What happens if a subclass doesn't implement all inherited abstract members?**
 
 > It's a compile error — the class must either implement all abstract members or be declared abstract itself.
 
@@ -170,7 +170,7 @@ class Circle : Shape { public override double Area => 3.14; } // fixed
 
 ---
 
-**Q: What is polymorphism and how do `virtual`/`override` enable it?**
+**Q: L2 What is polymorphism and how do `virtual`/`override` enable it?**
 
 > Polymorphism means one reference type can behave differently at runtime depending on the actual object it holds, and `virtual`/`override` is the mechanism that wires that up.
 
@@ -193,7 +193,7 @@ Console.WriteLine(s2.Area); // calls Square.Area at runtime
 
 ---
 
-**Q: What's the difference between `virtual`, `override`, and `new`?**
+**Q: L2 What's the difference between `virtual`, `override`, and `new`?**
 
 > `virtual` opens a slot for overriding, `override` fills that slot polymorphically, and `new` hides the base method without participating in polymorphism.
 
@@ -206,13 +206,13 @@ b.Method(); // virtual+override → Derived.Method; new → Base.Method
 
 ---
 
-**Q: Why does C# require `virtual` while Java makes all methods virtual by default?**
+**Q: L2 Why does C# require `virtual` while Java makes all methods virtual by default?**
 
 > C# is opt-in (non-virtual by default) for performance and design clarity — you're explicit about what's extensible, not just what subclass authors happened to override.
 
 ---
 
-**Q: What are the key differences between interfaces and abstract classes?**
+**Q: L2 What are the key differences between interfaces and abstract classes?**
 
 > Inheritance multiplicity (one class vs. many interfaces), state (abstract classes have fields; interfaces don't), constructors (abstract classes can enforce initialization; interfaces can't), and access levels (protected helpers vs. public only).
 
@@ -220,7 +220,7 @@ A class can implement many orthogonal interfaces (`IDisposable`, `IComparable`) 
 
 ---
 
-**Q: Why can't interfaces hold state?**
+**Q: L2 Why can't interfaces hold state?**
 
 > Interfaces are pure behavioral contracts. If they held fields, two interfaces with the same field would be ambiguous. State belongs in concrete classes, not contracts.
 
@@ -236,7 +236,7 @@ class MyClass : IA, IB { private int _id; }
 
 ---
 
-**Q: When should you use abstract classes instead of interfaces?**
+**Q: L2 When should you use abstract classes instead of interfaces?**
 
 > When you have shared implementation or state that subclasses need — abstract classes for "is-a with shared DNA," interfaces for "can-do."
 
@@ -259,7 +259,7 @@ class UserRepository : Repository<User> { public override User GetById(int id) =
 
 ---
 
-**Q: Write a short C# example that defines an abstract class `Shape` with an abstract property `Area` and an abstract method `Describe()`. Then write a concrete class `Circle` that inherits from it and provides full implementations.**
+**Q: L3 Write a short C# example that defines an abstract class `Shape` with an abstract property `Area` and an abstract method `Describe()`. Then write a concrete class `Circle` that inherits from it and provides full implementations.**
 
 > Abstract classes define the contract; concrete subclasses fulfill it.
 
@@ -284,7 +284,7 @@ class Circle : Shape
 
 ---
 
-**Q: How does polymorphism ensure the correct `Describe()` is called inside `PrintInfo()`?**
+**Q: L3 How does polymorphism ensure the correct `Describe()` is called inside `PrintInfo()`?**
 
 > Because `Describe()` is virtual (abstract implies virtual), the runtime dispatches to the actual object's type, not the reference type.
 
@@ -300,7 +300,7 @@ abstract class Shape
 
 ---
 
-**Q: Define a base class `Logger` with a virtual method `Log(string message)`. Show how two subclasses — `FileLogger` and `ConsoleLogger` — override it, and demonstrate calling `Log` through a `Logger` reference.**
+**Q: L3 Define a base class `Logger` with a virtual method `Log(string message)`. Show how two subclasses — `FileLogger` and `ConsoleLogger` — override it, and demonstrate calling `Log` through a `Logger` reference.**
 
 > Virtual dispatch lets you call the right logger through a base-class reference without knowing the concrete type.
 
@@ -326,7 +326,7 @@ logger.Log("started"); // writes to file
 
 ---
 
-**Q: When should you call `base.Method()` in an override?**
+**Q: L3 When should you call `base.Method()` in an override?**
 
 > Call `base` when it has side effects or initialization your override depends on; skip it when you're fully replacing the behavior.
 
@@ -352,7 +352,7 @@ class Button : UIControl
 
 ---
 
-**Q: Why can a class implement multiple interfaces but only inherit one base class?**
+**Q: L3 Why can a class implement multiple interfaces but only inherit one base class?**
 
 > Interfaces carry no implementation or state, so there's nothing to conflict or duplicate when a class implements multiple of them.
 
@@ -371,7 +371,7 @@ class Robot : IMovable, IChargeable
 
 ---
 
-**Q: What is explicit interface implementation and when do you use it?**
+**Q: L3 What is explicit interface implementation and when do you use it?**
 
 > Explicit implementation ties a method directly to the interface, making it invisible on the class type — only accessible through an interface reference.
 
@@ -393,7 +393,7 @@ MyClass obj = new MyClass();
 
 ---
 
-**Q: When should you use explicit interface implementation?**
+**Q: L3 When should you use explicit interface implementation?**
 
 > Use it when two interfaces have a member with the same name but different intended semantics, or when you want to hide infrastructure-level interface members from the public API.
 
@@ -401,7 +401,7 @@ Classic example: a class implements both `IEnumerable<T>` and the older non-gene
 
 ---
 
-**Q: Should a plugin system contract be an interface or abstract class?**
+**Q: L3 Should a plugin system contract be an interface or abstract class?**
 
 > Publish an interface — it gives third-party developers maximum flexibility and doesn't constrain their class hierarchy.
 
@@ -413,7 +413,7 @@ Third parties may already have a base class they need to inherit from. If you pu
 
 ---
 
-**Q: What happens if a subclass doesn't call `base(...)` in its constructor?**
+**Q: L4 What happens if a subclass doesn't call `base(...)` in its constructor?**
 
 > The initialization in the base constructor is skipped, leaving the object in an invalid state that may cause null refs or wrong behavior later.
 
@@ -428,7 +428,7 @@ class GoodLogger : Logger { public GoodLogger() : base() { } } // forces base() 
 
 ---
 
-**Q: Can an abstract class implement an interface without implementing all members?**
+**Q: L4 Can an abstract class implement an interface without implementing all members?**
 
 > Yes, and it doesn't have to implement all members — it can declare the unimplemented ones as abstract, pushing the obligation to concrete subclasses.
 
@@ -454,7 +454,7 @@ class UserRepository : RepositoryBase<User>
 
 ---
 
-**Q: What happens when you use `new` instead of `override`?**
+**Q: L4 What happens when you use `new` instead of `override`?**
 
 > The base-class version runs because `new` hides the method without replacing the vtable slot, so the runtime doesn't know about the subclass version.
 
@@ -462,7 +462,7 @@ class UserRepository : RepositoryBase<User>
 
 ---
 
-**Q: A virtual method override isn't being called. What are the possible causes?**
+**Q: L4 A virtual method override isn't being called. What are the possible causes?**
 
 > The most common cause is that the object is actually of the base type, not the derived type — check what's actually being instantiated.
 
@@ -470,7 +470,7 @@ I'd start by logging or inspecting `obj.GetType()` at the call site to confirm t
 
 ---
 
-**Q: Why can't you call an explicitly implemented interface method on a concrete type?**
+**Q: L4 Why can't you call an explicitly implemented interface method on a concrete type?**
 
 > Explicit interface members are invisible on the concrete type — they only exist on the interface type, so the compiler can't find `Bar()` on `obj`.
 
@@ -478,7 +478,7 @@ The two fixes are: cast to the interface — `((IFoo)obj).Bar()` — or change t
 
 ---
 
-**Q: What happens when two interfaces declare the same member?**
+**Q: L4 What happens when two interfaces declare the same member?**
 
 > Without explicit implementation, one shared public method satisfies both interfaces; explicit implementation lets you provide distinct implementations for each.
 
@@ -486,7 +486,7 @@ If `IFoo` and `IBar` both declare `void Process()` and you need them to do diffe
 
 ---
 
-**Q: How does C# resolve diamond inheritance in interfaces with default members?**
+**Q: L4 How does C# resolve diamond inheritance in interfaces with default members?**
 
 > If two interfaces provide a default implementation of the same method and a third interface or class inherits both, the compiler forces you to explicitly override to resolve the ambiguity.
 
@@ -494,7 +494,7 @@ Say `IA` and `IB` both provide a default `void Log()`, and `IC` extends both. A 
 
 ---
 
-**Q: What does `sealed` do and why would you use it?**
+**Q: L4 What does `sealed` do and why would you use it?**
 
 > `sealed` on a class prevents inheritance; on a method it prevents further overriding — and no, it's not a contradiction, it's how you close an override chain.
 
@@ -502,7 +502,7 @@ You'd seal a class when you want a finalized implementation that shouldn't be ex
 
 ---
 
-**Q: Is explicit interface implementation a feature or a footgun?**
+**Q: L4 Is explicit interface implementation a feature or a footgun?**
 
 > It's a feature when used deliberately for API hygiene, but a footgun when callers don't know the interface exists or aren't working at the interface level.
 
@@ -514,7 +514,7 @@ The surprise happens most often with auto-complete — developers type `obj.` an
 
 ---
 
-**Q: Should a framework extension point be an abstract class or interface?**
+**Q: L5 Should a framework extension point be an abstract class or interface?**
 
 > Choose an abstract class when you have shared implementation or state to offer; but with C# 8+ default interface members, the versioning argument for abstract classes has weakened significantly.
 
@@ -522,7 +522,7 @@ Historically, abstract classes were preferred for long-lived frameworks because 
 
 ---
 
-**Q: How many members should an interface have?**
+**Q: L5 How many members should an interface have?**
 
 > Apply Interface Segregation — keep them small so callers only depend on what they use.
 
@@ -530,7 +530,7 @@ If you have to mock 15 methods to test something using 2, it's too wide. If you 
 
 ---
 
-**Q: How do you combine abstract classes and interfaces in a design?**
+**Q: L5 How do you combine abstract classes and interfaces in a design?**
 
 > Interface defines the contract; abstract class provides shared implementation. Example: `IRepository<T>` is the interface, `RepositoryBase<T>` implements common CRUD logic, concrete classes inherit from it but are coded to the interface.
 
@@ -558,7 +558,7 @@ public void ProcessUser(IRepository<User> repo) { var user = repo.GetById(1); }
 
 ---
 
-**Q: What are the trade-offs between Template Method and Strategy patterns?**
+**Q: L5 What are the trade-offs between Template Method and Strategy patterns?**
 
 > Template Method couples to a hierarchy and varies along one axis; Strategy is more flexible but adds indirection.
 
@@ -566,7 +566,7 @@ Use Template Method for single-axis variation (different subclasses for differen
 
 ---
 
-**Q: How can a class hierarchy violate the Liskov Substitution Principle?**
+**Q: L5 How can a class hierarchy violate the Liskov Substitution Principle?**
 
 > A subclass violates LSP by narrowing the contract — throwing unexpected exceptions, ignoring parameters, or failing on inputs the base class handles.
 
@@ -586,7 +586,7 @@ r.Height = 10; // but now Width is also 10!
 
 ---
 
-**Q: When should you refactor deep inheritance hierarchies toward composition?**
+**Q: L5 When should you refactor deep inheritance hierarchies toward composition?**
 
 > When you need to vary behavior along multiple independent dimensions — inheritance only gives you one axis.
 
@@ -611,7 +611,7 @@ var fastElectric = new Vehicle(new FastElectricEngine(), new BatteryFuel());
 
 ---
 
-**Q: How do you refactor a wide interface (20+ members)?**
+**Q: L5 How do you refactor a wide interface (20+ members)?**
 
 > Split into focused role interfaces: `IReader`, `IWriter`, `IValidator`, then have the original extend all of them for backward compatibility.
 
@@ -638,7 +638,7 @@ public void ProcessData(IReader<User> reader) { var user = reader.Read(1); }
 
 ---
 
-**Q: What are covariance and contravariance in generic interfaces?**
+**Q: L7 What are covariance and contravariance in generic interfaces?**
 
 > Covariance means you can use a more-derived type where a base is expected; contravariance is the reverse — and classes can't have these because they have mutable state that would make it unsafe.
 
@@ -660,7 +660,7 @@ List<Dog> dogList = new List<Dog>();
 
 ---
 
-**Q: Can you make `IRepository<T>` covariant?**
+**Q: L7 Can you make `IRepository<T>` covariant?**
 
 > Covariance is only safe if `T` only appears in output positions — return types — never as a method parameter or in-out position.
 
@@ -684,7 +684,7 @@ IRepository<Dog> dogRepo = ...;
 
 ---
 
-**Q: What are the problems with marker interfaces and what replaces them?**
+**Q: L7 What are the problems with marker interfaces and what replaces them?**
 
 > Marker interfaces pollute the type hierarchy and can't carry metadata — attributes, generic constraints, and source generators do the job better.
 
@@ -692,7 +692,7 @@ The problem with a marker interface is you discover at runtime whether it's ther
 
 ---
 
-**Q: How do you add a method to a published interface without breaking consumers?**
+**Q: L7 How do you add a method to a published interface without breaking consumers?**
 
 > Adding a member to a published interface is a breaking change for all implementors — version carefully and prefer additive strategies.
 
@@ -700,7 +700,7 @@ First, assess all consumers: how many teams implement this interface vs. just de
 
 ---
 
-**Q: How do abstraction boundaries enable parallel team development?**
+**Q: L7 How do abstraction boundaries enable parallel team development?**
 
 > Good abstraction boundaries let teams own their domain, change internals independently, and only coordinate at the interface contract level.
 
@@ -708,7 +708,7 @@ The signal that a boundary is in the wrong place is when teams have to coordinat
 
 ---
 
-**Q: When does the JIT devirtualize virtual calls?**
+**Q: L7 When does the JIT devirtualize virtual calls?**
 
 > The JIT devirtualizes when it can prove at compile time there's only one possible implementation — sealed classes and concrete-type references are the main enablers.
 
@@ -716,7 +716,7 @@ If a variable is declared as a `sealed` concrete type, the JIT knows there are n
 
 ---
 
-**Q: Is implementing interfaces on every class for testability a good idea?**
+**Q: L7 Is implementing interfaces on every class for testability a good idea?**
 
 > No. Abstractions should be earned, not applied by default. The costs are real: more files, more types, more drift between interface and implementation.
 

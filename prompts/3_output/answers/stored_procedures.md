@@ -4,7 +4,7 @@
 
 ---
 
-**Q: What is a stored procedure and how does it differ from a regular SQL query?**
+**Q: L1 What is a stored procedure and how does it differ from a regular SQL query?**
 
 > A stored procedure is a named, precompiled block of SQL (and procedural logic) that lives in the database and is invoked by name rather than by sending SQL text over the wire.
 
@@ -12,7 +12,7 @@ Raw queries parse, bind, and optimize on each execution (or hit a connection-sco
 
 ---
 
-**Q: Where does a stored procedure live in the database, and what is stored alongside the SQL text?**
+**Q: L1 Where does a stored procedure live in the database, and what is stored alongside the SQL text?**
 
 > The procedure definition is stored in the system catalog, and depending on the engine, a compiled execution plan may also be cached separately in memory.
 
@@ -20,7 +20,7 @@ SQL Server: `sys.sql_modules` (source), plan cache (compiled plan). PostgreSQL: 
 
 ---
 
-**Q: Why did stored procedures become a mainstream pattern in the 1990s, and what problems were they originally designed to solve?**
+**Q: L1 Why did stored procedures become a mainstream pattern in the 1990s, and what problems were they originally designed to solve?**
 
 > They were the answer to three concrete problems of that era: network round-trip cost, repeated parse/optimize overhead, and the need for a security layer between application users and raw tables.
 
@@ -28,7 +28,7 @@ Thin clients + expensive bandwidth: sending 20 bytes (`EXEC GetCustomer @id=42`)
 
 ---
 
-**Q: Is the claim "stored procedures are always faster than sending queries from the app" true? What's misleading about it?**
+**Q: L1 Is the claim "stored procedures are always faster than sending queries from the app" true? What's misleading about it?**
 
 > Plan reuse and reduced network overhead are real advantages, but they don't automatically make procedures faster, and several scenarios make them slower.
 
@@ -40,7 +40,7 @@ Thin clients + expensive bandwidth: sending 20 bytes (`EXEC GetCustomer @id=42`)
 
 ---
 
-**Q: What are IN, OUT, and INOUT parameters? When would you use OUT over a result set?**
+**Q: L2 What are IN, OUT, and INOUT parameters? When would you use OUT over a result set?**
 
 > IN passes a value to the procedure, OUT passes a value back to the caller, and INOUT does both — and you choose OUT over a result set when you need to return a small number of scalar values without the overhead of a row buffer.
 
@@ -66,7 +66,7 @@ EXEC InsertUser 'Alice', @Id OUT, @Error OUT;
 
 ---
 
-**Q: How do default parameter values work? What bug can arise when omitting a parameter?**
+**Q: L2 How do default parameter values work? What bug can arise when omitting a parameter?**
 
 > Defaults let callers omit arguments, but in SQL Server you must use named parameter syntax to skip a middle parameter — positional omission silently uses the wrong default.
 
@@ -85,7 +85,7 @@ EXEC GetUsers @Limit = 50, @Status = 'inactive';
 
 ---
 
-**Q: What is the risk of using NVARCHAR(MAX) or TEXT as a parameter type for every string argument?**
+**Q: L2 What is the risk of using NVARCHAR(MAX) or TEXT as a parameter type for every string argument?**
 
 > It prevents the optimizer from accurately estimating cardinality and disables certain index seeks, and it signals you haven't thought about your data contract.
 
@@ -93,7 +93,7 @@ Disables index seeks, causes unnecessary memory grants and disk spills. Match pa
 
 ---
 
-**Q: What looping constructs exist? When is a loop in a stored procedure a red flag, and when is it justified?**
+**Q: L2 What looping constructs exist? When is a loop in a stored procedure a red flag, and when is it justified?**
 
 > T-SQL has WHILE; PL/pgSQL has LOOP, WHILE, and FOR — and any loop that processes rows one at a time is a red flag because it throws away the set-based performance the database is designed for.
 
@@ -101,7 +101,7 @@ Red flag: row-by-row loops (always replaceable). Justified: DDL per-database, ch
 
 ---
 
-**Q: Do branches in a stored procedure prevent plan reuse?**
+**Q: L2 Do branches in a stored procedure prevent plan reuse?**
 
 > The optimizer compiles a single plan for the entire procedure, so branches do not prevent plan reuse, but they do mean the plan may be suboptimal for some execution paths.
 
@@ -120,7 +120,7 @@ END;
 
 ---
 
-**Q: Can a procedure participate in a caller's transaction? What if it issues its own COMMIT?**
+**Q: L2 Can a procedure participate in a caller's transaction? What if it issues its own COMMIT?**
 
 > Yes, a procedure participates in the caller's transaction, but if the procedure issues its own COMMIT it will commit the entire outer transaction prematurely, which is almost always a bug.
 
@@ -128,7 +128,7 @@ COMMIT decrements `@@TRANCOUNT` — if outer had count=1, procedure COMMIT commi
 
 ---
 
-**Q: What is a savepoint? How do you use it for partial rollback?**
+**Q: L2 What is a savepoint? How do you use it for partial rollback?**
 
 > A savepoint is a named marker within a transaction that you can roll back to without affecting work done before the marker.
 
@@ -154,7 +154,7 @@ END;
 
 ---
 
-**Q: How does error handling differ between T-SQL and PL/pgSQL? What's lost if you ROLLBACK before re-raising?**
+**Q: L2 How does error handling differ between T-SQL and PL/pgSQL? What's lost if you ROLLBACK before re-raising?**
 
 > Both give you error code, message, and severity inside the handler, but a bare ROLLBACK before re-raise in SQL Server destroys the original stack context that THROW would have preserved.
 
@@ -162,7 +162,7 @@ T-SQL: `ROLLBACK; THROW;` preserves error details. `ROLLBACK; RAISERROR()` loses
 
 ---
 
-**Q: A procedure catches every exception, logs it, and always returns a success code to the caller. What are the operational risks of this pattern?**
+**Q: L2 A procedure catches every exception, logs it, and always returns a success code to the caller. What are the operational risks of this pattern?**
 
 > Silent swallowing of errors means callers believe work succeeded when it didn't, leading to data inconsistency that is discovered late and is hard to trace.
 
@@ -174,7 +174,7 @@ Silent corruption discovered days later with no trace. Only safe: log and re-rai
 
 ---
 
-**Q: How does your ORM execute a stored procedure? What does the driver do differently than sending a raw query?**
+**Q: L3 How does your ORM execute a stored procedure? What does the driver do differently than sending a raw query?**
 
 > The driver sends an RPC call with typed parameters rather than a SQL text string, which means the server skips the parse phase and binds directly to the cached plan.
 
@@ -182,7 +182,7 @@ RPC packet with typed parameters, not SQL text. Skips parse, better cache hit ra
 
 ---
 
-**Q: How do transactions in stored procedures differ from application-level transactions? What's the risk of mixing them?**
+**Q: L3 How do transactions in stored procedures differ from application-level transactions? What's the risk of mixing them?**
 
 > Application transactions are explicit — BEGIN, COMMIT, ROLLBACK controlled by app code. Procedure transactions are implicit — procedures execute within whatever transaction the caller started, and can only create savepoints, not new transactions.
 
@@ -212,7 +212,7 @@ BEGIN
 END;
 ```
 
-**Q: When use dynamic SQL vs. static SQL? Sketch a procedure that builds WHERE clauses from optional filters.**
+**Q: L3 When use dynamic SQL vs. static SQL? Sketch a procedure that builds WHERE clauses from optional filters.**
 
 > Use dynamic SQL when the query structure itself — not just the values — varies based on input, such as optional filter parameters or runtime-determined sort columns.
 
@@ -236,7 +236,7 @@ END;
 
 ---
 
-**Q: What is the difference between sp_executesql and EXEC('string') in terms of plan reuse and security?**
+**Q: L3 What is the difference between sp_executesql and EXEC('string') in terms of plan reuse and security?**
 
 > `sp_executesql` supports parameterization so the engine can cache and reuse the plan and safely separates data from code; `EXEC` with a string concatenation gets a fresh parse every time and opens the door to SQL injection.
 
@@ -244,7 +244,7 @@ END;
 
 ---
 
-**Q: What are the performance implications of processing 500K rows with a cursor? Rewrite as a set-based operation.**
+**Q: L3 What are the performance implications of processing 500K rows with a cursor? Rewrite as a set-based operation.**
 
 > A cursor on 500,000 rows is typically 10–100x slower than the equivalent set-based query because it incurs per-row fetch overhead, repeated lock acquisitions, and prevents the optimizer from choosing efficient join or aggregation strategies.
 
@@ -268,7 +268,7 @@ UPDATE Orders SET Discount = Amount * 0.1;
 
 ---
 
-**Q: A procedure that ran in 50ms takes 45 seconds. No schema changes. How would you diagnose?**
+**Q: L3 A procedure that ran in 50ms takes 45 seconds. No schema changes. How would you diagnose?**
 
 > My first move is to check whether a bad cached plan is responsible, because that is the most common cause of sudden unexplained regression with no schema changes.
 
@@ -276,7 +276,7 @@ Flush plan, rerun. If fast, parameter sniffing. If slow, check execution plan fo
 
 ---
 
-**Q: A procedure produces incorrect totals. How would you isolate the bug in production?**
+**Q: L3 A procedure produces incorrect totals. How would you isolate the bug in production?**
 
 > I add instrumentation by extracting intermediate result sets into temp tables at each logical step and comparing them against expected values for the affected customer IDs.
 
@@ -288,7 +288,7 @@ Run sections in read-only transaction. Compare intermediates to find divergence.
 
 ---
 
-**Q: What is "logic sprawl" in the context of stored procedures, and why can it create a maintenance nightmare?**
+**Q: L4 What is "logic sprawl" in the context of stored procedures, and why can it create a maintenance nightmare?**
 
 > Logic sprawl is when business rules are scattered across dozens of stored procedures with no clear ownership, making it impossible to change a rule without auditing every procedure that might implement it.
 
@@ -296,7 +296,7 @@ Same rule in multiple places drifts over time, hard to change without missing so
 
 ---
 
-**Q: What is the "God procedure" anti-pattern? What problems does it cause?**
+**Q: L4 What is the "God procedure" anti-pattern? What problems does it cause?**
 
 > A God procedure that does INSERT, UPDATE, DELETE, and SELECT based on a mode parameter gets a single cached plan that is wrong for most of its modes, cannot be tested in isolation, and cannot be deployed with fine-grained permissions.
 
@@ -304,7 +304,7 @@ One plan compromises all modes. Can't test paths independently. Can't grant fine
 
 ---
 
-**Q: Stored procedures are often cited as a defense against SQL injection. Is that fully accurate?**
+**Q: L4 Stored procedures are often cited as a defense against SQL injection. Is that fully accurate?**
 
 > Static stored procedures with typed parameters do prevent injection, but dynamic SQL built with string concatenation inside a procedure reintroduces the vulnerability completely.
 
@@ -312,7 +312,7 @@ Protection is from parameterization, not procedures. String concatenation is inj
 
 ---
 
-**Q: Procedure A locks Table1 then Table2; B locks Table2 then Table1. Describe the deadlock and fix.**
+**Q: L4 Procedure A locks Table1 then Table2; B locks Table2 then Table1. Describe the deadlock and fix.**
 
 > This is a classic lock-ordering deadlock — each session holds a lock the other needs, the database kills the cheaper transaction as the deadlock victim, and the fix is enforcing a consistent lock acquisition order across all procedures.
 
@@ -320,7 +320,7 @@ Both must lock in same order. If no natural order, use coordination table or `sp
 
 ---
 
-**Q: Using READ UNCOMMITTED (NOLOCK) inside a stored procedure — when is it acceptable and when is it dangerous?**
+**Q: L4 Using READ UNCOMMITTED (NOLOCK) inside a stored procedure — when is it acceptable and when is it dangerous?**
 
 > NOLOCK is acceptable for approximate reporting queries on high-write tables where stale or phantom reads are tolerable, and dangerous for anything that drives business decisions or financial calculations.
 
@@ -328,7 +328,7 @@ Can return same row twice or skip rows, not just dirty reads. OK for dashboards;
 
 ---
 
-**Q: What is parameter sniffing? What are three mitigation strategies?**
+**Q: L4 What is parameter sniffing? What are three mitigation strategies?**
 
 > Parameter sniffing is when the optimizer compiles a plan optimized for the parameter values present at first execution, and that plan is reused for all callers even when their parameters have very different selectivity.
 
@@ -347,7 +347,7 @@ CREATE PROCEDURE GoodSniff @CustomerId INT AS
 
 ---
 
-**Q: What causes plan eviction and recompilation? Why can a recompilation storm be worse than a bad cached plan?**
+**Q: L4 What causes plan eviction and recompilation? Why can a recompilation storm be worse than a bad cached plan?**
 
 > Plans are evicted by memory pressure or explicit flushes and recompiled by schema changes, statistics updates, or SET option changes — and under high concurrency, simultaneous recompilations serialize on a compilation lock and can bring the server to its knees.
 
@@ -359,7 +359,7 @@ Triggers: schema changes, statistics updates, SET option changes. At 200 session
 
 ---
 
-**Q: What happens between CREATE PROCEDURE and first execution?**
+**Q: L5 What happens between CREATE PROCEDURE and first execution?**
 
 > CREATE PROCEDURE parses and stores the source text but defers full optimization until first execution, at which point the engine parses, resolves object names, optimizes, and caches the plan.
 
@@ -367,7 +367,7 @@ Syntax check only, no optimization. First EXEC: parse, resolve names, optimize, 
 
 ---
 
-**Q: Compare SQL Server's procedure cache to PostgreSQL's statement cache: scope, eviction, pooling.**
+**Q: L5 Compare SQL Server's procedure cache to PostgreSQL's statement cache: scope, eviction, pooling.**
 
 > SQL Server's plan cache is global across all connections; PostgreSQL's prepared statement cache is per-session, which means connection pooling with pool reset can silently discard all cached plans on checkout.
 
@@ -375,7 +375,7 @@ SQL Server: global, shared. PostgreSQL: per-session. Pooler may `DEALLOCATE ALL`
 
 ---
 
-**Q: What does WITH RECOMPILE do? When is it appropriate? What's the cost?**
+**Q: L5 What does WITH RECOMPILE do? When is it appropriate? What's the cost?**
 
 > WITH RECOMPILE forces a fresh compilation on every execution, eliminating plan reuse entirely — appropriate when parameter distributions vary so wildly that any cached plan is wrong for most callers.
 
@@ -394,7 +394,7 @@ CREATE PROCEDURE GetOrdersOptimized @Status NVARCHAR(20) AS
 
 ---
 
-**Q: Why can a plan compiled for the first call be wrong for subsequent calls?**
+**Q: L5 Why can a plan compiled for the first call be wrong for subsequent calls?**
 
 > The optimizer uses the sniffed parameter values to look up statistics and estimate row counts, so a plan that is perfect for 10 rows is physically wrong — wrong join algorithm, wrong index — for 10 million rows.
 
@@ -402,7 +402,7 @@ First call (10 rows) gets nested loop. Next call (5M rows) uses same plan — or
 
 ---
 
-**Q: Compare OPTIMIZE FOR UNKNOWN, OPTIMIZE FOR (value), local variables, and hints.**
+**Q: L5 Compare OPTIMIZE FOR UNKNOWN, OPTIMIZE FOR (value), local variables, and hints.**
 
 > Each approach trades the risk of one bad plan for a different risk profile — UNKNOWN gives average-case plans, specific value gives plans tuned to the most common input, local variables are UNKNOWN in disguise, and hints are a maintenance liability.
 
@@ -414,7 +414,7 @@ UNKNOWN: average statistics. OPTIMIZE FOR (value): tuned to dominant value. Loca
 
 ---
 
-**Q: How would you enforce a recalculation rule on every INSERT? Compare procedures, triggers, constraints, and application code.**
+**Q: L6 How would you enforce a recalculation rule on every INSERT? Compare procedures, triggers, constraints, and application code.**
 
 > A trigger is the only approach that enforces the rule for every INSERT regardless of who or what inserts the row, but it does so at the cost of hidden complexity and difficult testing.
 
@@ -433,7 +433,7 @@ END;
 
 ---
 
-**Q: When use table-valued functions vs. procedures? What limits functions for writes?**
+**Q: L6 When use table-valued functions vs. procedures? What limits functions for writes?**
 
 > Choose a table-valued function when you need to compose the result into a larger query with joins and filters; use a procedure when you need to write data, manage transactions, or use dynamic SQL.
 
@@ -441,7 +441,7 @@ TVF composability is the killer feature — optimizer sees through and pushes pr
 
 ---
 
-**Q: Should a startup put all business logic in procedures? Trade-offs and recommendation.**
+**Q: L6 Should a startup put all business logic in procedures? Trade-offs and recommendation.**
 
 > Don't do it — the performance gains are marginal for a startup's scale, and the costs in developer velocity, testability, and portability are severe and compound over time.
 
@@ -449,7 +449,7 @@ Performance gains irrelevant at startup scale. Real cost: deployment friction, D
 
 ---
 
-**Q: How do procedures complicate microservices? Migration path for 500 procedures?**
+**Q: L6 How do procedures complicate microservices? Migration path for 500 procedures?**
 
 > Procedures complicate microservices migration because the logic and the data are tightly coupled in the database, so you cannot extract a service without also deciding what to do with the procedures that own its data.
 
@@ -457,7 +457,7 @@ Map to domains with `sys.sql_expression_dependencies`. Strangler fig: rewrite on
 
 ---
 
-**Q: How do you version control procedures in a team? Migration scripts vs. state-based?**
+**Q: L6 How do you version control procedures in a team? Migration scripts vs. state-based?**
 
 > For active feature development I prefer migration scripts (Flyway/Liquibase) because they are explicit about change history; state-based tools are better for drift detection and idempotent deployments.
 
@@ -465,7 +465,7 @@ Scripts: ordered history, force conflict resolution. Risk: out-of-order. State-b
 
 ---
 
-**Q: How do you deploy a breaking change to a procedure signature used by 15 services?**
+**Q: L6 How do you deploy a breaking change to a procedure signature used by 15 services?**
 
 > The safest strategy is an expand-contract pattern: add a new procedure with the new signature, migrate callers incrementally, then drop the old one — never do a simultaneous cutover across 15 services.
 
@@ -473,7 +473,7 @@ Expand: create v2, deploy alongside old. Migrate one service at a time. Contract
 
 ---
 
-**Q: How do you unit test procedures? What frameworks exist? Why are they hard to isolate?**
+**Q: L6 How do you unit test procedures? What frameworks exist? Why are they hard to isolate?**
 
 > tSQLt for SQL Server, pgTAP for PostgreSQL, and utPLSQL for Oracle are the main frameworks — they let you fake tables and assert on results, but the test/code co-location and database dependency make isolation fundamentally harder than application unit tests.
 
@@ -481,7 +481,7 @@ tSQLt: rolled-back transactions, `FakeTable`, assertions. Challenge: no in-memor
 
 ---
 
-**Q: Test a procedure that calls others and sends email, without side effects?**
+**Q: L6 Test a procedure that calls others and sends email, without side effects?**
 
 > Wrap the entire test in a transaction you roll back, and replace `sp_send_dbmail` with a tSQLt spy or a stub procedure that logs calls without sending.
 

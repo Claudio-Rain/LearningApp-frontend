@@ -4,7 +4,7 @@
 
 ## Level 1 — Definition & Basics
 
-**Q: What is asynchronous code and how does it differ from synchronous execution?**
+**Q: L1 What is asynchronous code and how does it differ from synchronous execution?**
 
 > Asynchronous code means you start an operation and move on without waiting for it to finish, rather than blocking until it completes.
 
@@ -22,7 +22,7 @@ ProcessData(data);
 
 ---
 
-**Q: What problem does asynchronous programming solve? Give a concrete example.**
+**Q: L1 What problem does asynchronous programming solve? Give a concrete example.**
 
 > It solves the problem of wasting a thread — and blocking a user or a server — while waiting for slow external operations.
 
@@ -30,7 +30,7 @@ Think of a WPF or WinForms application that fetches data from a REST API synchro
 
 ---
 
-**Q: What is the relationship between threads and asynchronous programming?**
+**Q: L1 What is the relationship between threads and asynchronous programming?**
 
 > They are not the same thing — async is about freeing threads from waiting, not about creating more of them.
 
@@ -38,7 +38,7 @@ A thread is an OS-level unit of execution. Asynchrony is a programming model tha
 
 ---
 
-**Q: What's the difference between blocking and non-blocking calls, and why does it matter?**
+**Q: L1 What's the difference between blocking and non-blocking calls, and why does it matter?**
 
 > A blocking call holds the thread until the operation finishes; a non-blocking call returns immediately and notifies you when the work is done.
 
@@ -46,7 +46,7 @@ Blocking matters because threads are expensive — the CLR thread pool has limit
 
 ---
 
-**Q: What happens if a UI application calls a database synchronously on the main thread, and how does async change this?**
+**Q: L1 What happens if a UI application calls a database synchronously on the main thread, and how does async change this?**
 
 > The UI freezes because the main thread is blocked and can't process paint or input events.
 
@@ -54,7 +54,7 @@ The message loop that drives all UI rendering and user interaction runs on that 
 
 ---
 
-**Q: Define Task, async, await, and continuation.**
+**Q: L1 Define Task, async, await, and continuation.**
 
 > A `Task` is a promise of future work; `async` marks a method that can yield; `await` is the yield point; and a continuation is what runs after the yield resumes.
 
@@ -62,7 +62,7 @@ Think of a `Task` like a ticket you get when you drop off dry cleaning — it re
 
 ---
 
-**Q: What is a thread pool, and why is it relevant when talking about async/await in .NET?**
+**Q: L1 What is a thread pool, and why is it relevant when talking about async/await in .NET?**
 
 > The thread pool is a managed set of reusable threads, and async/await is designed to return threads to it as fast as possible rather than holding them blocked.
 
@@ -72,7 +72,7 @@ Creating threads is expensive, so .NET maintains a pool and recycles them. When 
 
 ## Level 2 — Core Concepts
 
-**Q: What is the difference between an I/O-bound task and a CPU-bound task? Give one example of each.**
+**Q: L2 What is the difference between an I/O-bound task and a CPU-bound task? Give one example of each.**
 
 > I/O-bound tasks spend most of their time waiting on an external system; CPU-bound tasks spend most of their time executing on the processor.
 
@@ -94,7 +94,7 @@ public async Task<int> ComputeAsync(int[] data)
 
 ---
 
-**Q: Why does the I/O-bound vs CPU-bound distinction matter when choosing between `async/await` and `Task.Run`?**
+**Q: L2 Why does the I/O-bound vs CPU-bound distinction matter when choosing between `async/await` and `Task.Run`?**
 
 > Use `async/await` directly for I/O-bound work and `Task.Run` to offload CPU-bound work to the thread pool — mixing them up wastes threads or blocks the UI.
 
@@ -102,7 +102,7 @@ For I/O-bound work, the OS API is already async, so you just `await` it. Wrappin
 
 ---
 
-**Q: Is it a good idea to wrap a database query with `Task.Run(() => db.Query(...))`?**
+**Q: L2 Is it a good idea to wrap a database query with `Task.Run(() => db.Query(...))`?**
 
 > No — it's async-over-sync: it wastes a thread pool thread just to block it on a synchronous I/O call.
 
@@ -118,7 +118,7 @@ var result = await db.QueryAsync<User>("SELECT...");
 
 ---
 
-**Q: What are the valid return types for an `async` method and when would you use each?**
+**Q: L2 What are the valid return types for an `async` method and when would you use each?**
 
 > Use `Task` when there's no result to return, `Task<T>` when there is, and `async void` only for event handlers where you have no choice.
 
@@ -126,7 +126,7 @@ var result = await db.QueryAsync<User>("SELECT...");
 
 ---
 
-**Q: Why is `async void` dangerous outside of event handlers?**
+**Q: L2 Why is `async void` dangerous outside of event handlers?**
 
 > Because the caller can't await it, any exception thrown inside propagates to the `SynchronizationContext` and will typically crash the process.
 
@@ -154,7 +154,7 @@ catch (InvalidOperationException) { }
 
 ---
 
-**Q: When would you use `ValueTask<T>` instead of `Task<T>`?**
+**Q: L2 When would you use `ValueTask<T>` instead of `Task<T>`?**
 
 > `ValueTask<T>` is a struct-based alternative to `Task<T>` that avoids a heap allocation when the result is already available synchronously.
 
@@ -173,7 +173,7 @@ public async ValueTask<User> GetUserAsync(int id)
 
 ---
 
-**Q: Write a method `GetDataAsync()` that fetches a string from a URL and explain each keyword.**
+**Q: L2 Write a method `GetDataAsync()` that fetches a string from a URL and explain each keyword.**
 
 > `async` signals the compiler to build a state machine; `await` is the suspension point that frees the thread until the HTTP response arrives.
 
@@ -189,7 +189,7 @@ public async Task<string> GetDataAsync(string url)
 
 ---
 
-**Q: What does `await` do at runtime? Does it block the thread?**
+**Q: L2 What does `await` do at runtime? Does it block the thread?**
 
 > `await` does not block — it registers the rest of the method as a continuation and returns control to the caller immediately.
 
@@ -197,7 +197,7 @@ At compile time, the compiler splits the method at every `await` into states in 
 
 ---
 
-**Q: How do you obtain the result value from a `Task<T>` and what are the risks?**
+**Q: L2 How do you obtain the result value from a `Task<T>` and what are the risks?**
 
 > Always use `await` to get the result — it's non-blocking, propagates exceptions cleanly, and doesn't risk deadlocks.
 
@@ -213,7 +213,7 @@ string data = GetDataAsync(url).Result;
 
 ---
 
-**Q: What's the difference between `Task.Delay` and `Thread.Sleep`?**
+**Q: L2 What's the difference between `Task.Delay` and `Thread.Sleep`?**
 
 > `Task.Delay` is non-blocking and async-friendly; `Thread.Sleep` blocks the current thread for the entire duration.
 
@@ -221,7 +221,7 @@ string data = GetDataAsync(url).Result;
 
 ---
 
-**Q: What happens if you use `Thread.Sleep(2000)` inside an `async` method?**
+**Q: L2 What happens if you use `Thread.Sleep(2000)` inside an `async` method?**
 
 > The thread is fully blocked for 2 seconds — it can't serve any other async work during that time, which defeats the purpose of async.
 
@@ -245,7 +245,7 @@ public async Task DoWorkAsync()
 
 ## Level 3 — Practical Usage
 
-**Q: When calling three independent APIs, should you use `Task.WhenAll` or sequential awaits?**
+**Q: L3 When calling three independent APIs, should you use `Task.WhenAll` or sequential awaits?**
 
 > `Task.WhenAll` — it fires all three requests concurrently and waits for all to finish, whereas sequential awaits would run them one after another.
 
@@ -260,7 +260,7 @@ await Task.WhenAll(t1, t2, t3);
 
 ---
 
-**Q: What's the difference between `Task.WhenAll` and `Task.WhenAny`?**
+**Q: L3 What's the difference between `Task.WhenAll` and `Task.WhenAny`?**
 
 > `WhenAll` completes when every task is done; `WhenAny` completes as soon as the first one finishes.
 
@@ -276,7 +276,7 @@ return await dataTask;
 
 ---
 
-**Q: What is `Task.ContinueWith` and when is it preferable to `await`?**
+**Q: L3 What is `Task.ContinueWith` and when is it preferable to `await`?**
 
 > `ContinueWith` chains a callback to run after a task completes, but `await` is almost always cleaner and safer.
 
@@ -296,7 +296,7 @@ var data = await GetDataAsync();  // exceptions bubble normally
 
 ---
 
-**Q: When should you use `Task.Run`? Write an example.**
+**Q: L3 When should you use `Task.Run`? Write an example.**
 
 > Use `Task.Run` to push CPU-bound work off the calling thread — typically the UI thread — onto a thread-pool thread.
 
@@ -312,7 +312,7 @@ private async void Button_Click(object sender, EventArgs e)
 
 ---
 
-**Q: Should you use `Task.Run` inside an ASP.NET Core controller action?**
+**Q: L3 Should you use `Task.Run` inside an ASP.NET Core controller action?**
 
 > Generally no — in ASP.NET Core there's no `SynchronizationContext`, so `Task.Run` just wastes a thread switch.
 
@@ -320,7 +320,7 @@ Controller actions already run on thread-pool threads. Wrapping work in `Task.Ru
 
 ---
 
-**Q: What is a `CancellationToken` and how does it work?**
+**Q: L3 What is a `CancellationToken` and how does it work?**
 
 > A `CancellationToken` is a cooperative signal that lets you request cancellation of an async operation from outside it.
 
@@ -340,7 +340,7 @@ catch (OperationCanceledException)
 
 ---
 
-**Q: How do you implement a timeout using `CancellationTokenSource`?**
+**Q: L3 How do you implement a timeout using `CancellationTokenSource`?**
 
 > Pass a `TimeSpan` to the `CancellationTokenSource` constructor and it will auto-cancel after that duration.
 
@@ -360,7 +360,7 @@ catch (OperationCanceledException)
 
 ---
 
-**Q: What happens if a method doesn't check a cancelled `CancellationToken`?**
+**Q: L3 What happens if a method doesn't check a cancelled `CancellationToken`?**
 
 > If the method doesn't check the token, it ignores cancellation and runs to completion — the token has no magic, it's just a cooperative flag.
 
@@ -368,7 +368,7 @@ Make a method cancellation-aware by passing the token to all inner async calls (
 
 ---
 
-**Q: What exception is thrown during cancellation and how should you handle it?**
+**Q: L3 What exception is thrown during cancellation and how should you handle it?**
 
 > `OperationCanceledException` (or its subclass `TaskCanceledException`) is thrown, and it should typically be caught separately and treated as a normal control flow event, not an error.
 
@@ -376,7 +376,7 @@ Unlike `IOException` or `HttpRequestException`, cancellation usually means "the 
 
 ---
 
-**Q: How do you catch exceptions from awaited tasks? What happens if you don't await a faulted task?**
+**Q: L3 How do you catch exceptions from awaited tasks? What happens if you don't await a faulted task?**
 
 > Wrap the `await` in a standard try/catch — exceptions from async methods re-surface there exactly as you'd expect.
 
@@ -395,7 +395,7 @@ catch (HttpRequestException ex)
 
 ---
 
-**Q: If `Task.WhenAll` has multiple failures, how do you access all exceptions?**
+**Q: L3 If `Task.WhenAll` has multiple failures, how do you access all exceptions?**
 
 > `WhenAll` throws an `AggregateException`, but awaiting it unwraps and re-throws only the first inner exception. To see all failures, inspect `task.Exception.InnerExceptions`.
 
@@ -414,7 +414,7 @@ catch
 
 ---
 
-**Q: How do you process results as they finish instead of waiting for all to complete?**
+**Q: L3 How do you process results as they finish instead of waiting for all to complete?**
 
 > Use `Task.WhenAny` in a loop — pull the first completed task out of a list, process it, remove it, and repeat until the list is empty.
 
@@ -432,7 +432,7 @@ while (tasks.Count > 0)
 
 ---
 
-**Q: When would you use a channel or `IAsyncEnumerable` instead of `Task.WhenAll`?**
+**Q: L3 When would you use a channel or `IAsyncEnumerable` instead of `Task.WhenAll`?**
 
 > `WhenAll` collects all results in memory first; streaming with `IAsyncEnumerable` or channels lets you process results incrementally as they arrive, which matters when the dataset is large or latency per item is critical.
 
@@ -440,7 +440,7 @@ If you're fetching 10,000 records from a database, buffering all of them in memo
 
 ---
 
-**Q: What does `ConfigureAwait(false)` do and when would you use it?**
+**Q: L3 What does `ConfigureAwait(false)` do and when would you use it?**
 
 > `ConfigureAwait(false)` tells the awaiter not to capture the current `SynchronizationContext`, so the continuation runs on a thread-pool thread rather than marshalling back to the original context.
 
@@ -456,7 +456,7 @@ public async Task<string> LibraryMethodAsync()
 
 ---
 
-**Q: In what contexts is `ConfigureAwait(false)` most important?**
+**Q: L3 In what contexts is `ConfigureAwait(false)` most important?**
 
 > It's most critical in library code consumed by apps with a `SynchronizationContext` — classic ASP.NET or WinForms/WPF — where it prevents deadlocks when callers block on async results.
 
@@ -464,7 +464,7 @@ The deadlock happens like this: the caller calls `.Result`, holding the sync con
 
 ---
 
-**Q: Is it good advice to always add `ConfigureAwait(false)` everywhere?**
+**Q: L3 Is it good advice to always add `ConfigureAwait(false)` everywhere?**
 
 > It's good advice for library code, but wrong in application code where you need to update UI or access context-bound objects after an await.
 
@@ -474,7 +474,7 @@ In WPF or WinForms, after an `await` you often update UI elements — that must 
 
 ## Level 4 — Common Pitfalls
 
-**Q: Why does using `.Result` on an awaited task deadlock in ASP.NET 4.x?**
+**Q: L4 Why does using `.Result` on an awaited task deadlock in ASP.NET 4.x?**
 
 > ASP.NET 4.x has a `SynchronizationContext` that only allows one thread at a time; `.Result` blocks that thread while the continuation waits to enter the same context.
 
@@ -482,7 +482,7 @@ The request thread holds the ASP.NET sync context. The inner `await` captures it
 
 ---
 
-**Q: What is the "async all the way down" principle?**
+**Q: L4 What is the "async all the way down" principle?**
 
 > Every method in the call chain that uses `await` should itself be `async` and awaited by its caller — mixing sync blocking into the chain breaks async's non-blocking guarantee.
 
@@ -490,7 +490,7 @@ If any layer in the chain calls `.Result` or `.Wait()`, you've reintroduced bloc
 
 ---
 
-**Q: What are the risks of fire-and-forget tasks and how do you handle them safely?**
+**Q: L4 What are the risks of fire-and-forget tasks and how do you handle them safely?**
 
 > Exceptions are silently swallowed and you have no visibility into failures — the operation runs in the background with no error handling.
 
@@ -508,7 +508,7 @@ async Task RunSafelyAsync(Task task)
 
 ---
 
-**Q: When is fire-and-forget acceptable?**
+**Q: L4 When is fire-and-forget acceptable?**
 
 > It's acceptable for low-stakes background work — logging, analytics, cache warming — where losing the operation on failure is tolerable.
 
@@ -516,7 +516,7 @@ The safeguards are: a try/catch with logging inside the async method, a timeout 
 
 ---
 
-**Q: Are there legitimate uses for `async void` besides event handlers?**
+**Q: L4 Are there legitimate uses for `async void` besides event handlers?**
 
 > Almost none — only event handlers are defensible, and those can be refactored to delegate to an `async Task` method.
 
@@ -524,7 +524,7 @@ The safer pattern is a thin sync wrapper calling `async Task`: `private void OnC
 
 ---
 
-**Q: What is "async over sync" and why is it harmful?**
+**Q: L4 What is "async over sync" and why is it harmful?**
 
 > It creates a false promise of async I/O, misleads callers about the method's behavior, and adds overhead without any actual non-blocking benefit.
 
@@ -555,7 +555,7 @@ public async Task<User> GetUserAsync(int id)
 
 ## Level 6 — Trade-offs & Design Decisions
 
-**Q: When should you make a method async vs synchronous?**
+**Q: L6 When should you make a method async vs synchronous?**
 
 > Make a method async if it performs I/O or calls other async methods — otherwise keep it synchronous and avoid unnecessary overhead.
 
@@ -578,7 +578,7 @@ public async Task<List<User>> GetActiveUsersAsync()
 
 ---
 
-**Q: Should you use async/await in a CLI tool that makes a single HTTP request?**
+**Q: L6 Should you use async/await in a CLI tool that makes a single HTTP request?**
 
 > Yes, but primarily because `HttpClient` is async by design — the added complexity of async in a CLI is minimal and the alternatives are worse.
 
@@ -586,7 +586,7 @@ In a single-request CLI tool the scalability benefits of async don't matter, but
 
 ---
 
-**Q: Compare async/await, raw threads, and Rx for high-throughput event processing.**
+**Q: L6 Compare async/await, raw threads, and Rx for high-throughput event processing.**
 
 > async/await is the default choice for I/O-driven work; raw threads for CPU-parallel work that needs explicit control; Rx for complex event streams with composition, filtering, and time-based operators.
 
@@ -594,7 +594,7 @@ async/await handles the vast majority of server-side concurrent I/O cleanly. Raw
 
 ---
 
-**Q: What's the difference between asynchrony and parallelism?**
+**Q: L6 What's the difference between asynchrony and parallelism?**
 
 > Asynchrony is about not waiting — freeing the caller while work happens; parallelism is about doing multiple things simultaneously on multiple cores — they're independent axes.
 
@@ -602,7 +602,7 @@ You can have async without parallelism: a single-threaded event loop (like early
 
 ---
 
-**Q: When would you use `Parallel.ForEach` instead of `Task.WhenAll`?**
+**Q: L6 When would you use `Parallel.ForEach` instead of `Task.WhenAll`?**
 
 > Use `Parallel.ForEach` for CPU-bound work you want to parallelize across cores; use `Task.WhenAll` for concurrent async I/O-bound operations.
 
@@ -628,7 +628,7 @@ Parallel.ForEach(bigData, item =>
 
 ---
 
-**Q: What async-related API design rules should you follow for a NuGet library?**
+**Q: L6 What async-related API design rules should you follow for a NuGet library?**
 
 > Always use `ConfigureAwait(false)`, expose optional `CancellationToken` parameters, never expose sync-over-async wrappers, and use `Task`/`Task<T>` consistently.
 
@@ -636,7 +636,7 @@ Libraries don't know the caller's context, so `ConfigureAwait(false)` prevents d
 
 ---
 
-**Q: Should a library expose a synchronous wrapper over an async method?**
+**Q: L6 Should a library expose a synchronous wrapper over an async method?**
 
 > No — there's no safe, general way to call async code synchronously from a library.
 
@@ -663,7 +663,7 @@ public User GetUser(int id)
 
 ---
 
-**Q: At what point should `CancellationToken` be introduced in your call stack?**
+**Q: L6 At what point should `CancellationToken` be introduced in your call stack?**
 
 > Introduce it at the top-level entry point and thread it all the way down; make it optional with a default of `CancellationToken.None` to avoid breaking existing callers.
 
@@ -673,7 +673,7 @@ The token should flow from the outermost boundary — HTTP request handler, mess
 
 ## Level 7 — Advanced Patterns
 
-**Q: What is backpressure and how do you implement it in async pipelines?**
+**Q: L7 What is backpressure and how do you implement it in async pipelines?**
 
 > Backpressure is the mechanism by which a slow consumer signals a fast producer to slow down, preventing unbounded buffer growth and memory exhaustion.
 
@@ -695,7 +695,7 @@ var item = await channel.Reader.ReadAsync();  // consumer drains
 
 ---
 
-**Q: How does `System.Threading.Channels` compare to `BlockingCollection<T>`?**
+**Q: L7 How does `System.Threading.Channels` compare to `BlockingCollection<T>`?**
 
 > `Channels` is async-native and non-blocking; `BlockingCollection<T>` is synchronous and blocks threads — use `Channels` for async pipelines, `BlockingCollection` only in purely synchronous contexts.
 
@@ -715,7 +715,7 @@ var item = collection.Take();  // blocks if empty
 
 ---
 
-**Q: How does `IAsyncEnumerable<T>` differ from `Task<IEnumerable<T>>`?**
+**Q: L7 How does `IAsyncEnumerable<T>` differ from `Task<IEnumerable<T>>`?**
 
 > `IAsyncEnumerable<T>` streams items one at a time as they become available; `Task<IEnumerable<T>>` buffers the entire result set before returning anything.
 
@@ -731,7 +731,7 @@ public async IAsyncEnumerable<Order> GetOrdersAsync([EnumeratorCancellation] Can
 
 ---
 
-**Q: How do you pass a `CancellationToken` into an `IAsyncEnumerable<T>`?**
+**Q: L7 How do you pass a `CancellationToken` into an `IAsyncEnumerable<T>`?**
 
 > Use `WithCancellation(token)` on the enumerable in the `await foreach` call, or decorate the producer parameter with `[EnumeratorCancellation]` so the token is injected automatically.
 
@@ -739,7 +739,7 @@ public async IAsyncEnumerable<Order> GetOrdersAsync([EnumeratorCancellation] Can
 
 ---
 
-**Q: How do you implement retry-with-timeout for an external API call?**
+**Q: L7 How do you implement retry-with-timeout for an external API call?**
 
 > Use Polly for retry semantics and `CancellationTokenSource` for the overall timeout — they compose cleanly and each does what it's best at.
 
@@ -756,7 +756,7 @@ var result = await policy.ExecuteAsync(ct => client.GetStringAsync(url, ct), cts
 
 ---
 
-**Q: How do you compose multiple `CancellationToken` sources?**
+**Q: L7 How do you compose multiple `CancellationToken` sources?**
 
 > Use `CancellationTokenSource.CreateLinkedTokenSource(token1, token2)` — the resulting token is cancelled when either source fires.
 

@@ -74,8 +74,11 @@ function parseQAPairs(markdown) {
 
     const question = qMatch[1].trim().replace(/\s*\n\s*/g, ' ')
 
-    // Bottom line: > **Bottom line:** text
-    const blMatch = block.match(/^>\s*\*\*Bottom line:\*\*\s*(.+)/m)
+    // Bottom line: either "> **Bottom line:** text" or "> text"
+    let blMatch = block.match(/^>\s*\*\*Bottom line:\*\*\s*(.+)/m)
+    if (!blMatch) {
+      blMatch = block.match(/^>\s*(.+)/m)
+    }
     if (!blMatch) continue
 
     const bottomLine = blMatch[1].trim()
@@ -95,10 +98,10 @@ function parseQAPairs(markdown) {
     if (elMatch) {
       elaboration = elMatch[1].trim().replace(/\s*\n\s*/g, ' ')
     } else {
-      // Fallback: grab non-heading, non-blockquote lines
+      // Fallback: grab non-heading, non-blockquote, non-tag lines
       const lines = remaining.split('\n').filter(l => {
         const t = l.trim()
-        return t && !t.startsWith('#') && !t.startsWith('>') && !t.startsWith('**Q:')
+        return t && !t.startsWith('#') && !t.startsWith('>') && !t.startsWith('**Q:') && !t.startsWith('tags:')
       })
       elaboration = lines.join(' ').trim()
     }

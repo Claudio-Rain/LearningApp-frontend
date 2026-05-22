@@ -8,7 +8,7 @@
 
 ---
 
-**Q: What problem does regex solve that `Contains` or `IndexOf` cannot?**
+**Q: L1 What problem does regex solve that `Contains` or `IndexOf` cannot?**
 
 > A regex describes the *shape* of text, not a specific string — it can match "any 5-digit number" or "a word ending in -ing" without hard-coding every possibility. `Contains` and `IndexOf` only work with exact strings; regex handles variable content like validating phone number format or extracting dates where only the structure is fixed.
 
@@ -22,7 +22,7 @@ bool hasAnyPhoneNumber = Regex.IsMatch(input, @"\d{3}-\d{4}");
 
 ---
 
-**Q: What is the difference between a pattern and a match in regex terminology?**
+**Q: L1 What is the difference between a pattern and a match in regex terminology?**
 
 > The pattern is the rule you write; the match is what the engine finds when it applies that rule to actual input.
 
@@ -30,7 +30,7 @@ The pattern `\d{3}-\d{4}` is a static description — it never changes. A match 
 
 ---
 
-**Q: What namespace and class do you use for regex in .NET? How does .NET differ from JavaScript?**
+**Q: L1 What namespace and class do you use for regex in .NET? How does .NET differ from JavaScript?**
 
 > Use `System.Text.RegularExpressions.Regex`. .NET gives you named groups, compiled patterns, timeouts, and source generators; JavaScript's regex is baked into the language with minimal features. .NET lets you pre-compile, set timeouts to prevent ReDoS, and use `[GeneratedRegex]` for build-time compilation — none of which JS regex supports.
 
@@ -48,7 +48,7 @@ bool match = regex.IsMatch(input);
 
 ---
 
-**Q: Name five metacharacters and explain why some need escaping.**
+**Q: L1 Name five metacharacters and explain why some need escaping.**
 
 > Metacharacters have special meaning and describe structure, not literal text. Escape with `\` to match literally. Five key ones: `.` (any char), `*` (zero+), `+` (one+), `^` (start), `$` (end). Example: `example\.com` matches the literal period; without `\`, the period matches any character.
 
@@ -68,7 +68,7 @@ bool match6 = Regex.IsMatch("admin", @"admin$"); // true ($ is end of string)
 
 ---
 
-**Q: What is the difference between a greedy and a lazy quantifier? Which is the default in .NET, and when does it matter?**
+**Q: L1 What is the difference between a greedy and a lazy quantifier? Which is the default in .NET, and when does it matter?**
 
 > Greedy quantifiers consume as much input as possible while still allowing the overall match to succeed; lazy ones consume as little as possible — and greedy is the default in .NET.
 
@@ -88,7 +88,7 @@ Console.WriteLine(lazyMatch.Value); // "<b>" (stops at first >)
 
 ---
 
-**Q: When should you choose regex vs. a custom parser?**
+**Q: L1 When should you choose regex vs. a custom parser?**
 
 > Use regex for flat, well-defined patterns (phone numbers, timestamps, simple formats). Use a parser for recursive structures (HTML, JSON, balanced delimiters) or when you need good error messages. Rule of thumb: if you can describe it in one sentence, regex is fine; if you need a grammar, use a parser.
 
@@ -114,7 +114,7 @@ var value = doc.RootElement.GetProperty("nested").GetProperty("key").GetString()
 
 ---
 
-**Q: What's the practical difference between `^` and `\A` in .NET?**
+**Q: L2 What's the practical difference between `^` and `\A` in .NET?**
 
 > Anchors are zero-width assertions matching positions, not characters. `^` matches the string start or after a newline (with `Multiline`); `\A` always matches only the absolute start. Use `\A` for safer validation since it won't be affected if `Multiline` is enabled later.
 
@@ -131,7 +131,7 @@ bool match3 = Regex.IsMatch(input, @"\Aadmin"); // false (safer for validation)
 
 ---
 
-**Q: A colleague uses `^admin$` but `"admin\nextraline"` passes validation. What's wrong?**
+**Q: L2 A colleague uses `^admin$` but `"admin\nextraline"` passes validation. What's wrong?**
 
 > `RegexOptions.Multiline` is active, causing `^` and `$` to match around embedded newlines. Fix: use `\A` and `\Z` which anchor to the absolute string boundaries regardless of options.
 
@@ -147,7 +147,7 @@ bool fixed = Regex.IsMatch(input, @"\Aadmin\Z"); // false (correct)
 
 ---
 
-**Q: When would you prefer `\Z` over `$` as a terminal anchor?**
+**Q: L2 When would you prefer `\Z` over `$` as a terminal anchor?**
 
 > Use `\Z` to allow an optional trailing newline; use `\z` to disallow it. `$` behavior varies by mode, so it's unreliable for strict format validation. Use `\Z`/`\z` for consistency.
 
@@ -170,7 +170,7 @@ bool match4 = Regex.IsMatch(input2, @"admin\z"); // false
 
 ---
 
-**Q: What is the difference between `\d`, `[0-9]`, and `[^\D]`? Are they always equivalent in .NET?**
+**Q: L2 What is the difference between `\d`, `[0-9]`, and `[^\D]`? Are they always equivalent in .NET?**
 
 > `\d` matches Unicode digits (Arabic-Indic included); `[0-9]` matches only ASCII 0–9. `[^\D]` is equivalent to `\d` (double negative). For ASCII validation, use `[0-9]` explicitly.
 
@@ -189,7 +189,7 @@ bool match3 = Regex.IsMatch(arabicDigit, @"[^\D]"); // true
 
 ---
 
-**Q: Explain `{n}`, `{n,}`, and `{n,m}`. Write a US ZIP code pattern.**
+**Q: L2 Explain `{n}`, `{n,}`, and `{n,m}`. Write a US ZIP code pattern.**
 
 > `{n}` is exact, `{n,}` is "at least n," `{n,m}` is range. US ZIP code: `\d{5}(-\d{4})?`. The optional group is correct because `\d{5,9}` would incorrectly match 6–8 digit strings.
 
@@ -199,7 +199,7 @@ bool isValidZip = Regex.IsMatch(input, @"^\d{5}(-\d{4})?$");
 
 ---
 
-**Q: Match `colour` or `color`. What's the most readable way?**
+**Q: L2 Match `colour` or `color`. What's the most readable way?**
 
 > `colou?r` is most readable for single-character variants. Use alternation `colour|color` for more different variants — it's clearer in intent despite tiny engine overhead.
 
@@ -221,7 +221,7 @@ bool match3 = Regex.IsMatch(input1, @"colour|color"); // true
 
 ---
 
-**Q: When do you use capturing `(...)` vs. non-capturing `(?:...)`?**
+**Q: L2 When do you use capturing `(...)` vs. non-capturing `(?:...)`?**
 
 > A capturing group stores its matched text in `Match.Groups` so you can retrieve it; a non-capturing group just provides grouping for quantifiers or alternation without the overhead of storing the result.
 
@@ -241,7 +241,7 @@ var nonCaptureMatch = Regex.Match(input, @"(?:red|blue)+");
 
 ---
 
-**Q: How do you define and use named groups in .NET?**
+**Q: L2 How do you define and use named groups in .NET?**
 
 > Named groups let you refer to captures by a meaningful name instead of a numeric index, defined with `(?<name>...)` and accessed via `match.Groups["name"]`.
 
@@ -254,7 +254,7 @@ string year = m.Groups["year"].Value; // "2024"
 
 ---
 
-**Q: What problem does a backreference solve that a repeated group cannot?**
+**Q: L2 What problem does a backreference solve that a repeated group cannot?**
 
 > A backreference matches the exact same text that a capturing group already matched — not just the same pattern — so it can enforce that two parts of the input are identical.
 
@@ -281,7 +281,7 @@ bool quotes2 = Regex.IsMatch("\"hello'", @"(['\""])[^'""]*\1"); // false
 
 ---
 
-**Q: When should you use static vs. instance `Regex.IsMatch`?**
+**Q: L3 When should you use static vs. instance `Regex.IsMatch`?**
 
 > Static overload is fine for one-off calls. For hot paths, use `static readonly Regex` with `RegexOptions.Compiled` to avoid repeated parsing overhead.
 
@@ -295,7 +295,7 @@ bool isValid = EmailRegex.IsMatch(input);
 
 ---
 
-**Q: When should you validate regex patterns?**
+**Q: L3 When should you validate regex patterns?**
 
 > Construct all patterns at startup, not lazily in request handlers. Invalid patterns throw `ArgumentException` immediately, catching errors before traffic hits. Use a health check or initialization method to validate all patterns early.
 
@@ -325,7 +325,7 @@ public bool ValidateEmail(string email)
 
 ---
 
-**Q: Your email validator accepts `"a@b@c.com"`. Fix it.**
+**Q: L3 Your email validator accepts `"a@b@c.com"`. Fix it.**
 
 > The pattern allows `@` in the wrong places. Fix: use `^[^@\s]+@[^@\s]+\.[^@\s]+$` to exclude `@` from both local and domain parts. Add a test case for this regression.
 
@@ -346,7 +346,7 @@ bool goodResult2 = goodRegex.IsMatch("a@b@c.com"); // false (correct)
 
 ---
 
-**Q: How does `Regex.Replace` differ from `string.Replace`?**
+**Q: L3 How does `Regex.Replace` differ from `string.Replace`?**
 
 > `string.Replace` handles fixed strings; `Regex.Replace` handles patterns and backreferences. Example: replace any digit sequence with `@"\d+"` — something `string.Replace` can't do.
 
@@ -356,7 +356,7 @@ string redacted = Regex.Replace(logLine, @"\d+", "***");
 
 ---
 
-**Q: Explain replacement patterns like `$1` and `${name}`.**
+**Q: L3 Explain replacement patterns like `$1` and `${name}`.**
 
 > Replacement patterns reference captured groups: `$1` for positional, `${name}` for named groups. Use named groups for clarity.
 
@@ -371,7 +371,7 @@ The replacement string `"${year}-${month}-${day}"` is evaluated by the regex eng
 
 ---
 
-**Q: When is the `MatchEvaluator` overload of `Regex.Replace` necessary?**
+**Q: L3 When is the `MatchEvaluator` overload of `Regex.Replace` necessary?**
 
 > Use `MatchEvaluator` when replacement requires logic: dictionary lookups, arithmetic, or transformation. Replacement patterns can only rearrange captured text, not transform it.
 
@@ -386,7 +386,7 @@ string result = Regex.Replace(input, @"\d+", m =>
 
 ---
 
-**Q: What can `Regex.Split` do that `string.Split` cannot?**
+**Q: L3 What can `Regex.Split` do that `string.Split` cannot?**
 
 > `Regex.Split` handles variable-width delimiters; `string.Split` only handles fixed strings. For complex cases like CSV parsing with quoted fields, use a dedicated library like `CsvHelper` — regex becomes too fragile.
 
@@ -397,7 +397,7 @@ var parts = Regex.Split(line, @",(?=(?:[^""]*""[^""]*"")*[^""]*$)");
 
 ---
 
-**Q: What happens to captured groups inside the split pattern? Show an example.**
+**Q: L3 What happens to captured groups inside the split pattern? Show an example.**
 
 > Capturing groups in the split pattern include their matches in the output. `Regex.Split("one,two,three", "(,)")` returns `["one", ",", "two", ",", "three"]`. Use `(?:,)` (non-capturing) to exclude delimiters.
 
@@ -408,7 +408,7 @@ var parts = Regex.Split("one,two,three", "(,)");
 
 ---
 
-**Q: What does `Regex.Split` return when input starts/ends with the delimiter?**
+**Q: L3 What does `Regex.Split` return when input starts/ends with the delimiter?**
 
 > You get empty strings at boundaries: `Regex.Split(",a,b,", ",")` returns `["", "a", "b", ""]`. Filter with `.Where(s => !string.IsNullOrEmpty(s))` if needed.
 
@@ -429,7 +429,7 @@ var filtered = Regex.Split(",a,b,", ",")
 
 ---
 
-**Q: Given the log line `"[2024-01-15 14:32:01] ERROR UserService: Timeout after 30s"`, write a pattern and C# code to extract date, level, service, and message.**
+**Q: L3 Given the log line `"[2024-01-15 14:32:01] ERROR UserService: Timeout after 30s"`, write a pattern and C# code to extract date, level, service, and message.**
 
 > Use named groups to make each captured segment self-describing, then access them by name off the `Match.Groups` collection.
 
@@ -450,7 +450,7 @@ if (m.Success)
 
 ---
 
-**Q: Prefer `Groups[1]` or `Groups["date"]` in production?**
+**Q: L3 Prefer `Groups[1]` or `Groups["date"]` in production?**
 
 > Always use named groups. Positional indices break silently when groups are added or reordered; named groups stay correct. Use `Groups["date"]` for maintainability.
 
@@ -467,7 +467,7 @@ string dateByName = m.Groups["date"].Value; // "2024"
 
 ---
 
-**Q: How do you iterate over all matches in a string, and what method do you use?**
+**Q: L3 How do you iterate over all matches in a string, and what method do you use?**
 
 > Use `Regex.Matches` which returns a `MatchCollection` for direct iteration. Use `EnumerateMatches` in .NET 7+ for span-based efficiency.
 
@@ -486,7 +486,7 @@ foreach (Match m in Regex.Matches(input, @"\d+"))
 
 ---
 
-**Q: What is catastrophic backtracking? How does it happen?**
+**Q: L4 What is catastrophic backtracking? How does it happen?**
 
 > Nested or ambiguous quantifiers cause exponential backtracking. Example: `(a+)+` against `"aaaaaab"` tries all ways to split the `a`s before failing. Root cause: two quantifiers competing for the same characters, creating redundant paths.
 
@@ -503,7 +503,7 @@ goodRegex.IsMatch("aaaaaaa"); // Fast (fails immediately)
 
 ---
 
-**Q: A validator causes CPU spikes. How do you fix it?**
+**Q: L4 A validator causes CPU spikes. How do you fix it?**
 
 > Test with adversarial input (long repeating characters). Set `Regex.MatchTimeout` to prevent hangs. Fix: eliminate nested quantifiers, use atomic groups `(?>...)`, or restructure the pattern.
 
@@ -526,7 +526,7 @@ safeRegex.IsMatch("xxxxxxxxxxxxxxxxxxxxx"); // Fast, returns false
 
 ---
 
-**Q: What is an atomic group `(?>...)` in the context of preventing backtracking?**
+**Q: L4 What is an atomic group `(?>...)` in the context of preventing backtracking?**
 
 > An atomic group prevents backtracking: once matched, it commits and won't retry alternatives. Example: `(?>a+)b` against `"aaa"` fails immediately instead of retrying with fewer `a`s. This eliminates exponential backtracking paths.
 
@@ -550,7 +550,7 @@ bool result4 = atomic.IsMatch("aaab"); // false (a+ won't give back any)
 
 ---
 
-**Q: `^` only matches the entire string start, not each line. Why?**
+**Q: L4 `^` only matches the entire string start, not each line. Why?**
 
 > Add `RegexOptions.Multiline`. Without it, `^` and `$` only match string boundaries, not line boundaries. With it, `^` matches after every `\n`.
 
@@ -560,7 +560,7 @@ var matches = Regex.Matches(input, @"^\w+", RegexOptions.Multiline);
 
 ---
 
-**Q: Does `IgnoreCase` behave differently across cultures for non-ASCII characters?**
+**Q: L4 Does `IgnoreCase` behave differently across cultures for non-ASCII characters?**
 
 > Yes. `IgnoreCase` uses current culture by default. German `ß` uppercases to `SS` in some cultures. Always pair `IgnoreCase` with `CultureInvariant` for server-side code unless you need culture-sensitive matching.
 
@@ -578,7 +578,7 @@ bool match2 = cultureInvariant.IsMatch(germanChar); // Consistent behavior
 
 ---
 
-**Q: What does `Singleline` do? Why combine it with `Multiline`?**
+**Q: L4 What does `Singleline` do? Why combine it with `Multiline`?**
 
 > `Singleline` makes `.` match newlines; `Multiline` makes `^`/`$` work per-line. They control different things and can be combined. Use both when you want per-line anchors and `.` spanning lines.
 
@@ -604,7 +604,7 @@ bool match3 = both.IsMatch(input); // true
 
 ---
 
-**Q: Is `static readonly Regex` thread-safe?**
+**Q: L4 Is `static readonly Regex` thread-safe?**
 
 > Yes, `static readonly Regex` is thread-safe. Instances are thread-safe for read operations (`Match`, `IsMatch`, etc.). Match state lives in separate objects per call, not on the Regex instance.
 
@@ -621,7 +621,7 @@ Task.WaitAll(task1, task2, task3); // No race conditions
 
 ---
 
-**Q: What is the internal cache maintained by static `Regex` methods, and what happens when you exceed its default size?**
+**Q: L4 What is the internal cache maintained by static `Regex` methods, and what happens when you exceed its default size?**
 
 > Static methods cache 15 patterns. For high-throughput, pre-create `static readonly Regex` with `RegexOptions.Compiled` instead of relying on the cache.
 
@@ -650,7 +650,7 @@ bool match2 = HotRegex.IsMatch("test"); // Always ready, compiled once
 
 ---
 
-**Q: What does `Compiled` do? What are the trade-offs?**
+**Q: L5 What does `Compiled` do? What are the trade-offs?**
 
 > `Compiled` JIT-compiles to IL for faster matching but costs 10–100x more to construct. Only use for patterns repeated hundreds+ times. Best for `static readonly` in hot paths.
 
@@ -675,7 +675,7 @@ private static readonly Regex PhoneRegex = new(@"\d{3}-\d{4}", RegexOptions.Comp
 
 ---
 
-**Q: Should you use `Compiled` for dynamically constructed patterns?**
+**Q: L5 Should you use `Compiled` for dynamically constructed patterns?**
 
 > No. JIT cost is paid on every construction, so you can't amortize it across executions. Use interpreted mode, rely on static cache, and add `MatchTimeout` for user-supplied patterns.
 
@@ -704,7 +704,7 @@ public bool ValidateWithUserPattern(string userPattern, string input)
 
 ---
 
-**Q: How does `[GeneratedRegex]` differ from `Compiled`?**
+**Q: L5 How does `[GeneratedRegex]` differ from `Compiled`?**
 
 > `[GeneratedRegex]` generates code at build time with zero runtime cost and Native AOT support. `Compiled` JITs at runtime and doesn't work with AOT. Use `[GeneratedRegex]` for static patterns.
 
@@ -715,7 +715,7 @@ private static partial Regex DateRegex();
 
 ---
 
-**Q: How do you compile a regex pattern to assembly at build time? What are the benefits?**
+**Q: L5 How do you compile a regex pattern to assembly at build time? What are the benefits?**
 
 > Use `[GeneratedRegex]` source generator attribute on a partial method. The C# compiler generates optimized IL code at build time, giving you compiled-speed regex with zero runtime overhead. Benefits: works with Native AOT, no JIT cost, fastest matching for static patterns.
 
@@ -733,7 +733,7 @@ bool isValid = EmailRegex().IsMatch(input);
 
 ---
 
-**Q: How do you set a timeout on `Regex`? What's a good value?**
+**Q: L5 How do you set a timeout on `Regex`? What's a good value?**
 
 > Pass `TimeSpan` as the third constructor argument. Use 100–500ms for user-facing endpoints.
 
@@ -745,7 +745,7 @@ Catch `RegexMatchTimeoutException` and treat as failed match or return 400.
 
 ---
 
-**Q: What is `Regex.InfiniteMatchTimeout`, when would you pass it, and what risk does it carry?**
+**Q: L5 What is `Regex.InfiniteMatchTimeout`, when would you pass it, and what risk does it carry?**
 
 > Use `InfiniteMatchTimeout` only for offline pipelines where you control all inputs. Risk: thread hangs if later used with adversarial input. Always set a real timeout for external input.
 
@@ -772,7 +772,7 @@ catch (RegexMatchTimeoutException)
 
 ---
 
-**Q: Can you set a process-wide default timeout for all `Regex` calls?**
+**Q: L5 Can you set a process-wide default timeout for all `Regex` calls?**
 
 > Yes. Set `REGEX_DEFAULT_MATCH_TIMEOUT` via `AppDomain.CurrentDomain.SetData`. It applies to all instances without explicit timeouts and doesn't override explicit values.
 
@@ -790,7 +790,7 @@ AppDomain.CurrentDomain.SetData(
 
 ---
 
-**Q: Why shouldn't you use regex to parse XML?**
+**Q: L6 Why shouldn't you use regex to parse XML?**
 
 > XML is recursive and context-sensitive — regex can't model it correctly. Use `XDocument` or `XmlReader` instead. Regex breaks on namespaces, CDATA, entity encoding, and nested structures.
 
@@ -809,7 +809,7 @@ var items = doc.Descendants("item").Select(x => x.Value);
 
 ---
 
-**Q: When should you use `StartsWith`/`EndsWith` instead of regex?**
+**Q: L6 When should you use `StartsWith`/`EndsWith` instead of regex?**
 
 > Use `StartsWith`/`EndsWith` for fixed strings — faster, clearer, no compilation overhead. Use regex only when the pattern is genuinely variable.
 
@@ -835,7 +835,7 @@ bool hasProtocol = Regex.IsMatch(input, @"^(https?|ftp)://");
 
 ---
 
-**Q: For a tokenizer with 20 token types, would you use one large alternation pattern or 20 separate patterns?**
+**Q: L6 For a tokenizer with 20 token types, would you use one large alternation pattern or 20 separate patterns?**
 
 > Use one pattern with 20 named alternatives — single pass is faster than 20 sequential patterns. Order matters: longer/more-specific tokens first (e.g., `!=` before `!`). Use verbose mode for readability.
 
@@ -867,7 +867,7 @@ if (match.Success)
 
 ---
 
-**Q: How does verbose mode (`IgnorePatternWhitespace`) improve maintainability?**
+**Q: L6 How does verbose mode (`IgnorePatternWhitespace`) improve maintainability?**
 
 > Verbose mode (`IgnorePatternWhitespace`) lets you add whitespace and comments (lines starting with `#`) for readability.
 
@@ -892,7 +892,7 @@ The after version is self-documenting in a way that a 40-character wall of regex
 
 ---
 
-**Q: How do you safely refactor a complex regex?**
+**Q: L6 How do you safely refactor a complex regex?**
 
 > Write a characterization test suite first (valid, invalid, edge cases), then refactor incrementally. Each change should be a no-op against the suite. Use verbose mode and named groups for clarity.
 
@@ -928,7 +928,7 @@ foreach (var (input, expected) in tests)
 
 ---
 
-**Q: When is it appropriate to reject a regex-based solution in a code review and ask for a parser instead?**
+**Q: L6 When is it appropriate to reject a regex-based solution in a code review and ask for a parser instead?**
 
 > Reject regex for recursive grammars (HTML, JSON), patterns >60 chars with nested groups, or repeatedly patched edge cases. Use a parser instead.
 
@@ -955,7 +955,7 @@ bool isIP = Regex.IsMatch(input, @"^(\d{1,3}\.){3}\d{1,3}$");
 
 ---
 
-**Q: How do you prevent ReDoS attacks from user-supplied patterns?**
+**Q: L6 How do you prevent ReDoS attacks from user-supplied patterns?**
 
 > Defense in depth: Use `Regex.Escape` for literal matching, always set `MatchTimeout` (100–500ms), and limit allowed syntax (no quantifiers/groups if not needed).
 
@@ -990,7 +990,7 @@ bool ValidateUserPattern(string pattern)
 
 ---
 
-**Q: How does `Regex.Escape` work, and why is it not a complete solution to the regex injection problem?**
+**Q: L6 How does `Regex.Escape` work, and why is it not a complete solution to the regex injection problem?**
 
 > `Regex.Escape` escapes metacharacters to embed user data as literals. But if users provide patterns themselves, escaping breaks their syntax. Use `Regex.Escape` only for literal matching, not for user-written patterns.
 
