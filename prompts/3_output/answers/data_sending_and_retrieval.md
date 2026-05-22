@@ -6,63 +6,175 @@
 
 ### HTTP Methods
 
-**Q: What is the difference between GET, POST, PUT, PATCH, and DELETE? When should each be used?**
-> **Bottom line:** Each method expresses intent — GET reads, POST creates, PUT replaces, PATCH updates partially, DELETE removes.
+**Q: What does each HTTP method do (GET, POST, PUT, PATCH, DELETE)?**
+> GET reads, POST creates, PUT replaces, PATCH updates partially, DELETE removes.
 
-**Elaboration:** GET is safe and idempotent so it can be cached and bookmarked. POST creates a new resource and is neither safe nor idempotent. PUT replaces the entire resource at a known URI, while PATCH sends only the fields that changed — useful when the payload is large or you want to avoid race conditions on unrelated fields. DELETE removes the resource and is idempotent: calling it twice should return 404 the second time, not an error.
-
----
-
-**Q: Why is GET considered a "safe" method but POST is not? What practical consequences does that have in browsers and caches?**
-> **Bottom line:** "Safe" means the method has no side effects on the server, so intermediaries can freely cache, prefetch, and retry it.
-
-**Elaboration:** Because GET is safe, browsers prefetch links, back buttons don't warn, and CDNs cache responses without asking. POST is not safe because it modifies state — submitting a form twice could create two orders. That's why browsers show the "resubmit?" dialog on back navigation for POST, and why proxies never cache POST responses by default.
+tags: #crafting-requests
 
 ---
 
-**Q: What does idempotency mean, and which standard HTTP methods are idempotent? Why does it matter when designing APIs?**
-> **Bottom line:** Idempotency means making the same request N times has the same effect as making it once.
+**Q: When should you use each HTTP method?**
+> Use GET when retrieving data without changing server state. Use POST when creating a new resource without a pre-known URI. Use PUT when replacing an entire resource at a specific URI. Use PATCH when updating only certain fields. Use DELETE to remove a resource.
 
-**Elaboration:** GET, PUT, DELETE, HEAD, and OPTIONS are idempotent. POST and PATCH are not by default. This matters for reliability: if a network request times out and you don't know whether the server received it, you can safely retry an idempotent call. For POST, you need an explicit idempotency key strategy to get that same guarantee.
+tags: #crafting-requests
+
+---
+
+**Q: Why is POST not safe and what are the practical consequences?**
+> POST is not safe because it modifies server state — submitting a form twice could create two orders.
+
+That's why browsers show the "resubmit?" dialog on back navigation for POST, and why proxies never cache POST responses by default. You must be careful with retries because a duplicate submission could have side effects.
+
+```csharp
+// Unsafe: Retrying without idempotency
+var order = new { CustomerId = 123, Amount = 99.99m };
+try 
+{
+    var response = await client.PostAsJsonAsync("api/orders", order);
+    response.EnsureSuccessStatusCode();
+}
+catch (HttpRequestException)
+{
+    // Network failed — did the first request reach the server?
+    // If you retry, the server might process it twice, creating a duplicate order
+    var response = await client.PostAsJsonAsync("api/orders", order);
+    response.EnsureSuccessStatusCode();
+}
+```
+
+tags: #crafting-requests
+
+---
+
+**Q: What is idempotency, which HTTP methods have it, and why does it matter for API design?**
+> Idempotency means making the same request N times has the same effect as once. GET, PUT, DELETE, HEAD, and OPTIONS are idempotent; POST and PATCH are not. It matters because you can safely retry idempotent calls on network failure.
+
+If a network request times out and you don't know whether the server received it, you can safely retry an idempotent call — the worst that happens is you get the same result twice. For POST, you need an explicit idempotency key strategy to get that same guarantee, otherwise a retry could duplicate the operation.
+
+```csharp
+// Safe: Retry an idempotent PUT — worst case, it sets the same value twice
+var user = new { Id = 1, Name = "Alice" };
+try 
+{
+    await client.PutAsJsonAsync("api/users/1", user);
+}
+catch (HttpRequestException)
+{
+    // Safe to retry — setting the same value again is harmless
+    await client.PutAsJsonAsync("api/users/1", user);
+}
+
+// Unsafe: POST without idempotency key
+var payment = new { Amount = 50m };
+try 
+{
+    await client.PostAsJsonAsync("api/payments", payment); // Creates charge
+}
+catch (HttpRequestException) 
+{
+    // Retry creates a second charge!
+    await client.PostAsJsonAsync("api/payments", payment);
+}
+```
 
 ---
 
 ### Network Protocols
 
-**Q: What is the difference between TCP and UDP? What guarantees does TCP provide that UDP does not?**
-> **Bottom line:** TCP guarantees ordered, reliable delivery; UDP is fire-and-forget with lower overhead.
+**Q: What's the difference between TCP and UDP, and what guarantees does TCP provide?**
+> TCP guarantees ordered, reliable delivery with handshakes and retransmissions; UDP is fire-and-forget with lower overhead.
 
-**Elaboration:** TCP does a three-way handshake, acknowledges packets, retransmits lost ones, and delivers data in order — all of which adds latency. UDP just sends datagrams and doesn't check if they arrive or arrive in order. You pick UDP when you care more about speed than completeness: live video, gaming, DNS lookups — where a slightly stale or dropped packet is better than waiting for a retransmit.
-
----
-
-**Q: Where does HTTP sit in the OSI model, and what transport protocol does it rely on by default?**
-> **Bottom line:** HTTP is an application-layer (Layer 7) protocol that rides on TCP at the transport layer (Layer 4).
-
-**Elaboration:** HTTP/1.1 and HTTP/2 both use TCP; HTTP/3 switches to QUIC, which is UDP-based but adds its own reliability layer. Most web traffic you interact with daily is HTTP over TCP port 80 (or TLS on 443). The OSI stack below TCP handles IP routing, physical framing, and so on — HTTP doesn't care about those layers directly.
+TCP does a three-way handshake, acknowledges packets, retransmits lost ones, and delivers data in order. UDP just sends datagrams and doesn't check if they arrive or arrive in order, trading reliability for speed.
 
 ---
 
-**Q: In one or two sentences, what is the purpose of DNS, and at which point in an HTTP request does it play a role?**
-> **Bottom line:** DNS translates a human-readable hostname into an IP address, and it runs before the TCP connection is even opened.
+**Q: When should you use UDP over TCP?**
+> Use UDP when you care more about speed than completeness — live video, gaming, DNS lookups.
 
-**Elaboration:** When you make a request to `api.example.com`, the OS first checks its local DNS cache, then queries a resolver if the cache is cold. Only after an IP address is returned can the TCP handshake begin. Cold DNS lookups can add 20–100 ms to a first request, which is why DNS TTLs and connection reuse matter in high-performance systems.
+In these scenarios a slightly stale or dropped packet is better than waiting for a retransmit. The lower overhead of UDP makes it worth sacrificing reliability guarantees.
+
+---
+
+**Q: Where is HTTP in the OSI model and what transport protocol does it use?**
+> HTTP is an application-layer (Layer 7) protocol. HTTP/1.1 and HTTP/2 use TCP; HTTP/3 uses QUIC (UDP-based with reliability layer).
+
+HTTP sits at the top of the OSI stack and relies on lower layers to handle transport and routing. HTTP/1.1 and HTTP/2 typically use TCP on port 80 (or TLS on 443). HTTP/3 switches to QUIC, which is UDP-based but adds its own reliability layer. The OSI stack below handles IP routing, physical framing, and so on — HTTP doesn't care about those layers directly.
+
+---
+
+**Q: What is DNS's purpose and when does it run in an HTTP request?**
+> DNS translates hostnames to IP addresses and runs before the TCP connection is even opened.
+
+When you make a request to `api.example.com`, the OS first checks its local DNS cache, then queries a resolver if the cache is cold. Only after an IP address is returned can the TCP handshake begin. This is why DNS TTLs and connection reuse matter in high-performance systems.
+
+```csharp
+// Timeline of a request to api.example.com:
+// 1. DNS resolution (20-100ms on cache miss)
+//    OS checks cache, queries resolver if cold
+// 2. TCP handshake (1 RTT, ~50ms)
+//    SYN → SYN-ACK → ACK
+// 3. TLS handshake (1-2 RTTs, ~100-200ms)
+// 4. HTTP request/response (1+ RTT depending on payload)
+
+// Problem: Singleton HttpClient holds old DNS entry
+var client = new HttpClient(); // DNS resolved once, never refreshes
+for (int i = 0; i < 1000; i++)
+{
+    // If api.example.com's IP changes, this client never knows
+    await client.GetAsync("https://api.example.com/data");
+}
+
+// Solution: Use IHttpClientFactory with PooledConnectionLifetime
+// In Program.cs:
+services.AddHttpClient<MyApiClient>()
+    .ConfigureHttpClient(c => c.BaseAddress = new Uri("https://api.example.com"))
+    .ConfigureHttpMessageHandlerBuilder(b => 
+    {
+        var handler = (SocketsHttpHandler)b.PrimaryHandler;
+        handler.PooledConnectionLifetime = TimeSpan.FromMinutes(2);
+    });
+// Now connections are recreated every 2 minutes, re-resolving DNS
+```
 
 ---
 
 ### Serialization / Deserialization
 
-**Q: What is serialization and why is it necessary when sending data over a network?**
-> **Bottom line:** Serialization converts an in-memory object into a portable byte sequence so it can travel across a network or process boundary.
+**Q: What is serialization and why is it needed for network data?**
+> Serialization converts in-memory objects into portable byte sequences for transmission between different systems.
 
-**Elaboration:** In-memory objects contain pointers and machine-specific layouts that are meaningless to another process or machine. Serialization produces a self-contained representation — JSON, Protobuf, XML — that the receiver can reconstruct into its own object graph. Without it you'd have no portable way to exchange structured data between different languages, runtimes, or machines.
+Without serialization, there's no portable way to exchange structured data between different languages, runtimes, or machines. In-memory objects contain pointers and machine-specific layouts that are meaningless to another process or machine. Serialization produces a self-contained representation — JSON, Protobuf, XML — that the receiver can reconstruct into its own object graph.
 
 ---
 
-**Q: What is the difference between binary serialization formats (e.g., Protocol Buffers, MessagePack) and text-based ones (JSON, XML)? What is the trade-off?**
-> **Bottom line:** Binary formats are smaller and faster to parse; text formats are human-readable and easier to debug.
+**Q: Compare binary serialization (Protobuf, MessagePack) vs. text-based formats (JSON, XML), including trade-offs.**
+> Binary formats are 3–10x smaller and faster to parse; text formats are human-readable and easier to debug.
 
-**Elaboration:** Protobuf can be 3–10x smaller than equivalent JSON and serializes/deserializes significantly faster because there's no string parsing. The cost is tooling friction: you can't just `curl` an endpoint and read the response. JSON wins for public APIs, browser consumption, and anything where a developer needs to inspect traffic in a proxy. Binary formats win inside a datacenter where bandwidth and CPU cost at scale.
+Protobuf serializes/deserializes significantly faster than JSON because there's no string parsing and the payload is much smaller. JSON is easy to inspect and doesn't require special tooling — you can just `curl` an endpoint and read the output. The cost of binary formats is tooling friction: you can't inspect traffic easily without special tools. JSON wins for public APIs, browser consumption, and anything where a developer needs to inspect traffic in a proxy. Binary formats win inside a datacenter where bandwidth and CPU cost at scale.
+
+```csharp
+var user = new User { Id = 1, Name = "Alice", Email = "alice@example.com" };
+
+// JSON: Human-readable, ~80 bytes
+string json = JsonSerializer.Serialize(user);
+// {"id":1,"name":"Alice","email":"alice@example.com"}
+
+// MessagePack: Binary, ~30 bytes (3x smaller)
+byte[] msgpack = MessagePackSerializer.Serialize(user);
+
+// Protobuf: Binary, requires .proto schema, ~25 bytes (3x smaller)
+// Requires code generation from .proto file
+
+// Trade-off table:
+// JSON: Easy to debug (curl endpoint), human-readable, slower parsing
+// MessagePack: Smaller, faster, but needs special tools to inspect
+// Protobuf: Smallest, fastest, schema versioning, but complex tooling
+
+// When to use what:
+// - Public API or browser: JSON (curl-friendly, no tooling needed)
+// - Internal microservices: MessagePack/Protobuf (performance at scale)
+// - Long-term storage or schema evolution: Protobuf (strong versioning)
+```
 
 ---
 
@@ -70,54 +182,78 @@
 
 ### HTTP Request/Response Cycle
 
-**Q: Walk me through everything that happens — from the moment a user types a URL into a browser to when the HTML is rendered.**
-> **Bottom line:** DNS → TCP handshake → TLS handshake → HTTP request → server processes → HTTP response → browser parses and renders.
-
-**Elaboration:** First the browser resolves the hostname via DNS (cached or queried). Then it opens a TCP connection — three packets for the handshake. If HTTPS, a TLS handshake follows (1–2 round trips, or 0-RTT on resumption). The browser sends the HTTP GET; the server processes it and streams back a response with headers and body. The browser parses HTML, discovers linked resources (CSS, JS, images), and fires sub-requests — often in parallel — before rendering the first frame.
+**Q: What's the high-level sequence from URL entry to first render?**
+> DNS resolution → TCP connection → TLS handshake (if HTTPS) → HTTP request → server response → browser parsing and rendering.
 
 ---
 
-**Q: What information lives in an HTTP request header vs. the request body? Give concrete examples.**
-> **Bottom line:** Headers carry metadata about the request; the body carries the actual payload.
+**Q: What happens in detail during each step of the request-to-render flow?**
+> DNS queries and caches the IP (20–100ms on cache miss). TCP handshake takes 3 packets (1 RTT). TLS handshake adds 1–2 RTTs (or 0-RTT on resumption). Browser sends GET request. Server processes and streams response with headers and body. Browser parses HTML, discovers linked resources (CSS, JS, images), and fires parallel sub-requests before rendering the first frame.
 
-**Elaboration:** Headers include things like `Content-Type: application/json`, `Authorization: Bearer <token>`, `Accept-Encoding: gzip`, and `Host: api.example.com`. The body carries the data being sent — a JSON object for a POST, a file for an upload, form fields for a form submission. GET requests have no body by spec; DELETE typically doesn't either. Query parameters in the URL are a third slot for small, non-sensitive data.
+Understanding the granular steps helps you identify bottlenecks — a cold DNS lookup adds latency before anything else can happen, while TLS resumption can nearly eliminate the handshake on repeat connections.
 
 ---
 
-**Q: How does HTTP keep-alive (persistent connections) work, and why was it introduced?**
-> **Bottom line:** Keep-alive reuses the same TCP connection for multiple request/response pairs, eliminating the cost of repeated handshakes.
+**Q: What goes in HTTP headers vs. the body? Give examples.**
+> Headers carry metadata about the request; the body carries the actual payload.
 
-**Elaboration:** In HTTP/1.0 every request opened a new TCP (and TLS) connection — expensive at scale. Keep-alive, default in HTTP/1.1, keeps the socket open after a response so the next request skips the handshake overhead. The server signals timeout and max requests via `Keep-Alive` response headers. HTTP/2 takes this further with multiplexing — multiple requests fly over a single connection simultaneously.
+Headers include things like `Content-Type: application/json`, `Authorization: Bearer <token>`, `Accept-Encoding: gzip`, and `Host: api.example.com`. The body carries the data being sent — a JSON object for a POST, a file for an upload, form fields for a form submission. GET requests have no body by spec; DELETE typically doesn't either. Query parameters in the URL are a third slot for small, non-sensitive data.
+
+---
+
+**Q: How do persistent connections work, and why were they introduced?**
+> Keep-alive reuses the same TCP connection for multiple request/response pairs, eliminating the cost of repeated handshakes.
+
+In HTTP/1.0 every request opened a new TCP (and TLS) connection — expensive at scale. Keep-alive, default in HTTP/1.1, keeps the socket open after a response so the next request skips the handshake overhead. The server signals timeout and max requests via `Keep-Alive` response headers. HTTP/2 takes this further with multiplexing — multiple requests fly over a single connection simultaneously.
 
 ---
 
 ### Status Codes
 
-**Q: What is the difference between a 401 and a 403 response? How should a client behave differently for each?**
-> **Bottom line:** 401 means "you're not authenticated"; 403 means "you're authenticated but not authorized."
+**Q: What's the difference between 401 and 403 status codes, and how should clients respond to each?**
+> 401 means "not authenticated" (retry with credentials); 403 means "authenticated but not authorized" (user lacks permission).
 
-**Elaboration:** On a 401 the client should prompt for credentials or refresh a token and retry — the issue is identity. On a 403 the client already identified itself successfully; it just doesn't have permission, and retrying with the same credentials won't help. A UI should show "please log in" for 401 and "you don't have access to this" for 403. Mixing them up leaks information or creates confusing UX.
+401 means the client has not provided valid credentials — the server doesn't know who you are. On a 401, prompt for credentials or refresh a token and retry, since the issue is identity. 403 means the server knows who you are but you don't have permission to access this resource. On a 403 the client is already identified successfully; it just doesn't have permission, and retrying with the same credentials won't help. Show "you don't have access to this" instead of retrying.
+
+```csharp
+var response = await client.GetAsync("api/admin/reports");
+
+if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized) // 401
+{
+    // Identity issue — refresh token or prompt for login, then retry
+    var newToken = await refreshTokenService.RefreshAsync();
+    client.DefaultRequestHeaders.Authorization = 
+        new("Bearer", newToken);
+    response = await client.GetAsync("api/admin/reports");
+}
+else if (response.StatusCode == System.Net.HttpStatusCode.Forbidden) // 403
+{
+    // Authorization issue — user is logged in but lacks permission
+    // Do NOT retry; show error message instead
+    throw new UnauthorizedAccessException("You don't have access to this resource");
+}
+```
 
 ---
 
-**Q: When would a server legitimately return a 307 Temporary Redirect vs. a 301 Moved Permanently? What is the risk of using 301 in an API context?**
-> **Bottom line:** Use 307 when the move is temporary and you must preserve the original HTTP method; 301 signals a permanent move that clients and caches will remember forever.
+**Q: When should you use 307 vs 301 redirects, and what's the risk of 301 in APIs?**
+> Use 307 for temporary moves with method preservation; 301 signals permanent moves but gets cached aggressively, causing problems if you need to reverse it.
 
-**Elaboration:** 307 guarantees the client re-sends the original method (POST stays POST) to the new URL, which 302 doesn't formally guarantee. The problem with 301 in an API context is that browsers and HTTP clients cache it aggressively — if you later want traffic to go back to the old URL, clients that already cached the redirect won't ask the server again. I've seen 301s cause outages when a temporary change got permanently cached.
+307 guarantees the client re-sends the original method (POST stays POST) to the new URL. 301 indicates permanent moves but clients cache it indefinitely — if you later want to reverse it, cached clients won't ask the server again.
 
 ---
 
-**Q: A service you depend on starts returning 503. How do you decide whether to retry immediately, use exponential back-off, or surface the error to the user?**
-> **Bottom line:** Retry with exponential back-off and jitter for transient overload; surface the error to the user if retries exceed a reasonable threshold.
+**Q: How should you handle 503 errors and when should you give up retrying?**
+> Retry with exponential back-off and jitter, then fail to user with a timeout budget (usually under 10 seconds).
 
-**Elaboration:** A 503 means the server is temporarily unavailable, so an immediate single retry is reasonable. If it's still failing, exponential back-off with jitter avoids a retry storm across many clients. I'd set a max retry count (e.g., 3) and a total timeout budget that matches user expectations — usually under 10 seconds for a synchronous request. If all retries are exhausted, fail fast and show a degraded UI rather than hanging indefinitely.
+A 503 means the server is temporarily unavailable, so an immediate single retry is reasonable. If it's still failing, use exponential back-off with jitter to avoid a retry storm across many clients. Set a max retry count (e.g., 3) and a total timeout budget that matches user expectations — usually under 10 seconds for synchronous requests. If all retries are exhausted, fail fast and show a degraded UI rather than hanging indefinitely. The longer you keep retrying, the worse the user experience becomes.
 
 ---
 
 ### HttpClient Basics
 
-**Q: How do you send a GET request using `HttpClient` in C# and read the response body as a string?**
-> **Bottom line:** Call `GetStringAsync` for the simplest case, or `GetAsync` + `ReadAsStringAsync` when you need to inspect the response first.
+**Q: How do you send a GET with `HttpClient` and read the response as a string?**
+> Call `GetStringAsync` for the simplest case, or `GetAsync` + `ReadAsStringAsync` when you need to inspect the response first.
 
 ```csharp
 // Simple case
@@ -132,10 +268,10 @@ string body = await response.Content.ReadAsStringAsync();
 
 ---
 
-**Q: What is the purpose of `HttpResponseMessage.EnsureSuccessStatusCode()`? What does it throw, and when would you prefer manual status-code checking?**
-> **Bottom line:** It throws `HttpRequestException` if the status code is not 2xx — convenient shorthand, but too blunt when you need to handle specific codes differently.
+**Q: What does `EnsureSuccessStatusCode()` do and when should you prefer manual status checking?**
+> It throws `HttpRequestException` on non-2xx status — use it for "all-or-nothing" cases, but prefer manual checking for nuanced error handling.
 
-**Elaboration:** `EnsureSuccessStatusCode` is fine for "anything other than success is a fatal error." But if your code should handle 404 as "not found, return null" or 409 as "conflict, retry with updated data," you need to check `response.StatusCode` manually and branch. Using `EnsureSuccessStatusCode` in those cases means you're catching an exception for control flow, which is messy.
+`EnsureSuccessStatusCode` is convenient shorthand for "anything other than success is a fatal error." However, if your code should handle 404 as "not found, return null" or 409 as "conflict, retry with updated data," you need to check `response.StatusCode` manually and branch. Using `EnsureSuccessStatusCode` in those cases means you're catching an exception for control flow, which is messy and inefficient.
 
 ---
 
@@ -143,8 +279,8 @@ string body = await response.Content.ReadAsStringAsync();
 
 ### HttpClient with Various Payloads
 
-**Q: Show how you would POST a JSON payload using `HttpClient`. What `Content-Type` header must be set, and how does `System.Text.Json` / `JsonContent` help?**
-> **Bottom line:** Use `JsonContent.Create` — it serializes your object and sets `Content-Type: application/json` in one call.
+**Q: How do you POST JSON with `HttpClient` and `JsonContent`?**
+> Use `JsonContent.Create` — it serializes your object and sets `Content-Type: application/json` in one call.
 
 ```csharp
 var payload = new { Name = "Alice", Age = 30 };
@@ -158,12 +294,12 @@ var content = JsonContent.Create(payload);
 var response = await client.PostAsync("https://api.example.com/users", content);
 ```
 
-**Elaboration:** Before `JsonContent`, you'd manually serialize to a string and wrap in `StringContent` with the content type — easy to forget the header. `PostAsJsonAsync` (from `System.Net.Http.Json`) handles all of that and uses `System.Text.Json` by default, which is significantly faster than `Newtonsoft.Json` for most payloads.
+Before `JsonContent`, you'd manually serialize to a string and wrap in `StringContent` with the content type — easy to forget the header. `PostAsJsonAsync` (from `System.Net.Http.Json`) handles all of that and uses `System.Text.Json` by default, which is significantly faster than `Newtonsoft.Json` for most payloads.
 
 ---
 
-**Q: How would you send a multipart/form-data request (e.g., file upload) with `HttpClient`? Walk through the code.**
-> **Bottom line:** Use `MultipartFormDataContent`, add `StreamContent` for the file and `StringContent` for any other fields, then POST it.
+**Q: How do you send multipart/form-data (file uploads) with `HttpClient`?**
+> Use `MultipartFormDataContent`, add `StreamContent` for the file and `StringContent` for any other fields, then POST it.
 
 ```csharp
 await using var fileStream = File.OpenRead("/path/to/file.pdf");
@@ -176,28 +312,47 @@ var response = await client.PostAsync("https://api.example.com/upload", multipar
 response.EnsureSuccessStatusCode();
 ```
 
-**Elaboration:** `MultipartFormDataContent` sets the `Content-Type: multipart/form-data; boundary=...` header automatically. Stream the file rather than reading it all into memory — especially important for large uploads. If the server requires a specific content-type per part (e.g., `application/pdf`), pass a `MediaTypeHeaderValue` into the `StreamContent` constructor.
+`MultipartFormDataContent` sets the `Content-Type: multipart/form-data; boundary=...` header automatically. Stream the file rather than reading it all into memory — especially important for large uploads. If the server requires a specific content-type per part (e.g., `application/pdf`), pass a `MediaTypeHeaderValue` into the `StreamContent` constructor.
 
 ---
 
-**Q: When would you choose XML over JSON as a payload format in a .NET HTTP call? What classes does .NET provide to serialize/deserialize XML?**
-> **Bottom line:** Choose XML when you're integrating with legacy SOAP services, regulated industries that mandate it, or systems where schema validation via XSD is required.
+**Q: When should you choose XML over JSON for payloads?**
+> Choose XML for legacy SOAP, regulated industries, or XSD validation; avoid it for new greenfield work.
 
-**Elaboration:** Most greenfield work uses JSON, but SOAP web services, EDI healthcare systems (HL7), and some banking APIs still speak XML. .NET provides `XmlSerializer` for attribute-driven mapping and `DataContractSerializer` for WCF-style contracts. `System.Xml.Linq` with `XDocument`/`XElement` is the friendlier option for building or parsing XML manually. I'd avoid XML as a new choice purely for preference — the verbosity and namespace complexity rarely pay off.
+Most greenfield work uses JSON, but SOAP web services, EDI healthcare systems (HL7), and some banking APIs still speak XML. I'd avoid XML as a new choice purely for preference — the verbosity and namespace complexity rarely pay off.
 
 ---
 
-**Q: Why should you avoid creating a new `HttpClient` instance per request? What is the recommended pattern in ASP.NET Core and why?**
-> **Bottom line:** Each new `HttpClient` allocates a socket that won't be released immediately, exhausting the port pool under load — use `IHttpClientFactory` instead.
+**Q: What .NET serialization classes are available for XML?**
+> `XmlSerializer` for attribute-driven mapping, `DataContractSerializer` for WCF-style contracts, and `System.Xml.Linq` for manual building/parsing.
 
-**Elaboration:** `HttpClient` implements `IDisposable` but disposing it doesn't immediately close the underlying socket; the OS keeps it in `TIME_WAIT`. Under load, you run out of ephemeral ports. The fix in ASP.NET Core is `IHttpClientFactory`, which maintains a pool of `HttpMessageHandler` instances with configurable lifetimes, reusing connections efficiently. Named or typed clients let you also centralize base addresses, headers, and retry policies.
+`XmlSerializer` is the traditional choice for simple XML mapping. `DataContractSerializer` is for WCF-style contracts. `System.Xml.Linq` with `XDocument`/`XElement` is the friendlier option when you need more control over building or parsing XML manually.
+
+---
+
+**Q: Why should you avoid creating `HttpClient` per request and what's the recommended pattern?**
+> Per-request `HttpClient` exhausts the port pool under load; use `IHttpClientFactory` instead to pool handlers efficiently.
+
+Each new `HttpClient` allocates a socket that won't be released immediately — `HttpClient` implements `IDisposable` but disposing it doesn't immediately close the underlying socket; the OS keeps it in `TIME_WAIT`. Under load, you run out of ephemeral ports. `IHttpClientFactory` maintains a pool of `HttpMessageHandler` instances with configurable lifetimes, reusing connections efficiently. Named or typed clients let you also centralize base addresses, headers, and retry policies.
 
 ---
 
 ### Cancellation and Timeouts
 
-**Q: How do you attach a `CancellationToken` to an `HttpClient` request, and what exception is thrown when it fires? How do you distinguish a user cancellation from a timeout?**
-> **Bottom line:** Pass the token to `GetAsync`/`PostAsync`; both cancellation and timeout throw `OperationCanceledException`, but you can distinguish them by checking `cancellationToken.IsCancellationRequested`.
+**Q: How do you attach a `CancellationToken` to `HttpClient`?**
+> Pass the token to `GetAsync`/`PostAsync`.
+
+```csharp
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+var response = await client.GetAsync(url, cts.Token);
+```
+
+The token is passed as an optional parameter to any async HTTP method.
+
+---
+
+**Q: How do you distinguish user cancellation from timeout?**
+> Both throw `OperationCanceledException`, but you can distinguish them by checking `cancellationToken.IsCancellationRequested`.
 
 ```csharp
 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
@@ -215,21 +370,21 @@ catch (OperationCanceledException)
 }
 ```
 
-**Elaboration:** If the token you passed to `GetAsync` is the user's token (e.g., ASP.NET's `HttpContext.RequestAborted`), check `token.IsCancellationRequested` in the catch. If it's not requested, the cancellation came from `HttpClient.Timeout` firing internally. Linking both tokens with `CancellationTokenSource.CreateLinkedTokenSource` is common when you want both behaviors.
+If the token you passed to `GetAsync` is the user's token (e.g., ASP.NET's `HttpContext.RequestAborted`), check `token.IsCancellationRequested` in the catch. If it's not requested, the cancellation came from `HttpClient.Timeout` firing internally. Linking both tokens with `CancellationTokenSource.CreateLinkedTokenSource` is common when you want both behaviors.
 
 ---
 
-**Q: What is the difference between `HttpClient.Timeout` and a `CancellationTokenSource` timeout? Which takes precedence?**
-> **Bottom line:** `HttpClient.Timeout` is a global default; a `CancellationTokenSource` timeout is per-request and takes precedence if it fires first.
+**Q: Differentiate `HttpClient.Timeout` vs `CancellationTokenSource` timeout and which takes precedence?**
+> `HttpClient.Timeout` is a global default; `CancellationTokenSource` is per-request — whichever expires first cancels the call.
 
-**Elaboration:** `HttpClient.Timeout` applies to every request made by that client instance — it's a blanket fallback. A per-request `CancellationTokenSource` with its own timeout gives you finer control: a quick health check can have a 1s timeout while a report download gets 60s. Whichever token fires first wins. The thrown exception is `OperationCanceledException` in both cases, which is why the distinction technique above matters.
+`HttpClient.Timeout` is a blanket fallback that applies to every request made by that client instance. A per-request `CancellationTokenSource` with its own timeout gives you finer control — a quick health check can have a 1s timeout while a report download gets 60s. If both are set, the one that expires first will cancel the request. The thrown exception is `OperationCanceledException` in both cases.
 
 ---
 
 ### TcpClient / UdpClient
 
-**Q: Using `TcpClient`, how would you connect to a remote host, send a UTF-8 string message, and read the response?**
-> **Bottom line:** Connect, get the `NetworkStream`, write bytes, then read into a buffer.
+**Q: How do you connect with `TcpClient`, send a message, and read the response?**
+> Connect, get the `NetworkStream`, write bytes, then read into a buffer.
 
 ```csharp
 using var tcp = new TcpClient();
@@ -244,21 +399,20 @@ int bytesRead = await stream.ReadAsync(buffer);
 string response = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 ```
 
-**Elaboration:** Real code should wrap this in a loop because TCP is a stream — a single `ReadAsync` may not return the full message. You'll need a framing protocol (length prefix, newline delimiter, etc.) to know when a message is complete. `TcpClient` is a thin wrapper over `Socket`; if you need performance-critical I/O, drop down to `Socket` with `SocketAsyncEventArgs`.
+Real code should wrap this in a loop because TCP is a stream — a single `ReadAsync` may not return the full message. You'll need a framing protocol (length prefix, newline delimiter, etc.) to know when a message is complete. `TcpClient` is a thin wrapper over `Socket`; if you need performance-critical I/O, drop down to `Socket` with `SocketAsyncEventArgs`.
 
 ---
 
-**Q: When would you choose `UdpClient` over `TcpClient`? Give a real-world use case where packet loss is acceptable.**
-> **Bottom line:** Use UDP when low latency and throughput matter more than guaranteed delivery — real-time games, live video/audio, and telemetry are the canonical examples.
+**Q: When should you use `UdpClient` over `TcpClient`? give real-world examples?**
+> Use UDP when low latency matters more than reliability — real-time games, live video/audio, DNS, telemetry.
 
-**Elaboration:** In a first-person shooter, sending a stale position update that arrives 200ms late is worse than dropping it — the client has already interpolated forward. DNS is another classic: a single small query/response fits in one datagram, and if it's lost you just retry. Log aggregation (syslog over UDP) also uses it intentionally: it's better to drop a log line than to block the application or overwhelm the log server.
-
+UDP is ideal for real-time scenarios where some data loss is acceptable in exchange for speed. In a first-person shooter, a stale position update that arrives late is worse than dropping it. DNS is another classic: a single small query/response fits in one datagram. Log aggregation over UDP intentionally drops logs rather than blocking the application. These scenarios prioritize speed and throughput over guaranteed delivery.
 ---
 
 ### ICredentials
 
-**Q: What is the `ICredentials` interface used for in .NET, and how does it relate to `NetworkCredential`? Give an example of passing credentials to an `HttpClientHandler`.**
-> **Bottom line:** `ICredentials` is the abstraction for providing credentials to a request; `NetworkCredential` is the concrete username/password implementation you pass through it.
+**Q: What is `ICredentials`? how does `NetworkCredential` relate to it?**
+> `ICredentials` is the abstraction for providing credentials; `NetworkCredential` is the concrete username/password implementation.
 
 ```csharp
 var handler = new HttpClientHandler
@@ -268,14 +422,14 @@ var handler = new HttpClientHandler
 var client = new HttpClient(handler);
 ```
 
-**Elaboration:** `ICredentials` defines `GetCredential(Uri, string authType)` so different credentials can be returned for different URIs or auth schemes. `NetworkCredential` implements it for simple username/password or token scenarios. `CredentialCache` also implements `ICredentials` and lets you map multiple credentials to multiple URIs/schemes — useful when one client talks to several services with different auth requirements.
+`ICredentials` defines `GetCredential(Uri, string authType)` so different credentials can be returned for different URIs or auth schemes. `NetworkCredential` implements `ICredentials` for simple username/password or token scenarios. `CredentialCache` also implements `ICredentials` and lets you map multiple credentials to multiple URIs/schemes — useful when one client talks to several services with different auth requirements.
 
 ---
 
-**Q: What is the difference between supplying `NetworkCredential` for Basic authentication vs. Windows/NTLM authentication?**
-> **Bottom line:** With Basic, the credentials are base64-encoded and sent in the header directly; with NTLM, there's a multi-step challenge-response handshake that never sends the password over the wire.
+**Q: How do Basic and NTLM authentication differ when using `NetworkCredential`?**
+> Basic sends base64-encoded credentials in headers; NTLM uses multi-step challenge-response without sending the password.
 
-**Elaboration:** Basic auth is trivially reversible — always use it over TLS. NTLM (and Kerberos/Negotiate) are Windows-integrated schemes where the client proves knowledge of the password via cryptographic challenge without transmitting it. `HttpClientHandler` handles the NTLM handshake automatically when you set `UseDefaultCredentials = true` or supply a `NetworkCredential`. Basic requires you to set `PreAuthenticate = true` or handle the 401 challenge manually.
+Basic auth is trivially reversible — always use it over TLS. It requires you to set `PreAuthenticate = true` or handle the 401 challenge manually. NTLM (and Kerberos/Negotiate) are Windows-integrated schemes where the client proves knowledge of the password via cryptographic challenge without transmitting it. `HttpClientHandler` handles the NTLM handshake automatically when you set `UseDefaultCredentials = true` or supply a `NetworkCredential`.
 
 ---
 
@@ -283,65 +437,294 @@ var client = new HttpClient(handler);
 
 ### HttpClient Misuse
 
-**Q: A developer creates a new `HttpClient` inside every controller action. The application works fine in dev but surfaces `SocketException` in production under load. What is happening, and how do you fix it?**
-> **Bottom line:** Disposing `HttpClient` doesn't immediately close the underlying TCP socket, so under load you exhaust the OS ephemeral port pool.
+**Q: Why does per-request `HttpClient` cause `SocketException`? how do you fix it?**
+> Disposed sockets linger in `TIME_WAIT`, exhausting the port pool — use `IHttpClientFactory` instead.
 
-**Elaboration:** Each `new HttpClient()` and subsequent disposal leaves a socket in `TIME_WAIT` for up to 240 seconds. Dev traffic is low, so you never hit the limit. Under production load you burn through all ~28,000 ephemeral ports and new connections fail with `SocketException`. Fix: inject `IHttpClientFactory` and call `CreateClient()` — it pools `HttpMessageHandler` instances and manages their lifetimes safely.
+Each `new HttpClient()` and subsequent disposal leaves a socket in `TIME_WAIT` for up to 240 seconds. Dev traffic is low, so you never hit the limit. Under production load you burn through all ~28,000 ephemeral ports and new connections fail with `SocketException`. `IHttpClientFactory` pools `HttpMessageHandler` instances and manages their lifetimes safely, preventing port exhaustion.
 
 ---
 
-**Q: You registered `HttpClient` as a singleton but now notice stale DNS entries when a downstream service's IP changes. Why does this happen, and what is the correct fix?**
-> **Bottom line:** A singleton `HttpClient` holds open connections indefinitely, never re-resolving DNS after the initial lookup.
+**Q: Why does singleton `HttpClient` hold stale DNS entries? what's the fix?**
+> Singleton connections never re-resolve DNS; use `IHttpClientFactory` with `PooledConnectionLifetime` to force renewal.
 
-**Elaboration:** The socket stays open for the lifetime of the process, so DNS TTL expirations are ignored. When the downstream service's IP rotates (load balancer, blue/green deploy, Kubernetes pod change), your client keeps routing to the old IP. The fix is `IHttpClientFactory` with `SocketsHttpHandler.PooledConnectionLifetime` set to something like 2 minutes — this forces periodic connection renewal so DNS is re-resolved.
+A singleton `HttpClient` holds open connections indefinitely, never re-resolving DNS after the initial lookup. The socket stays open for the process lifetime, so DNS TTL expirations are ignored. When the downstream service's IP rotates (load balancer, blue/green deploy, Kubernetes pod change), your client keeps routing to the old IP. Using `IHttpClientFactory` with `SocketsHttpHandler.PooledConnectionLifetime` set to 2 minutes forces periodic connection renewal so DNS is re-resolved regularly, picking up IP changes from the server.
+
+```csharp
+// Problem: Singleton holds DNS entry forever
+public static class SingletonHttpClientService
+{
+    public static readonly HttpClient Client = new();
+}
+
+// At 12:00 PM: api.example.com resolves to 10.0.0.1
+await SingletonHttpClientService.Client.GetAsync("https://api.example.com/");
+
+// At 12:05 PM: Server scales down, IP changes to 10.0.0.2
+// But SingletonHttpClientService.Client still routes to 10.0.0.1 (old socket is open)
+// Requests fail with connection timeouts to dead IP
+
+// Solution: Use IHttpClientFactory with connection lifetime
+// In Program.cs:
+services.AddHttpClient<MyApiClient>()
+    .ConfigureHttpMessageHandlerBuilder(b =>
+    {
+        if (b.PrimaryHandler is SocketsHttpHandler handler)
+        {
+            handler.PooledConnectionLifetime = TimeSpan.FromMinutes(2);
+            // Force new sockets every 2 minutes, triggering DNS re-resolution
+        }
+    });
+
+// Now the client automatically opens fresh connections every 2 minutes,
+// picking up any DNS changes from the server
+```
 
 ---
 
 ### Serialization Edge Cases
 
-**Q: A JSON payload arrives with extra fields your model does not define. What happens with `System.Text.Json` by default? How do you control this behavior?**
-> **Bottom line:** By default `System.Text.Json` ignores unknown properties; you can make it throw instead via `JsonUnknownTypeHandling` or a custom converter.
+**Q: What happens when JSON has unknown fields? how do you control the behavior?**
+> By default `System.Text.Json` ignores unknown properties; you can make it throw for strict validation.
 
-**Elaboration:** The lenient default is usually what you want — it allows the API to add new fields without breaking old clients. If you're writing a strict validation layer and want to reject unknown fields, set `JsonSerializerOptions.UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow` (.NET 8+) or use `[JsonExtensionData]` to capture extra fields for inspection rather than silently dropping them.
-
----
-
-**Q: A `DateTime` field is serialized differently on two different servers (one UTC, one local). What subtle bugs can this cause, and how do you prevent them?**
-> **Bottom line:** Mixing UTC and local time in serialized strings causes silent time shifts — always serialize as UTC with an explicit offset.
-
-**Elaboration:** If one server serializes `2024-01-15T10:00:00` (no offset) in local Eastern time and another reads it as UTC, you get a 5-hour discrepancy. The fix is to always use `DateTimeOffset` instead of `DateTime` — it carries the offset in the serialized form (`2024-01-15T10:00:00-05:00`). Alternatively, enforce UTC everywhere with a custom `JsonConverter` that calls `.ToUniversalTime()` on write and sets `DateTimeKind.Utc` on read.
+The lenient default is usually what you want — it allows the API to add new fields without breaking old clients. If you're writing a strict validation layer and want to reject unknown fields, set `JsonSerializerOptions.UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow` (.NET 8+) or use `[JsonExtensionData]` to capture extra fields for inspection rather than silently dropping them.
 
 ---
 
-**Q: Why can circular object references cause problems during JSON serialization, and how do you handle them in `System.Text.Json`?**
-> **Bottom line:** Circular references cause infinite recursion during serialization, crashing with a `JsonException` or stack overflow — handle them with `ReferenceHandler.Preserve` or by restructuring your model.
+**Q: How can mixing UTC and local time in serialization cause bugs?**
+> Mixing UTC and local time causes silent time shifts — a 5-hour discrepancy if one server serializes in Eastern time and another reads it as UTC.
 
-**Elaboration:** An `Order` that has a `Customer`, which has a list of `Orders`, will recurse forever. `System.Text.Json` throws `JsonException` before the stack overflows, which is better than `Newtonsoft`'s behavior. You can set `JsonSerializerOptions.ReferenceHandler = ReferenceHandler.Preserve` to emit `$id`/`$ref` markers, or `ReferenceHandler.IgnoreCycles` (.NET 6+) to break the cycle by writing `null`. I usually prefer fixing the domain model — use a DTO that doesn't have the cycle.
+If one server serializes `2024-01-15T10:00:00` (no offset) in local Eastern time and another reads it as UTC, you get a 5-hour time discrepancy without any error messages. This silent shift can corrupt data and cause subtle business logic bugs that only manifest in certain time zones.
+
+```csharp
+// Bug: Server A uses local time, Server B reads as UTC
+// Server A (Eastern Time, UTC-5)
+DateTime localTime = DateTime.Now; // 2024-01-15 10:00:00 (local)
+string json = JsonSerializer.Serialize(new { CreatedAt = localTime });
+// Output: {"CreatedAt":"2024-01-15T10:00:00"} — no offset!
+
+// Server B (reads as UTC)
+var obj = JsonSerializer.Deserialize<Payment>(json);
+// obj.CreatedAt is interpreted as 2024-01-15 10:00:00 UTC 
+// But it was actually 10:00 AM Eastern = 3:00 PM UTC
+// Result: 5-hour discrepancy, silently!
+
+// Fix: Always use DateTimeOffset
+DateTimeOffset offsetTime = DateTimeOffset.Now; // 2024-01-15 10:00:00 -05:00
+string json = JsonSerializer.Serialize(new { CreatedAt = offsetTime });
+// Output: {"CreatedAt":"2024-01-15T10:00:00-05:00"} — includes offset!
+
+var obj = JsonSerializer.Deserialize<Payment>(json);
+// obj.CreatedAt is correctly interpreted as 2024-01-15 15:00:00 UTC
+```
+
+---
+
+**Q: How do you prevent UTC/local time bugs in serialization?**
+> Always use `DateTimeOffset` instead of `DateTime` — it carries the offset in the serialized form.
+
+`DateTimeOffset` serializes as `2024-01-15T10:00:00-05:00`, which preserves the offset so any reader correctly interprets the time.
+
+---
+
+**Q: Why do circular references break JSON serialization?**
+> Circular references cause infinite recursion — the serializer keeps traversing the same objects in a loop.
+
+An `Order` that has a `Customer`, which has a list of `Orders`, will recurse forever. `System.Text.Json` throws `JsonException` before the stack overflows. Circular references are common when your domain models reference both parent and child objects.
+
+```csharp
+public class Customer 
+{
+    public int Id { get; set; }
+    public List<Order> Orders { get; set; } // Orders reference back to Customer
+}
+
+public class Order 
+{
+    public int Id { get; set; }
+    public Customer Customer { get; set; } // Circular reference!
+}
+
+// This will throw JsonException: A possible object cycle was detected
+var customer = new Customer { Id = 1, Orders = new() };
+var order = new Order { Id = 100, Customer = customer };
+customer.Orders.Add(order);
+
+string json = JsonSerializer.Serialize(customer); // Throws!
+```
+
+---
+
+**Q: How do you handle circular references in JSON serialization?**
+> Use `ReferenceHandler.Preserve` to emit `$id`/`$ref` markers, or `ReferenceHandler.IgnoreCycles` (.NET 6+) to break the cycle by writing `null`.
+
+Alternatively, prefer fixing the domain model — use a DTO that doesn't have the cycle. For example, a customer list response might include orders, but each order doesn't need a backreference to the customer.
+
+```csharp
+// Option 1: Use ReferenceHandler.Preserve (.NET 6+)
+var options = new JsonSerializerOptions 
+{ 
+    ReferenceHandler = ReferenceHandler.Preserve 
+};
+string json = JsonSerializer.Serialize(customer, options);
+// Output: {"$id":"1","Id":1,"Orders":[{"$id":"2","Id":100,"Customer":{"$ref":"1"}}]}
+
+// Option 2: Use IgnoreCycles to write null
+var options = new JsonSerializerOptions 
+{ 
+    ReferenceHandler = ReferenceHandler.IgnoreCycles 
+};
+string json = JsonSerializer.Serialize(customer, options);
+// Output: {"Id":1,"Orders":[{"Id":100,"Customer":null}]}
+
+// Option 3 (Preferred): Use a DTO without the backreference
+public class CustomerDto 
+{
+    public int Id { get; set; }
+    public List<OrderDto> Orders { get; set; }
+}
+
+public class OrderDto 
+{
+    public int Id { get; set; }
+    // No reference back to Customer
+}
+```
 
 ---
 
 ### Error and Retry
 
-**Q: You retry an HTTP POST on failure without checking idempotency. What can go wrong? How do you make a POST retryable safely?**
-> **Bottom line:** Retrying a non-idempotent POST can create duplicate records, double charges, or duplicate emails — add a client-generated idempotency key.
+**Q: What goes wrong when retrying POST without idempotency and how do you make it safe?**
+> Retrying non-idempotent POSTs can create duplicates — add an `Idempotency-Key` header for safe replays.
 
-**Elaboration:** The server may have processed the first request successfully but the response was lost in transit. Your retry sends a second request the server treats as new. The standard fix is to include an `Idempotency-Key` header (a UUID generated once per logical operation) so the server can detect and deduplicate replays. The server stores the key and the response for long enough to cover your retry window — typically 24 hours for payment APIs.
+The server may have processed the first request successfully but the response was lost in transit. Your retry sends a second request the server treats as new, potentially creating duplicate records, double charges, or duplicate emails. Include an `Idempotency-Key` header (a UUID generated once per logical operation) so the server can detect and deduplicate replays. The server stores the key and the response for long enough to cover your retry window — typically 24 hours for payment APIs.
+
+```csharp
+// Unsafe: Retry without idempotency — request 1 succeeds, response is lost
+// Client retries with same data → Server creates duplicate charge
+var payment = new { Amount = 100m };
+try
+{
+    response = await client.PostAsJsonAsync("api/payments", payment);
+    // Network fails, response is lost
+    throw new HttpRequestException();
+}
+catch (HttpRequestException)
+{
+    // Retry with same payload — server treats as new request
+    response = await client.PostAsJsonAsync("api/payments", payment); // Duplicate!
+}
+
+// Safe: Add idempotency key, generate once
+var paymentId = Guid.NewGuid().ToString();
+var payment = new { Amount = 100m };
+
+for (int attempt = 0; attempt < 3; attempt++)
+{
+    try
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "api/payments");
+        request.Headers.Add("Idempotency-Key", paymentId); // Same key on all retries
+        request.Content = JsonContent.Create(payment);
+        
+        response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        break;
+    }
+    catch (HttpRequestException) when (attempt < 2)
+    {
+        // Retry with same idempotency key
+        // Server recognizes the key and returns cached response
+    }
+}
+```
 
 ---
 
-**Q: What is "retry storm," and how does jitter in exponential back-off help prevent it?**
-> **Bottom line:** A retry storm happens when all clients back off and then retry simultaneously — jitter randomizes the retry timing to spread the load.
+**Q: What is a retry storm and how does jitter in backoff prevent it?**
+> Retry storms happen when all clients retry simultaneously — jitter randomizes timing to spread the load.
 
-**Elaboration:** Imagine 1,000 clients all get 503 at the same time, all wait exactly 2 seconds, and all hammer the server together again. The server, just recovering, gets hit by the same spike. With jitter you multiply the back-off delay by a random factor (e.g., `delay * random(0.5, 1.5)`), so retries are spread across several seconds. Libraries like Polly implement this pattern out of the box with decorrelated jitter.
+Imagine 1,000 clients all get 503 at the same time, all wait exactly 2 seconds, and all hammer the server together again. The server, just recovering, gets hit by the same spike. With jitter you multiply the back-off delay by a random factor (e.g., `delay * random(0.5, 1.5)`), so retries are spread across several seconds. Libraries like Polly implement this pattern with decorrelated jitter.
+
+```csharp
+// Bad: All 1,000 clients retry at exactly t=2.0s (retry storm)
+const int retryDelaySeconds = 2;
+int retries = 0;
+while (retries < 3)
+{
+    try 
+    { 
+        return await client.GetAsync(url); 
+    }
+    catch (HttpRequestException) when (retries < 3)
+    {
+        await Task.Delay(TimeSpan.FromSeconds(retryDelaySeconds));
+        retries++;
+    }
+}
+
+// Good: Exponential backoff with jitter spreads retries
+// Using Polly library
+var policy = Policy
+    .Handle<HttpRequestException>()
+    .OrResult<HttpResponseMessage>(r => (int)r.StatusCode >= 500)
+    .WaitAndRetryAsync(
+        retryCount: 3,
+        sleepDurationProvider: attempt =>
+        {
+            var baseDelay = TimeSpan.FromSeconds(Math.Pow(2, attempt)); // 1s, 2s, 4s
+            var jitter = TimeSpan.FromMilliseconds(Random.Shared.Next(0, 1000));
+            return baseDelay + jitter; // Add randomness
+        }
+    );
+
+await policy.ExecuteAsync(async () => await client.GetAsync(url));
+// First retry: ~1 second + 0-1000ms
+// Second retry: ~2 seconds + 0-1000ms  
+// Third retry: ~4 seconds + 0-1000ms
+// All retries spread across the interval, no synchronized spike
+```
 
 ---
 
 ### TLS / Security
 
-**Q: A developer disables SSL certificate validation (`ServerCertificateCustomValidationCallback = (_, _, _, _) => true`) to fix a dev environment issue. What are the risks of this reaching production?**
-> **Bottom line:** Disabling certificate validation makes every HTTPS call vulnerable to man-in-the-middle attacks — an attacker can intercept and read or modify all traffic.
+**Q: What's the risk of disabling SSL certificate validation and how does it expose your application?**
+> Disabling validation enables man-in-the-middle attacks — any attacker with network access can intercept and modify traffic.
 
-**Elaboration:** TLS without certificate validation provides encryption but no authentication — you don't know who you're talking to. In a corporate network or cloud environment this can expose credentials, tokens, and sensitive payloads to any process that can intercept the traffic. The right fix in dev is to install a self-signed CA cert into the trust store or use a tool like `mkcert`. Add a CI check or code review rule that rejects this callback pattern outside test projects.
+An attacker can intercept and read or modify all traffic. TLS without certificate validation provides encryption but no authentication — you don't know who you're talking to. In a corporate network or cloud environment this can expose credentials, tokens, and sensitive payloads to any process that can intercept the traffic. The right fix in dev is to install a self-signed CA cert into the trust store or use a tool like `mkcert`. Add a CI check or code review rule that rejects this callback pattern outside test projects.
+
+```csharp
+// DANGER: Disables certificate validation (allows MITM attacks)
+// Never use in production!
+var handler = new HttpClientHandler
+{
+    ServerCertificateCustomValidationCallback = (msg, cert, chain, errors) => true
+};
+var client = new HttpClient(handler);
+// Attacker on your network can now intercept and read:
+// - API credentials in headers
+// - Bearer tokens
+// - Form data in POST bodies
+// - Response payloads
+
+// Correct dev approach: Use self-signed cert in trust store
+// Option 1: Use mkcert tool
+// $ mkcert localhost api.local.dev
+// Installs self-signed cert into OS trust store
+
+// Option 2: Add cert to HttpClientHandler
+var handler = new HttpClientHandler();
+var cert = new X509Certificate2("path/to/cert.crt");
+handler.ClientCertificateOptions = ClientCertificateOption.Manual;
+handler.ClientCertificates.Add(cert);
+var client = new HttpClient(handler);
+
+// Production: Use valid certificates from a trusted CA
+// The default HttpClientHandler validates certificates automatically
+var handler = new HttpClientHandler(); // Uses OS cert store
+var client = new HttpClient(handler);
+```
 
 ---
 
@@ -349,15 +732,15 @@ var client = new HttpClient(handler);
 
 ### HttpMessageHandler Pipeline
 
-**Q: Explain the `HttpMessageHandler` / `DelegatingHandler` pipeline in .NET. How does a request travel through multiple handlers before reaching the network?**
-> **Bottom line:** `DelegatingHandler` is a chain-of-responsibility pattern — each handler can inspect or modify the request/response, then calls the next handler in the chain until the innermost `HttpClientHandler` sends the actual HTTP request.
+**Q: Explain the `DelegatingHandler` pipeline and how requests travel through it.**
+> `DelegatingHandler` is a chain-of-responsibility pattern — each handler processes requests and passes control to the next via `base.SendAsync()`.
 
-**Elaboration:** When `HttpClient.SendAsync` is called, it passes the request to the outermost handler. Each `DelegatingHandler` has a reference to `InnerHandler` and calls `base.SendAsync` to pass control along. The chain might be: logging handler → auth handler → retry handler → `HttpClientHandler` (network). The response bubbles back up through the same chain in reverse. `IHttpClientFactory` builds and manages these pipelines when you configure them in `AddHttpClient`.
+When `HttpClient.SendAsync` is called, it passes the request to the outermost handler. Each `DelegatingHandler` has a reference to `InnerHandler` and calls `base.SendAsync` to pass control along. The chain might be: logging handler → auth handler → retry handler → `HttpClientHandler` (network). Each handler can inspect or modify the request/response before passing it forward. The response bubbles back up through the same chain in reverse. `IHttpClientFactory` builds and manages these pipelines when you configure them in `AddHttpClient`.
 
 ---
 
-**Q: How would you implement a custom `DelegatingHandler` that automatically adds a Bearer token to every outgoing request and refreshes the token on a 401 response?**
-> **Bottom line:** Override `SendAsync`, add the token header, forward the request, and if you get a 401, refresh the token and retry once.
+**Q: Implement a `DelegatingHandler` that adds Bearer tokens and refreshes on 401.**
+> Override `SendAsync`, add the token header, forward the request, and if you get a 401, refresh the token and retry once.
 
 ```csharp
 public class AuthHandler : DelegatingHandler
@@ -385,77 +768,77 @@ public class AuthHandler : DelegatingHandler
 }
 ```
 
-**Elaboration:** Be careful to clone the request if you need to replay it — `HttpRequestMessage` can only be sent once on some runtimes. Also avoid infinite loops by only retrying once, not on every 401. Register the handler via `services.AddHttpClient<MyClient>().AddHttpMessageHandler<AuthHandler>()`.
+Be careful to clone the request if you need to replay it — `HttpRequestMessage` can only be sent once on some runtimes. Also avoid infinite loops by only retrying once, not on every 401. Register the handler via `services.AddHttpClient<MyClient>().AddHttpMessageHandler<AuthHandler>()`.
 
 ---
 
-**Q: How would you use `HttpMessageHandler` to implement response caching at the client level? What cache-control headers should you respect?**
-> **Bottom line:** Intercept in `SendAsync`, check your cache before forwarding, and on a miss store the response while respecting `Cache-Control: max-age`, `no-store`, and `no-cache` directives.
+**Q: How do you implement response caching in `HttpMessageHandler` and what headers should you respect?**
+> Intercept requests in `SendAsync`, check cache before forwarding, and respect `Cache-Control` directives.
 
-**Elaboration:** Check the response's `Cache-Control` header before caching: `no-store` means never cache, `no-cache` means revalidate with the server on each use (via `ETag`/`If-None-Match`), and `max-age` gives the TTL. A minimal implementation uses a `MemoryCache` keyed by the request URI and ignores POST/PUT. Full compliance also requires `Vary` header handling — different cached entries for different `Accept` or `Accept-Encoding` values. For most internal services a simple max-age cache is sufficient.
+A minimal implementation uses a `MemoryCache` keyed by the request URI and ignores POST/PUT. Intercept the request, check if you have a cached response, return it if available, otherwise forward the request and cache the response. Check the response's `Cache-Control` header before caching: `no-store` means never cache, `no-cache` means revalidate with the server on each use (via `ETag`/`If-None-Match`), and `max-age` gives the TTL. Full compliance also requires `Vary` header handling — different cached entries for different `Accept` or `Accept-Encoding` values. For most internal services a simple max-age cache is sufficient.
 
 ---
 
 ### Connection Pooling Internals
 
-**Q: How does `SocketsHttpHandler` manage connection pooling? What does `PooledConnectionLifetime` do, and why is it important for DNS-aware pooling?**
-> **Bottom line:** `SocketsHttpHandler` maintains a pool of connections per host, and `PooledConnectionLifetime` forces connections to be replaced after a set duration so DNS changes are picked up.
+**Q: How does `SocketsHttpHandler` pool connections and why is `PooledConnectionLifetime` important for DNS?**
+> `SocketsHttpHandler` maintains a connection pool per host, and `PooledConnectionLifetime` forces renewal so DNS is re-resolved.
 
-**Elaboration:** By default `PooledConnectionLifetime` is infinite, meaning connections live until the server closes them. If the server IP changes (pod restart, DNS rotation), your client keeps sending to the old address. Setting it to something like `TimeSpan.FromMinutes(2)` means the handler periodically creates fresh connections, re-resolving DNS in the process. This is the underlying mechanism `IHttpClientFactory` uses when you configure handler lifetimes — it recreates handlers on that interval.
+Connections are reused across multiple requests to the same host, reducing handshake overhead. By default `PooledConnectionLifetime` is infinite, meaning connections live until the server closes them. If the server IP changes (pod restart, DNS rotation), your client keeps sending to the old address. Setting it to something like `TimeSpan.FromMinutes(2)` means the handler periodically creates fresh connections, re-resolving DNS in the process. This is the underlying mechanism `IHttpClientFactory` uses when you configure handler lifetimes — it recreates handlers on that interval.
 
 ---
 
-**Q: What is the difference between `PooledConnectionIdleTimeout` and `PooledConnectionLifetime`? How would you tune them for a high-throughput microservice?**
-> **Bottom line:** `IdleTimeout` evicts connections that haven't been used recently; `Lifetime` evicts connections based on age regardless of activity.
+**Q: Differentiate `IdleTimeout` vs `Lifetime` and how do you tune for high-throughput services?**
+> `IdleTimeout` evicts unused connections; `Lifetime` evicts by age — tune `Lifetime` for DNS (1–5 min), `IdleTimeout` for bursty traffic (~90 sec).
 
-**Elaboration:** For a high-throughput service that constantly uses connections, `IdleTimeout` rarely triggers — connections are always busy. `Lifetime` is what you tune for DNS freshness, typically 1–5 minutes. For a service with bursty traffic, set `IdleTimeout` to something like 90 seconds to reclaim sockets during quiet periods. Setting both too low adds unnecessary handshake overhead; too high risks stale connections or port exhaustion on the server side.
+`IdleTimeout` closes connections that haven't been used for the specified timeout period to free up resources. `Lifetime` closes connections based on age regardless of activity, even if actively used. For high-throughput services, `IdleTimeout` rarely triggers since connections stay busy. `Lifetime` is what you tune for DNS freshness, typically 1–5 minutes. For a service with bursty traffic, set `IdleTimeout` to something like 90 seconds to reclaim sockets during quiet periods. Setting both too low adds unnecessary handshake overhead; too high risks stale connections or port exhaustion on the server side.
 
 ---
 
 ### Socket-Level Mechanics
 
-**Q: What is the TCP three-way handshake? At which point does `TcpClient.ConnectAsync` return to the caller?**
-> **Bottom line:** SYN → SYN-ACK → ACK; `ConnectAsync` returns after the ACK is sent and the connection is fully established.
+**Q: What is the TCP three-way handshake and when does `ConnectAsync` return?**
+> SYN → SYN-ACK → ACK — `ConnectAsync` returns after the connection is fully established.
 
-**Elaboration:** The client sends SYN, the server replies with SYN-ACK, and the client sends ACK. After that ACK is sent the client-side socket enters `ESTABLISHED` state, which is when `ConnectAsync` completes. No data has been exchanged yet — you still have a TLS handshake ahead if using HTTPS. The handshake typically takes one round-trip time (RTT), so a 50ms ping means a ~50ms TCP setup cost before your first byte of data.
-
----
-
-**Q: What is the `TIME_WAIT` state in TCP, and why can it cause port exhaustion on a heavily used outbound connection source?**
-> **Bottom line:** `TIME_WAIT` holds a connection's port reserved for up to 2×MSL (~240s) after close to absorb delayed packets — under high connection churn, this exhausts ephemeral ports.
-
-**Elaboration:** The OS needs to ensure no late-arriving packets from the old connection are misattributed to a new one on the same port. Each closed outbound connection occupies an ephemeral port in `TIME_WAIT`. With ~28,000 ephemeral ports and connections closing at 100/sec, you run out in under 5 minutes. Solutions: reuse connections (keep-alive/pooling), enable `SO_REUSEADDR`/`SO_REUSEPORT`, or tune `tcp_fin_timeout` on Linux.
+The client sends SYN, the server replies with SYN-ACK, and the client sends ACK. After that ACK is sent the client-side socket enters `ESTABLISHED` state, which is when `ConnectAsync` completes. No data has been exchanged yet — you still have a TLS handshake ahead if using HTTPS. The handshake typically takes one round-trip time (RTT), so a 50ms ping means a ~50ms TCP setup cost before your first byte of data.
 
 ---
 
-**Q: Explain how `Socket.SetSocketOption` with `SocketOptionName.ReuseAddress` or `SO_REUSEPORT` helps address port-exhaustion scenarios.**
-> **Bottom line:** `SO_REUSEADDR` allows binding to a port still in `TIME_WAIT`; `SO_REUSEPORT` allows multiple sockets to bind to the same port for load distribution.
+**Q: What is `TIME_WAIT` in TCP and why does it cause port exhaustion?**
+> `TIME_WAIT` reserves a port for 2×MSL (~240s) after close; under high churn, this exhausts all ~28,000 ephemeral ports.
+
+`TIME_WAIT` holds a connection's port reserved to absorb delayed packets — the OS needs to ensure no late-arriving packets from the old connection are misattributed to a new one on the same port. Each closed outbound connection occupies an ephemeral port in `TIME_WAIT`. With ~28,000 ephemeral ports and connections closing at 100/sec, you run out in under 5 minutes. Solutions: reuse connections (keep-alive/pooling), enable `SO_REUSEADDR`/`SO_REUSEPORT`, or tune `tcp_fin_timeout` on Linux.
 
 ```csharp
-var socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+// Anti-pattern: Creates new sockets, exhausts ports under load
+for (int i = 0; i < 10000; i++)
+{
+    using var client = new HttpClient(); // Creates socket
+    var result = await client.GetStringAsync("https://api.example.com/data");
+    // Socket goes to TIME_WAIT for ~240 seconds
+    // After 100 iterations/sec, ~240 sockets in TIME_WAIT simultaneously
+    // Ephemeral ports exhausted in minutes
+}
+
+// Correct: Reuse HttpClient via IHttpClientFactory
+public class MyApiClient
+{
+    private readonly HttpClient _client;
+    
+    public MyApiClient(HttpClient client) => _client = client;
+    
+    public async Task<string> FetchAsync()
+    {
+        return await _client.GetStringAsync("https://api.example.com/data");
+    }
+}
+
+// In Program.cs:
+services.AddHttpClient<MyApiClient>();
+
+// Now all instances reuse the same pooled connections
+// Sockets stay open, avoiding TIME_WAIT entirely
 ```
-
-**Elaboration:** `SO_REUSEADDR` is primarily useful on server sockets so you can restart a server and immediately rebind without waiting out `TIME_WAIT`. For client-side port exhaustion, the real fix is connection pooling, not `REUSEADDR`. `SO_REUSEPORT` (Linux) is a different beast — it lets multiple processes/threads bind the same port so the kernel load-balances incoming connections across them, useful for multi-threaded servers. Use these carefully; misapplied they can cause packet routing surprises.
-
----
-
-### ICredentials Deep Dive
-
-**Q: How does `CredentialCache` differ from a single `NetworkCredential`? When would you need to supply different credentials per URI or authentication scheme?**
-> **Bottom line:** `CredentialCache` maps (URI, auth-scheme) tuples to credentials — use it when one client talks to multiple endpoints with different credentials or when you need to respond correctly to different server auth challenges.
-
-```csharp
-var cache = new CredentialCache();
-cache.Add(new Uri("https://api.service1.com"), "Basic",
-    new NetworkCredential("user1", "pass1"));
-cache.Add(new Uri("https://api.service2.com"), "NTLM",
-    new NetworkCredential("domain\\user2", "pass2"));
-
-var handler = new HttpClientHandler { Credentials = cache };
-```
-
-**Elaboration:** `HttpClientHandler` calls `GetCredential(uri, authType)` on whatever `ICredentials` you supply. With a single `NetworkCredential`, it returns the same credentials regardless of URI or scheme. `CredentialCache` lets the handler do the right thing automatically when a server advertises multiple auth schemes in a `WWW-Authenticate` header — it picks the most appropriate credential for the scheme the server selected.
 
 ---
 
@@ -463,45 +846,99 @@ var handler = new HttpClientHandler { Credentials = cache };
 
 ### Protocol and Transport Choices
 
-**Q: You are building a real-time multiplayer game. Compare using raw UDP sockets, WebSockets over TCP, and HTTP long-polling. What are the trade-offs in latency, reliability, and implementation complexity?**
-> **Bottom line:** Raw UDP is lowest latency but highest complexity; WebSockets are a solid middle ground; long-polling is too high-latency for real-time gameplay.
+**Q: Compare UDP vs WebSockets for real-time multiplayer communication.**
+> UDP is lowest-latency but requires custom reliability; WebSockets are a solid middle ground with built-in TCP reliability.
 
-**Elaboration:** Raw UDP gives you sub-millisecond overhead and you control exactly what gets retransmitted, but you build your own reliability layer (sequence numbers, ACKs for critical messages, congestion control). WebSockets over TCP are much simpler and good enough for most games — you lose ~1 RTT on packet loss due to TCP's head-of-line blocking, but most games tolerate that. HTTP long-polling adds a full HTTP overhead per message cycle — fine for turn-based games, completely unsuitable for a 60fps shooter. In practice I'd start with WebSockets and only move to UDP + QUIC/custom protocol if profiling shows TCP's retransmit behavior is a real problem.
-
----
-
-**Q: When would you choose gRPC (HTTP/2 + Protobuf) over REST + JSON? Consider payload size, streaming, and type safety.**
-> **Bottom line:** Choose gRPC for internal service-to-service communication where you need strong typing, smaller payloads, and bidirectional streaming — use REST + JSON for public APIs or browser clients.
-
-**Elaboration:** Protobuf payloads are typically 3–5x smaller and faster to serialize than JSON; the HTTP/2 transport adds multiplexing and header compression. The `.proto` contract acts as a strongly typed IDL — breaking changes are caught at compile time. The downsides are browser support (gRPC-Web is a workaround, not the real thing), harder debugging without tooling, and the overhead of maintaining `.proto` files. For a public API where clients are varied and human readability matters, REST wins.
+**Latency:** Raw UDP gives sub-millisecond overhead. WebSockets over TCP add ~1 RTT on packet loss due to head-of-line blocking. **Reliability:** Raw UDP requires you to build your own reliability layer with sequence numbers, ACKs, and congestion control. WebSockets provide TCP reliability automatically. **Complexity:** Raw UDP is highest complexity with custom protocol. WebSockets are much simpler. In practice, start with WebSockets and only move to UDP + QUIC/custom protocol if profiling shows TCP's retransmit behavior is a real problem.
 
 ---
 
-**Q: A team proposes replacing synchronous HTTP calls between microservices with a message queue (e.g., RabbitMQ). What do you gain and what do you lose? When is each approach appropriate?**
-> **Bottom line:** A message queue decouples services temporally and absorbs load spikes, but you lose synchronous response semantics and add operational complexity.
+**Q: Why is long-polling unsuitable for real-time multiplayer?**
+> Long-polling adds full HTTP overhead per message cycle, making it impractical for 60fps gameplay.
 
-**Elaboration:** With HTTP you get an immediate response — easy to model as a function call. With a queue, the producer doesn't know when or if the consumer processed the message, so you need polling, callbacks, or a correlation ID pattern for request/reply. The gains are significant: the consumer can go down without the producer failing, and the queue buffers bursts the consumer can't handle in real time. I'd use HTTP for "I need the answer now" (lookups, reads, user-facing calls) and messaging for "fire and move on" (email sending, audit events, async workflows).
+Each message cycle requires a new HTTP request/response roundtrip, which is both latency-heavy and resource-intensive. WebSockets reuse a single persistent connection, avoiding this overhead.
+
+---
+
+**Q: Compare HTTP calls vs. message queues for microservices communication.**
+> HTTP is synchronous (immediate responses); queues decouple services (no blocking) but add operational complexity.
+
+With HTTP you get an immediate response — easy to model as a function call. With a queue, the producer doesn't know when or if the consumer processed the message, so you need polling, callbacks, or a correlation ID pattern for request/reply. Message queues decouple services: the consumer can go down without the producer failing, and the queue buffers bursts the consumer can't handle.
+
+---
+
+**Q: When should you use HTTP calls vs. message queues?**
+> Use HTTP for "answer now" (lookups, reads, user-facing calls). Use messaging for "fire and move on" (email sending, audit events, async workflows).
+
+HTTP is better when you need an immediate response and the producer can't proceed without it. Message queues are better when the producer is willing to continue without knowing the outcome — you trade synchronous response semantics for resilience and burst handling. Message queues do add operational complexity: queue infrastructure, failure handling, and retry logic all become your concern.
 
 ---
 
 ### HttpClient Design
 
-**Q: Compare `IHttpClientFactory` typed clients, named clients, and a shared singleton `HttpClient`. Under what circumstances would you pick each?**
-> **Bottom line:** Use typed clients for most cases — they give you a dedicated class with a pre-configured client; use named clients for multiple configurations of the same endpoint; use a singleton only for trivial tools or scripts.
+**Q: What are the three main patterns for using `HttpClient` and when should you use each?**
+> Typed clients for most cases; named clients for multiple configurations; singletons only for trivial tools.
 
-**Elaboration:** Typed clients (a class that takes `HttpClient` in its constructor) are the most ergonomic: they encapsulate the URL, default headers, and retry policy, and the factory manages the underlying handler lifetime. Named clients work well when you need runtime selection — picking "slow-client" vs. "fast-client" based on context. A raw singleton `HttpClient` with `SocketsHttpHandler.PooledConnectionLifetime` set is acceptable in console apps or simple scenarios where DI isn't in play. Never use a new-per-request pattern in production.
+Typed clients (a class that takes `HttpClient` in its constructor) are the most ergonomic: they encapsulate the URL, default headers, and retry policy. Named clients work well when you need runtime selection. A raw singleton `HttpClient` is acceptable in console apps or simple scenarios where DI isn't in play. Never use a new-per-request pattern in production.
 
 ---
 
-**Q: You need to call 10 independent endpoints to build a response. How do you parallelise the calls safely with `HttpClient`? What are the risks and how do you cap concurrency?**
-> **Bottom line:** Use `Task.WhenAll` for up to ~10 concurrent calls; add a `SemaphoreSlim` to cap concurrency if the fan-out is larger or the downstream service is fragile.
+**Q: What makes typed clients ergonomic and how do they manage handler lifetime?**
+> Typed clients encapsulate the URL, default headers, and retry policy in one class, and `IHttpClientFactory` manages the underlying handler lifetime.
+
+With a typed client, you inject `HttpClient` into a class that wraps it. The factory manages handler pooling and lifecycle, handling DNS refreshes and connection reuse automatically. This is cleaner than passing raw `HttpClient` around or managing handlers manually.
+
+---
+
+**Q: What's the risk when parallelizing many HTTP calls and how do you cap concurrency?**
+> The risk is thundering-herd against the downstream service — 100 simultaneous calls during a retry storm can take it down. Use `SemaphoreSlim` to limit concurrent requests.
+
+`HttpClient` is thread-safe and handles connection pooling, so parallel calls are safe from the client side. But hammering a single downstream service with too many concurrent requests can overwhelm it. Limit concurrency with `SemaphoreSlim` or `Parallel.ForEachAsync` with `MaxDegreeOfParallelism`.
 
 ```csharp
-// Uncapped fan-out for small N
+// Dangerous: All 100 calls hammer the server simultaneously
+var urls = Enumerable.Range(1, 100).Select(i => $"api/item/{i}");
 var tasks = urls.Select(url => client.GetStringAsync(url));
-string[] results = await Task.WhenAll(tasks);
+var results = await Task.WhenAll(tasks); // 100 concurrent requests!
 
-// Capped concurrency
+// Safe: Cap at 5 concurrent requests
+var semaphore = new SemaphoreSlim(5);
+var tasks = urls.Select(async url =>
+{
+    await semaphore.WaitAsync();
+    try 
+    { 
+        return await client.GetStringAsync(url); 
+    }
+    finally 
+    { 
+        semaphore.Release(); 
+    }
+});
+var results = await Task.WhenAll(tasks);
+
+// Alternative: Use Parallel.ForEachAsync (.NET 6+)
+var results = new List<string>();
+var cts = new CancellationTokenSource();
+
+await Parallel.ForEachAsync(
+    urls,
+    new ParallelOptions { MaxDegreeOfParallelism = 5, CancellationToken = cts.Token },
+    async (url, ct) =>
+    {
+        var result = await client.GetStringAsync(url, ct);
+        lock (results) results.Add(result); // Thread-safe collection
+    }
+);
+```
+
+---
+
+**Q: How do you implement capped concurrency for parallel HTTP calls?**
+> Use `SemaphoreSlim` to limit concurrent requests, or use `Parallel.ForEachAsync` with `MaxDegreeOfParallelism`.
+
+```csharp
+// With SemaphoreSlim
 var semaphore = new SemaphoreSlim(5);
 var tasks = urls.Select(async url => {
     await semaphore.WaitAsync();
@@ -510,50 +947,44 @@ var tasks = urls.Select(async url => {
 });
 ```
 
-**Elaboration:** `HttpClient` is thread-safe and handles connection pooling, so parallel calls are fine. The risk is thundering-herd against the downstream service — 100 simultaneous calls during a retry storm can take it down. A semaphore or `Parallel.ForEachAsync` with a `MaxDegreeOfParallelism` gives you a simple circuit breaker. Also propagate a shared `CancellationToken` so one failure can cancel the rest.
+Always propagate a shared `CancellationToken` so one failure can cancel the rest.
 
 ---
 
 ### Serialization Format Trade-offs
 
-**Q: A high-throughput internal service currently uses JSON. A colleague suggests switching to MessagePack or Protobuf. What benchmarks would you run, and what non-performance factors (versioning, tooling, human readability) would influence the decision?**
-> **Bottom line:** Benchmark payload size and serialization throughput under realistic load, but weigh the debugging and schema evolution costs before committing.
+**Q: Should you switch from JSON to MessagePack or Protobuf, and what should you consider?**
+> Only if profiling shows JSON is a bottleneck; consider both performance and non-performance factors.
 
-**Elaboration:** Run benchmarks with production-representative payloads: serialization/deserialization throughput (ops/sec), payload byte size, and end-to-end latency under concurrency. Non-performance factors are often decisive: binary formats require tooling to inspect traffic (no `curl` + readable output), schema evolution needs careful field numbering discipline, and onboarding new team members gets harder. I'd switch only if profiling shows JSON is a bottleneck — premature optimization of serialization format has real maintenance costs.
+Premature optimization has real maintenance costs. Run benchmarks with production-representative payloads: throughput (ops/sec), payload size, and latency under concurrency. Non-performance factors are often decisive: you can't just `curl` a binary endpoint, and Protobuf requires careful field numbering for schema evolution. New team members need to learn the binary format tools.
 
 ---
 
 ### Security Architecture
 
-**Q: You need to call a third-party API that uses mutual TLS (mTLS). How does mTLS differ from one-way TLS, and how do you configure it in .NET's `HttpClientHandler`?**
-> **Bottom line:** In mTLS both sides present certificates — not just the server — so the server can verify the client's identity; configure it by loading a client certificate into `HttpClientHandler.ClientCertificates`.
-
-```csharp
-var cert = X509Certificate2.CreateFromPemFile("client.crt", "client.key");
-var handler = new HttpClientHandler();
-handler.ClientCertificates.Add(cert);
-var client = new HttpClient(handler);
-```
-
-**Elaboration:** Standard TLS only proves the server's identity to the client. mTLS adds a client certificate step to the TLS handshake, letting the server authenticate the caller at the transport layer — before any HTTP happens. This is common in zero-trust architectures and service meshes. Store the certificate securely (Azure Key Vault, AWS Certificate Manager) and rotate it — hardcoding it in config files is a security antipattern.
-
----
-
 ## Level 7 — Advanced & Expert
 
 ### HTTP/2 and HTTP/3
 
-**Q: How does HTTP/2 multiplexing eliminate head-of-line blocking at the HTTP layer, and why does HTTP/3 (QUIC) still improve on this?**
-> **Bottom line:** HTTP/2 multiplexes multiple streams over one TCP connection, eliminating HTTP-layer blocking — but TCP itself still causes head-of-line blocking on packet loss; HTTP/3 on QUIC fixes this at the transport layer.
+**Q: How does HTTP/2 multiplexing improve over HTTP/1.1?**
+> HTTP/2 multiplexes streams over one TCP connection, allowing many requests to share the connection without blocking each other.
 
-**Elaboration:** In HTTP/1.1 you can only have one in-flight request per connection (pipelining was too buggy to use). HTTP/2 assigns each request a stream ID so many requests share one TCP connection without waiting for each other. The remaining problem: if one TCP packet is lost, the OS pauses delivery of all streams until it's retransmitted. QUIC implements independent streams in userspace over UDP, so a lost packet for stream 5 doesn't block stream 6. For networks with non-trivial packet loss (mobile, satellite), HTTP/3 meaningfully improves latency.
+In HTTP/1.1 you can only have one in-flight request per connection. HTTP/2 assigns each request a stream ID so many requests share one TCP connection simultaneously. This eliminates the need to open multiple connections for parallel requests.
 
 ---
 
-**Q: How do you enable HTTP/2 or HTTP/3 in a .NET `HttpClient`? What server-side configuration is required, and what happens if the server does not support it?**
-> **Bottom line:** Set `HttpVersionPolicy` and configure `SocketsHttpHandler` — the client negotiates via ALPN and gracefully falls back if the server doesn't support the requested version.
+**Q: What limitation does HTTP/2 have and how does HTTP/3 improve it?**
+> HTTP/2 doesn't completely eliminate head-of-line blocking — TCP-layer blocking occurs on packet loss. HTTP/3 on QUIC fixes this at the transport layer.
+
+In HTTP/2, if one TCP packet is lost, the OS pauses delivery of all streams until it's retransmitted. HTTP/3 on QUIC implements independent streams in userspace over UDP, so a lost packet for stream 5 doesn't block stream 6. For networks with non-trivial packet loss (mobile, satellite), HTTP/3 meaningfully improves latency.
+
+---
+
+**Q: How do you enable HTTP/2 or HTTP/3 in `HttpClient` and what server configuration is needed?**
+> Set `DefaultRequestVersion` and `DefaultVersionPolicy`; server negotiates via ALPN (HTTP/2) or `Alt-Svc` header (HTTP/3).
 
 ```csharp
+// HTTP/2
 var handler = new SocketsHttpHandler();
 var client = new HttpClient(handler)
 {
@@ -561,73 +992,75 @@ var client = new HttpClient(handler)
     DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower
 };
 
-// For HTTP/3
+// HTTP/3
 client.DefaultRequestVersion = HttpVersion.Version30;
 client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
 ```
 
-**Elaboration:** HTTP/2 is negotiated via ALPN in the TLS handshake — the server must support it and advertise `h2`. HTTP/3 requires the server to advertise via the `Alt-Svc` HTTP header pointing to a QUIC endpoint. `RequestVersionOrLower` means the client falls back gracefully; `RequestVersionOrHigher` throws if the server can't match. Server-side in ASP.NET Core: enable via `ListenOptions.Protocols` in `Program.cs`.
-
----
-
-**Q: What is stream prioritisation in HTTP/2, and in what type of application does it provide a measurable benefit?**
-> **Bottom line:** Stream prioritisation lets clients hint that some responses (e.g., CSS blocking render) should be delivered before others (deferred analytics scripts) — it provides the most benefit in browser-facing applications with mixed critical and non-critical assets.
-
-**Elaboration:** HTTP/2 defines a dependency tree with weights for each stream. A browser can tell the server "give CSS stream 3 priority over image stream 7." In practice, most servers implement prioritisation inconsistently and browsers have largely moved to fetch-priority hints at the HTML level. For API-to-API communication it rarely matters — all streams are equally critical. The measurable wins are in web page loading scenarios with a mix of render-blocking and lazy resources.
+The client negotiates HTTP/2 via ALPN in the TLS handshake — the server must support it and advertise `h2`. HTTP/3 requires the server to advertise via the `Alt-Svc` HTTP header pointing to a QUIC endpoint. In ASP.NET Core, enable both via `ListenOptions.Protocols` in `Program.cs`. `RequestVersionOrLower` means the client falls back gracefully if the server doesn't support the requested version; `RequestVersionOrHigher` throws if the server can't match.
 
 ---
 
 ### Advanced Socket Programming
 
-**Q: What are the performance differences between `Socket` in blocking mode, non-blocking mode, and async I/O (`SocketAsyncEventArgs`)? When would you drop down to `SocketAsyncEventArgs` instead of `TcpClient`?**
-> **Bottom line:** Blocking mode ties up a thread per connection; non-blocking uses polling which wastes CPU; `SocketAsyncEventArgs` achieves high throughput with minimal allocations — use it when you need to handle tens of thousands of concurrent connections with predictable GC behavior.
-
-**Elaboration:** `TcpClient` wraps `Socket` with `async`/`await` using `Task`-based APIs, which allocate a `Task` and related objects per operation. `SocketAsyncEventArgs` is a pre-.NET-async API that avoids those allocations by reusing event args objects from a pool — essential for a server handling 50k+ concurrent connections where GC pauses are a problem. For most services, `TcpClient` or `System.IO.Pipelines` is sufficient. Drop to `SocketAsyncEventArgs` only after profiling shows allocation pressure is the bottleneck.
-
----
-
-**Q: Explain how `Span<byte>` and `Memory<byte>` can be used with `Socket.ReceiveAsync` overloads to reduce allocations in a high-throughput server.**
-> **Bottom line:** `Span<byte>` and `Memory<byte>` let you receive directly into stack-allocated or pooled buffers instead of allocating a new `byte[]` per receive call.
-
-```csharp
-// Rent a buffer from the pool
-byte[] buffer = ArrayPool<byte>.Shared.Rent(4096);
-try
-{
-    int received = await socket.ReceiveAsync(buffer.AsMemory(0, 4096), SocketFlags.None);
-    ProcessData(buffer.AsSpan(0, received));
-}
-finally { ArrayPool<byte>.Shared.Return(buffer); }
-```
-
-**Elaboration:** Before these APIs every `ReceiveAsync` call forced you to allocate a new `byte[]`, putting pressure on the GC. `Memory<byte>` is the heap-compatible form passed to async methods, while `Span<byte>` is stack-only and used for synchronous processing. `System.IO.Pipelines` builds on these primitives to give you backpressure-aware, zero-copy I/O — the preferred abstraction for writing high-performance socket servers in .NET today.
-
----
-
-**Q: A service is receiving 200,000 UDP packets per second. You start dropping packets. Walk through the diagnostic steps — from checking OS socket buffer sizes (`SO_RCVBUF`) to application-level batching.**
-> **Bottom line:** Start by checking OS socket receive buffer size, then verify the application is reading fast enough, then consider batching reads with `ReceiveMessageFrom` or reducing GC pressure.
-
-**Elaboration:** First check `SO_RCVBUF` — the OS drops packets when the kernel buffer fills up. On Linux: `sysctl net.core.rmem_max` and `sysctl net.core.rmem_default`. Increase with `socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, 8 * 1024 * 1024)`. If the buffer is large but still dropping, the application isn't draining it fast enough — profile the processing path. Use `Socket.ReceiveMessageFromAsync` in a tight loop on a dedicated thread. At 200k pps, GC pauses from per-packet allocations can cause the thread to stall for milliseconds — move to `SocketAsyncEventArgs` with pre-allocated buffers. Finally, consider application-level batching: process N packets per loop iteration rather than one at a time.
-
----
-
 ### Distributed System Scenarios
 
-**Q: Describe how you would implement an idempotency key pattern for a financial POST endpoint so that retries never double-charge a customer. What must the server store, and for how long?**
-> **Bottom line:** The client generates a UUID per logical operation and sends it as a header; the server stores (key → response) in durable storage and replays the cached response on duplicate requests.
+**Q: How do you implement idempotency keys for financial POSTs, what should the server store, and how long?**
+> Client generates UUID per operation in `Idempotency-Key` header; server stores key→response mapping for 24 hours.
 
-**Elaboration:** The client generates the key once — typically a UUID — before the first attempt and includes it on every retry (`Idempotency-Key: <uuid>`). The server checks a durable store (Redis, database) before processing: if the key exists, return the cached response immediately. If not, process and store the result atomically. Store for long enough to cover your retry window plus clock skew — 24 hours is standard for payment APIs. The key thing is atomicity: you must either process-and-store or return-cached with no gap where a duplicate could slip through.
+The client generates the key once — typically a UUID — before the first attempt and includes it on every retry (`Idempotency-Key: <uuid>`). The server checks a durable store (Redis, database) before processing: if the key exists, return the cached response immediately. If not, process the request. The server maps the idempotency key to the response it generated. On duplicate requests with the same key, it returns the cached response. Store for long enough to cover your retry window plus clock skew — 24 hours is standard for payment APIs. The longer you store, the safer you are from duplicates, but the more storage you consume. 24 hours is a reasonable default that covers most retry patterns.
+
+```csharp
+// Client side: Generate once and include on all retries
+var idempotencyKey = Guid.NewGuid().ToString();
+var payment = new { Amount = 100m, AccountId = 42 };
+
+HttpResponseMessage response = null;
+for (int attempt = 0; attempt < 3; attempt++)
+{
+    var request = new HttpRequestMessage(HttpMethod.Post, "api/payments");
+    request.Headers.Add("Idempotency-Key", idempotencyKey); // Same key on all attempts
+    request.Content = JsonContent.Create(payment);
+    
+    try 
+    {
+        response = await client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        break;
+    }
+    catch (HttpRequestException) when (attempt < 2)
+    {
+        // Retry with same idempotency key
+    }
+}
+
+// Server side: Check and cache response by key
+[HttpPost("payments")]
+public async Task<IActionResult> CreatePayment(
+    [FromBody] PaymentRequest req,
+    [FromHeader(Name = "Idempotency-Key")] string key)
+{
+    // Atomic check-and-process
+    var cached = await idempotencyStore.GetAsync(key); // Redis or DB
+    if (cached != null)
+        return Ok(JsonSerializer.Deserialize(cached)); // Return cached response
+    
+    var result = await processPayment(req);
+    
+    // Store response for 24 hours
+    await idempotencyStore.SetAsync(key, JsonSerializer.Serialize(result), 
+        expiry: TimeSpan.FromHours(24));
+    
+    return Ok(result);
+}
+```
 
 ---
 
-**Q: You have a service mesh (e.g., Istio) handling retries and load balancing. Should the application still implement its own retry logic? What problems arise from retrying at both layers simultaneously?**
-> **Bottom line:** Retrying at both layers multiplies the actual retry attempts and can overwhelm downstream services — be deliberate about which layer owns retry and configure them to cooperate.
+**Q: What is the most important principle when implementing idempotency key handling?**
+> Atomicity — process-and-store or return-cached with no gap for duplicates to slip through.
 
-**Elaboration:** If Istio retries a failed request 3 times and your application also retries 3 times, a single logical failure can generate up to 9 requests. For non-idempotent operations this is dangerous. The general principle: let the mesh handle infrastructure-level transient failures (connection reset, 503) and let the application handle business-level failures (optimistic concurrency conflicts, token refresh). Disable application retries for the same error classes the mesh handles, or set mesh retries to 1 and application retries to 0 and handle it in one place. Document the retry policy explicitly in your runbook.
+If there's a gap between checking for the key and storing the result, a duplicate request arriving during that gap could cause a double-charge. The check and store must be atomic — either both happen or neither does.
 
 ---
 
-**Q: Walk through how an HTTP request is affected by each of these in turn: DNS TTL expiry, TCP slow start, TLS handshake latency, and server-side queuing. How do keep-alive, connection pooling, and TLS session resumption each address one of these costs?**
-> **Bottom line:** Each phase adds latency that compounds — keep-alive eliminates TCP/TLS setup costs on subsequent requests, connection pooling reuses established connections across requests, and TLS session resumption (0-RTT) reduces the handshake from 2 RTTs to near zero.
-
-**Elaboration:** DNS TTL expiry means a cold request must wait for a DNS lookup (20–100ms) before even opening a socket. TCP slow start throttles throughput for the first few round trips until congestion window opens — less visible for small API payloads, significant for large responses. A full TLS 1.3 handshake is 1 RTT; TLS 1.2 was 2 RTTs; 0-RTT resumption with session tickets brings it to near-zero for known servers. Server-side queuing adds variable latency at peak load. Connection pooling addresses all TCP and TLS costs by keeping connections alive across requests — once the connection is established, subsequent requests skip DNS, handshake, and slow start entirely. The only unavoidable cost becomes server processing and one RTT of transmission time.

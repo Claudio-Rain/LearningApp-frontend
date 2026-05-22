@@ -276,11 +276,20 @@ let currentNotificationId = null;
 function updateContentDisplay(item) {
   const titleEl = document.getElementById('content-title');
   const textEl = document.getElementById('content-text');
+  const widget = document.querySelector('.learning-content-widget');
 
-  if (titleEl && textEl) {
+  if (titleEl && textEl && widget) {
     titleEl.textContent = item.title || 'Learning Item';
     const plainText = extractPlainText(item.content);
-    textEl.textContent = plainText;
+
+    // If content is empty, show placeholder
+    if (!plainText || plainText.trim().length === 0) {
+      textEl.textContent = '(No content available)';
+      widget.style.opacity = '0.6';
+    } else {
+      textEl.textContent = plainText;
+      widget.style.opacity = '1';
+    }
   }
 }
 

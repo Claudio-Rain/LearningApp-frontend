@@ -37,7 +37,7 @@ export async function fetchRandomContent() {
   const progressMap = new Map(allProgress.map(p => [p.learning_item_id, p]));
   const randomItem = selectRandomContent(items, progressMap);
 
-  console.log('[background] fetchRandomContent: selected item', randomItem.title);
+  console.log('[background] fetchRandomContent: selected item', randomItem.title, '| has content:', !!randomItem.content);
 
   await setCurrentContent(randomItem);
   await notifyAllTabs(randomItem);

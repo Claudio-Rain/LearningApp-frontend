@@ -6,9 +6,20 @@
         <div>
           <div class="panel-title">{{ collection?.title }}</div>
         </div>
-        <v-btn color="primary" size="small" prepend-icon="mdi-plus" @click="handleAddLearningItem">
-          Add
-        </v-btn>
+        <div class="header-buttons">
+          <v-btn
+            size="small"
+            prepend-icon="mdi-sync"
+            @click="handlePullItems"
+            :loading="isPulling"
+            title="Pull latest items from Firebase"
+          >
+            Pull
+          </v-btn>
+          <v-btn color="primary" size="small" prepend-icon="mdi-plus" @click="handleAddLearningItem">
+            Add
+          </v-btn>
+        </div>
       </div>
 
       <v-data-table
@@ -83,6 +94,7 @@ const collectionId = route.params.id!.toLocaleString()
 const collection = ref<Collection | null>(null)
 const learningItems = ref<LearningItem[]>([])
 const selectedItem = ref<LearningItem | null>(null)
+const isPulling = ref(false)
 
 const dateSort = (a: string, b: string) =>
   parseISO(a).getTime() - parseISO(b).getTime()
@@ -183,6 +195,21 @@ const handleTitleUpdate = async (id: string, title: string, lastModified: string
   }
 }
 
+const handlePullItems = async () => {
+  isPulling.value = true
+  try {
+    if (navigator.onLine) {
+      await pullLearningItems(collectionId)
+      await loadData()
+    }
+  } catch (error) {
+    console.error('Failed to pull items:', error)
+    alert('Failed to pull items from Firebase')
+  } finally {
+    isPulling.value = false
+  }
+}
+
 onMounted(async () => {
   startSyncEngine()
   if (navigator.onLine) await pullLearningItems(collectionId)
@@ -214,6 +241,12 @@ onMounted(async () => {
   padding: 16px;
   /* border-bottom: 1px solid rgba(0, 0, 0, 0.08); */
   flex-shrink: 0;
+}
+
+.header-buttons {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .panel-title {

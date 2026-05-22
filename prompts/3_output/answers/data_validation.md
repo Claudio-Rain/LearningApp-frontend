@@ -4,85 +4,406 @@
 
 ## Level 1 — Definition & Basics
 
-**Q: How would you define data validation to a junior developer joining your team? What distinguishes it from data sanitization?**
+**Q: Define data validation and distinguish it from sanitization.**
 
-> **Bottom line:** Validation asks "is this input acceptable?" — sanitization asks "how do I make this input safe to use?"
+> Validation asks "is this input acceptable?" — sanitization asks "how do I make this input safe to use?"
 
-**Elaboration:** Validation is a gate: you check whether the data meets your rules and reject it if it doesn't. Sanitization transforms data — stripping HTML tags, escaping quotes — so it can't cause harm even if it slips through. They solve different problems: validation protects business rules, sanitization protects execution contexts like databases and browsers. You almost always need both.
+Validation is a gate: you check whether the data meets your rules and reject it if it doesn't. Sanitization transforms data — stripping HTML tags, escaping quotes — so it can't cause harm even if it slips through. They solve different problems: validation protects business rules, sanitization protects execution contexts like databases and browsers. You almost always need both.
+
+```csharp
+public class ValidationAndSanitization
+{
+    // Validation: checks if data is acceptable
+    public bool IsValidEmail(string email) => 
+        !string.IsNullOrWhiteSpace(email) && email.Contains("@");
+
+    // Sanitization: makes data safe to use
+    public string SanitizeHtml(string input) =>
+        System.Web.HttpUtility.HtmlEncode(input ?? "");
+
+    public void Example()
+    {
+        string userInput = "<script>alert('xss')</script>";
+        
+        if (IsValidEmail(userInput))  // Fails validation
+        {
+            // Won't reach here
+        }
+        
+        string safeSql = SanitizeHtml(userInput);  // Output: &lt;script&gt;alert(&#39;xss&#39;)&lt;/script&gt;
+    }
+}
+```
 
 ---
 
-**Q: What are the most common categories of validation? Give a concrete example for each.**
+**Q: What are the most common validation categories and examples?**
 
-> **Bottom line:** The six core categories are presence, type, format, range, uniqueness, and business-rule — each catches a different class of bad data.
+> Presence (required?), Type (integer?), Format (pattern match?), Range (0-120?), Uniqueness (no duplicates?), Business-rule (end > start?).
 
-**Elaboration:** Presence: a required field like `email` can't be blank. Type: an `age` field must be an integer, not a string. Format: an email must match the expected pattern. Range: age must be between 0 and 120. Uniqueness: no two users can share the same username. Business-rule: a booking end date must be after the start date. Miss any one of these and you'll have production bugs eventually.
+Each catches a different failure mode. Miss one and you have production bugs.
+
+```csharp
+public class ValidationCategories
+{
+    public class User
+    {
+        public string Name { get; set; }
+        public int Age { get; set; }
+        public string Email { get; set; }
+    }
+
+    public List<string> ValidateUser(User user)
+    {
+        var errors = new List<string>();
+
+        // Presence: required field
+        if (string.IsNullOrWhiteSpace(user.Name))
+            errors.Add("Name is required");
+
+        // Type & Range: age should be 0-150
+        if (user.Age < 0 || user.Age > 150)
+            errors.Add("Age must be between 0 and 150");
+
+        // Format: email pattern
+        if (!user.Email?.Contains("@") ?? true)
+            errors.Add("Email must be valid");
+
+        // Uniqueness: check against database
+        if (EmailExists(user.Email))
+            errors.Add("Email already registered");
+
+        return errors;
+    }
+
+    private bool EmailExists(string email) => false; // Database lookup
+}
+```
 
 ---
 
-**Q: Why is it important to validate user inputs, and what are the consequences of skipping it?**
+**Q: Why validate input? What happens if you skip it?**
 
-> **Bottom line:** Unvalidated input is the root cause of most injection attacks and virtually all data-integrity disasters.
+> Unvalidated input is the root cause of most injection attacks and data-integrity disasters.
 
-**Elaboration:** From a security standpoint, skipping validation opens the door to SQL injection, XSS, command injection, and path traversal. From a data-integrity standpoint, you end up with garbage in your database — negative inventory counts, orders with no customer, corrupt financial records — which is often harder to fix than the security breach itself. The cost of validating early is trivially small compared to the cost of cleaning up corrupted production data.
+Skipping validation opens you to SQL injection, XSS, and command injection. Worse, you end up with garbage in your database — negative inventory, orders with no customer, corrupt financial records — which is often harder to fix than a security breach. Validating early costs almost nothing compared to cleaning up corrupted production data.
+
+```csharp
+public class InputValidationExample
+{
+    // BAD: No validation — vulnerable to injection and bad data
+    public void BadCreateOrder(string quantity, string customerId)
+    {
+        int qty = int.Parse(quantity);  // Crashes on non-numeric input
+        var order = new Order { Quantity = qty, CustomerId = customerId };
+        _db.Orders.Add(order);
+        _db.SaveChanges();  // Stores negative quantities, null customers
+    }
+
+    // GOOD: Validate before processing
+    public Result GoodCreateOrder(string quantity, string customerId)
+    {
+        if (!int.TryParse(quantity, out int qty))
+            return Result.Fail("Quantity must be a number");
+        
+        if (qty <= 0)
+            return Result.Fail("Quantity must be positive");
+        
+        if (string.IsNullOrWhiteSpace(customerId))
+            return Result.Fail("Customer ID is required");
+
+        var customer = _db.Customers.Find(customerId);
+        if (customer == null)
+            return Result.Fail("Customer not found");
+
+        var order = new Order { Quantity = qty, CustomerId = customerId };
+        _db.Orders.Add(order);
+        _db.SaveChanges();
+        return Result.Ok();
+    }
+
+    public class Order { public int Quantity { get; set; } public string CustomerId { get; set; } }
+    public class Result { public bool Success { get; set; } public string Message { get; set; } public static Result Ok() => new() { Success = true }; public static Result Fail(string msg) => new() { Success = false, Message = msg }; }
+}
+```
 
 ---
 
-**Q: Where in an application stack should validation occur, and why might validating in only one place be risky?**
+**Q: Where should validation occur in the application stack?**
 
-> **Bottom line:** Validate at every boundary — frontend for UX, backend for correctness, database for last-resort integrity.
+> Validate at every boundary — frontend for UX, backend for correctness, database for last-resort integrity.
 
-**Elaboration:** Frontend validation gives users immediate feedback without a round trip, but it can be bypassed entirely with curl or a browser dev tool. Backend validation is the authoritative gate and cannot be skipped by any client. Database constraints are a safety net for bugs in application code — but they produce cryptic errors that are hard to surface gracefully. Each layer has a different threat model, and defense in depth means you don't trust any single layer to hold.
+Frontend validation gives instant feedback but can be bypassed with curl or dev tools. Backend validation is authoritative and can't be skipped. Database constraints catch bugs in application code but produce cryptic errors. Defense in depth means trusting none of them individually.
+
+```csharp
+public class ValidationLayersExample
+{
+    // Database layer: Enforce constraints as last resort
+    // CREATE TABLE Users (
+    //     Id INT PRIMARY KEY,
+    //     Email NVARCHAR(255) NOT NULL UNIQUE,
+    //     Age INT CHECK (Age >= 0 AND Age <= 150)
+    // );
+
+    // API/Backend layer: Authoritative validation
+    [HttpPost("users")]
+    public IActionResult CreateUser([FromBody] CreateUserRequest request)
+    {
+        // Business validation
+        var errors = ValidateUser(request);
+        if (errors.Any())
+            return BadRequest(new { errors });
+
+        var user = new User { Email = request.Email, Age = request.Age };
+        _db.Users.Add(user);
+        _db.SaveChanges();
+        return Ok(user);
+    }
+
+    private List<string> ValidateUser(CreateUserRequest req)
+    {
+        var errors = new List<string>();
+        if (string.IsNullOrWhiteSpace(req.Email)) errors.Add("Email required");
+        if (req.Age < 0 || req.Age > 150) errors.Add("Age must be 0-150");
+        if (_db.Users.Any(u => u.Email == req.Email)) errors.Add("Email taken");
+        return errors;
+    }
+
+    public class CreateUserRequest { public string Email { get; set; } public int Age { get; set; } }
+    public class User { public string Email { get; set; } public int Age { get; set; } }
+}
+```
 
 ---
 
-**Q: If you had to choose between strict validation that rejects ambiguous input and lenient validation that tries to interpret it, which would you favour and why?**
+**Q: What is lenient validation?**
 
-> **Bottom line:** I default to strict validation at system boundaries and lenient interpretation in the UI layer only.
+>  Lenient means flexible — you accept "Jan 5", "01/05", "2025-01-05", and "5 January" as valid dates instead of rejecting all but one format. 
 
-**Elaboration:** At the API or service layer, strict validation is far safer — ambiguity means you're guessing at intent, and a wrong guess corrupts data silently. At the UI layer, leniency improves UX: accept "Jan 5, 2025" and "01/05/2025" and normalize them before sending to the backend. The key trade-off is that lenient validation shifts complexity from the user to the developer, and that complexity can hide bugs. My rule: be liberal in what you display to users, strict in what you persist or pass to other services.
+It prioritizes user experience over strict rules. The opposite, strict validation, rejects anything that doesn't match exactly — only "2025-01-05" passes. Lenient is better for UI input (users type in many ways), strict is better for data storage (one canonical format prevents bugs).
+
+```csharp
+// Lenient: accepts many formats
+public bool IsValidDateLenient(string input)
+{
+    // Accepts "Jan 5", "1/5/25", "01/05/2025", etc.
+    return DateTime.TryParse(input, out _);  // TryParse is very forgiving
+}
+
+// Strict: accepts only one format
+public bool IsValidDateStrict(string input)
+{
+    // Accepts ONLY "yyyy-MM-dd"
+    return DateTime.TryParseExact(input, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out _);
+}
+
+// Usage
+string userInput = "Jan 5, 2025";
+if (IsValidDateLenient(userInput))  // TRUE — good for UI
+    Console.WriteLine("User sees: accepted!");
+
+if (IsValidDateStrict(userInput))   // FALSE — good for API
+    Console.WriteLine("This won't print");
+```
+
+---
+
+**Q: Strict vs. lenient validation — which do you prefer?**
+
+> Strict at system boundaries (APIs, persistence), lenient only in the UI layer for UX.
+
+Strict means no silent data corruption from ambiguity. Lenient at the API level shifts complexity to developers and hides bugs. But in the UI, accept "Jan 5" and "01/05", normalize before sending to the backend. Rule: be liberal in display, strict in persistence.
+
+```csharp
+public class StrictVsLenientExample
+{
+    // Lenient in UI: accept multiple formats
+    public string ParseDateForDisplay(string input)
+    {
+        // Accept "Jan 5", "01/05", "2025-01-05", "1/5/25"
+        if (DateTime.TryParse(input, out var date))
+            return date.ToString("MMMM d, yyyy");
+        return "Invalid date";
+    }
+
+    // Strict at API boundary: only ISO 8601
+    [HttpPost("events")]
+    public IActionResult CreateEvent([FromBody] CreateEventRequest req)
+    {
+        if (!DateTime.TryParseExact(req.Date, "yyyy-MM-dd", 
+            CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+            return BadRequest("Date must be ISO 8601 format (yyyy-MM-dd)");
+
+        if (date < DateTime.UtcNow.Date)
+            return BadRequest("Event date cannot be in the past");
+
+        var @event = new Event { Date = date };
+        _db.Events.Add(@event);
+        _db.SaveChanges();
+        return Ok();
+    }
+
+    public class CreateEventRequest { public string Date { get; set; } }
+    public class Event { public DateTime Date { get; set; } }
+}
+```
 
 ---
 
 ## Level 2 — Core Concepts
 
-**Q: Explain the difference between client-side and server-side validation. Why is client-side validation insufficient on its own?**
+**Q: Client-side vs. server-side validation — why is client-side alone insufficient?**
 
-> **Bottom line:** Client-side validation is a UX courtesy; server-side validation is the actual security control.
+> Client-side validation is a UX courtesy; server-side validation is the actual security control.
 
-**Elaboration:** Client-side validation runs in the browser, which the user fully controls — they can disable JavaScript, use a proxy like Burp Suite, or call your API directly. Server-side validation runs in an environment you control, so it can't be bypassed by any legitimate or malicious client. Think of client-side as the friendly prompt that helps honest users fill out a form correctly, and server-side as the bouncer who actually checks IDs.
+Client-side validation runs in the browser, which the user fully controls — they can disable JavaScript, use a proxy, or call your API directly. Server-side validation runs in an environment you control and can't be bypassed.
+
+```csharp
+public class ClientServerValidationExample
+{
+    // Client-side validation: UX feedback only (JavaScript in browser)
+    // Can be bypassed: curl -X POST https://api.example.com/register -d "age=-50"
+
+    // Server-side validation: ACTUAL security control
+    [HttpPost("register")]
+    public IActionResult Register([FromBody] RegisterRequest req)
+    {
+        // Never trust client-side validation
+        if (string.IsNullOrWhiteSpace(req.Email))
+            return BadRequest("Email required");
+        
+        if (req.Age < 18)
+            return BadRequest("Must be 18 or older");
+        
+        if (_db.Users.Any(u => u.Email == req.Email))
+            return BadRequest("Email already registered");
+
+        var user = new User { Email = req.Email, Age = req.Age };
+        _db.Users.Add(user);
+        _db.SaveChanges();
+        return Ok();
+    }
+
+    public class RegisterRequest { public string Email { get; set; } public int Age { get; set; } }
+}
+```
 
 ---
 
-**Q: What security vulnerabilities can arise if you rely solely on HTML5 `required`/`pattern` attributes without server-side checks?**
+**Q: What vulnerabilities arise from relying only on HTML5 validation attributes?**
 
-> **Bottom line:** Any attacker who sends a raw HTTP request bypasses HTML5 constraints completely.
+> Any attacker who sends a raw HTTP request bypasses HTML5 constraints completely.
 
-**Elaboration:** HTML5 attributes are enforced by the browser, not the server. A single `curl -d "email=notanemail"` call ignores them entirely. This means you're open to SQL injection, stored XSS, and business-logic abuse — submitting negative quantities, injecting script tags into a comment field, registering with someone else's email. Relying on client-side attributes alone is essentially having no server-side validation at all.
+HTML5 attributes are enforced by the browser, not the server. A single `curl -d "email=notanemail"` call ignores them entirely. This means you're open to SQL injection, stored XSS, and business-logic abuse — submitting negative quantities, injecting script tags into a comment field, registering with someone else's email. Relying on client-side attributes alone is essentially having no server-side validation at all.
+
+```csharp
+public class HtmlValidationBypassExample
+{
+    // HTML5 form (browser enforces max="100")
+    // <input type="number" name="quantity" max="100" />
+
+    // Attacker bypasses browser with curl:
+    // curl -X POST https://api.example.com/order -d "quantity=999999"
+
+    [HttpPost("order")]
+    public IActionResult CreateOrder([FromBody] OrderRequest req)
+    {
+        // MUST validate server-side, never trust HTML5 attributes
+        if (req.Quantity < 1 || req.Quantity > 100)
+            return BadRequest("Quantity must be 1-100");
+
+        if (string.IsNullOrWhiteSpace(req.Comments))
+            return BadRequest("Comments required");
+
+        // Prevent XSS: don't store raw HTML
+        var sanitized = System.Web.HttpUtility.HtmlEncode(req.Comments);
+        
+        var order = new Order { Quantity = req.Quantity, Comments = sanitized };
+        _db.Orders.Add(order);
+        _db.SaveChanges();
+        return Ok();
+    }
+
+    public class OrderRequest { public int Quantity { get; set; } public string Comments { get; set; } }
+}
+```
 
 ---
 
-**Q: How would you validate an email address? Walk through RFC 5321/5322 rules and which are commonly ignored in practice.**
+**Q: How do you validate an email address? Which RFC rules do you actually need?**
 
-> **Bottom line:** Full RFC compliance is impractical; a reasonable regex plus a DNS MX record check covers 99% of real-world cases.
+> Full RFC compliance is impractical — use a simple regex (non-empty local, @, domain with dot) plus MX lookup for critical flows.
 
-**Elaboration:** RFC 5321 allows local parts with quoted strings (`"john doe"@example.com`), comments, and IP address literals (`user@[192.168.1.1]`) — none of which real mail servers commonly use. In practice, you validate with a regex that enforces a non-empty local part, an `@`, a domain with at least one dot, and a reasonable TLD length. For critical flows like account registration, I add an MX lookup to confirm the domain actually accepts mail. The only true test of deliverability is sending a confirmation email.
+RFC 5321 allows quoted strings and IP literals that real mail servers don't use. Your regex can ignore those edge cases. For registration, add an MX check. The only true test is a confirmation email.
+
+```csharp
+using System.Text.RegularExpressions;
+
+public class EmailValidatorExample
+{
+    // Practical email regex (90% of valid emails, 0% false positives)
+    private static readonly Regex EmailRegex = new(@"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$");
+
+    public bool IsValidEmail(string email)
+    {
+        if (string.IsNullOrWhiteSpace(email))
+            return false;
+        
+        email = email.Trim();
+        return EmailRegex.IsMatch(email);
+    }
+
+    // For critical flows: check MX record exists
+    public async Task<bool> HasValidMxRecord(string email)
+    {
+        var domain = email.Split('@')[1];
+        try
+        {
+            // Use MXLookup library in production
+            // var mxRecords = await MXLookup.FindMxRecordsAsync(domain);
+            // return mxRecords.Any();
+            return true; // Placeholder
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    [HttpPost("register")]
+    public async Task<IActionResult> RegisterUser([FromBody] RegisterRequest req)
+    {
+        if (!IsValidEmail(req.Email))
+            return BadRequest("Invalid email format");
+
+        if (!await HasValidMxRecord(req.Email))
+            return BadRequest("Email domain is not valid");
+
+        // Send confirmation email
+        await SendConfirmationEmail(req.Email);
+        return Ok("Check your email");
+    }
+
+    private Task SendConfirmationEmail(string email) => Task.CompletedTask;
+    public class RegisterRequest { public string Email { get; set; } }
+}
+```
 
 ---
 
-**Q: What would happen if you used `^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$` to validate emails in production?**
+**Q: What issues does this regex have for production email validation?**
 
-> **Bottom line:** It rejects valid addresses with new TLDs over a certain length and some legitimate special characters, but it's good enough for most products.
+> It rejects quoted local parts, IP-literal domains, and non-ASCII characters — edge cases that affect ~0.1% of users.
 
-**Elaboration:** The `{2,}` TLD constraint rejects addresses on newer TLDs like `.museum` or `.engineering` if you cap it — though this regex doesn't cap the upper bound, so that specific concern doesn't apply here. What it does reject: quoted local parts, IP-literal domains, and internationalized email addresses with non-ASCII characters. For 99.9% of your users it works fine; the risk is alienating a small number of legitimate users and creating a support burden when they can't register.
+For 99.9% of legitimate addresses it works fine. The risk is alienating users who can't register (e.g., someone with a Punycode domain) and fielding support tickets. If your user base is primarily US/EU with ASCII emails, this is acceptable. For international products, add a secondary validation path for non-ASCII characters.
 
 ---
 
-**Q: What is a guard clause, and how does it differ from validation in a service layer? Write pseudocode for argument validation.**
+**Q: What are guard clauses? How do they differ from service-layer validation?**
 
-> **Bottom line:** A guard clause is a fast-fail check at the top of a method that enforces preconditions on arguments, separate from business-rule validation in a service layer.
+> A guard clause is a fast-fail check at the top of a method that enforces preconditions on arguments, separate from business-rule validation in a service layer.
 
-**Elaboration:** Guard clauses protect a method from being called incorrectly — they check for nulls, wrong types, or obviously illegal values and throw immediately. Service-layer validation enforces business rules like "this user has permission" or "this amount doesn't exceed the account balance." Mixing them conflates contract enforcement with business logic.
+Guard clauses protect a method from being called incorrectly — they check for nulls, wrong types, or obviously illegal values and throw immediately. Service-layer validation enforces business rules like "this user has permission" or "this amount doesn't exceed the account balance." Mixing them conflates contract enforcement with business logic.
 
 ```typescript
 function processPayment(userId: number, amount: Decimal, currencyCode: string): void {
@@ -98,342 +419,1504 @@ function processPayment(userId: number, amount: Decimal, currencyCode: string): 
 }
 ```
 
+```csharp
+public class PaymentService
+{
+    public void ProcessPayment(int userId, decimal amount, string currencyCode)
+    {
+        // Guard clauses — argument contract
+        if (userId <= 0)
+            throw new ArgumentException("userId must be a positive integer");
+        if (amount <= 0)
+            throw new ArgumentException("amount must be positive");
+        if (string.IsNullOrEmpty(currencyCode) || !Regex.IsMatch(currencyCode, @"^[A-Z]{3}$"))
+            throw new ArgumentException("currencyCode must be an ISO 4217 code");
+
+        // Business logic follows
+        var account = _accountRepo.Find(userId);
+        if (account.Balance < amount)
+            throw new InsufficientFundsException();
+    }
+}
+```
+
 ---
 
-**Q: How should you handle validation failures inside a library method called by both internal code and external consumers?**
+**Q: How should library methods handle validation failures?**
 
-> **Bottom line:** Throw typed exceptions for hard contract violations; return a result object when partial success or structured errors matter to the caller.
+> Throw typed exceptions for argument violations (null userId, malformed input); return a result object for business-rule failures.
 
-**Elaboration:** For a library, I lean toward exceptions for argument guard violations — null userId, malformed input — because these represent programming errors and the caller should fix their code. For business-rule failures where the consumer needs to know which fields failed and why, a result object like `ValidationResult { isValid, errors[] }` is more ergonomic. The key is being consistent and documenting the contract clearly so consumers don't have to guess which failure mode they're handling.
+Exceptions signal programming errors that callers should fix. Result objects let callers handle field-level errors gracefully. Document the contract clearly so consumers know which failure mode they're handling.
 
 ---
 
-**Q: A teammate argues "just sanitize inputs and you don't need to validate." How do you respond?**
+**Q: A teammate says "just sanitize inputs; validation isn't needed." Your response?**
 
-> **Bottom line:** Sanitization and validation solve different problems and can't substitute for each other.
+> Sanitization and validation solve different problems and can't substitute for each other.
 
-**Elaboration:** Sanitization makes data safe to process — it doesn't tell you whether the data is correct or meaningful. If I sanitize a credit card number that's actually a random string, I end up with a stored value that will fail every downstream charge attempt. Conversely, validating without sanitizing can mean passing a structurally valid but malicious payload deeper into the system. Use sanitization to neutralize dangerous content, validation to enforce correctness — they're complementary, not alternatives.
+Sanitization makes data safe to process but doesn't enforce correctness. A sanitized random string will pass as a credit card until the first charge fails. Conversely, validation without sanitization passes malicious payloads. Use both: validation enforces correctness, sanitization neutralizes dangerous content.
 
 ---
 
 ## Level 3 — Practical Usage
 
-**Q: How would you parse, format, and validate an internationally dialled phone number? Why is a simple regex dangerous?**
+**Q: How do you validate international phone numbers? Why is regex inadequate?**
 
-> **Bottom line:** Use Google's `libphonenumber` — phone number rules are country-specific and change over time, making regex-based validation a maintenance nightmare.
+> Use Google's `libphonenumber` — phone number rules are country-specific and change over time, making regex-based validation a maintenance nightmare.
 
-**Elaboration:** The regex `^\+?[0-9]{7,15}$` accepts numbers that are structurally plausible but invalid in every real country — a 15-digit number starting with +1 is impossible since NANP numbers are exactly 11 digits in E.164. Country dial plans have varying lengths, area code rules, and reserved prefixes that no static regex can encode. `libphonenumber` encodes the actual ITU-T metadata and is updated when countries change their numbering plans. The overhead is worth it for any user-facing phone field.
+The regex `^\+?[0-9]{7,15}$` accepts numbers that are structurally plausible but invalid in every real country — a 15-digit number starting with +1 is impossible since NANP numbers are exactly 11 digits in E.164. Country dial plans have varying lengths, area code rules, and reserved prefixes that no static regex can encode. `libphonenumber` encodes the actual ITU-T metadata and is updated when countries change their numbering plans. The overhead is worth it for any user-facing phone field.
 
----
+```csharp
+using PhoneNumbers;
 
-**Q: A user submits `"(800) 555-0199"`. Walk through every step to normalize it to E.164 format.**
+public class PhoneValidator
+{
+    private readonly PhoneNumberUtil _phoneUtil = PhoneNumberUtil.GetInstance();
 
-> **Bottom line:** Strip formatting, infer the country code from context, parse with libphonenumber, validate, then format as E.164.
+    public bool IsValidPhone(string phoneNumber, string countryCode)
+    {
+        try
+        {
+            var number = _phoneUtil.Parse(phoneNumber, countryCode);
+            return _phoneUtil.IsValidNumber(number);
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
-**Elaboration:** First, strip non-digit characters to get `8005550199`. Since there's no country code prefix, you need caller context — either a stored locale, a GeoIP lookup, or a required country selector. Assuming US, you pass `("8005550199", "US")` to `libphonenumber.parse()`, which produces a phone number object. You then call `isValidNumber()` to confirm it's a real US number, and `format(E164)` to produce `+18005550199`. Failure modes: no country context available, number is valid format but not assigned (e.g., 555 numbers), or the stripped string is shorter than the minimum for the inferred country.
+    public string NormalizeToE164(string phoneNumber, string countryCode)
+    {
+        try
+        {
+            var number = _phoneUtil.Parse(phoneNumber, countryCode);
+            return _phoneUtil.Format(number, PhoneNumberFormat.E164);
+        }
+        catch
+        {
+            return null;
+        }
+    }
 
----
+    [HttpPost("users")]
+    public IActionResult CreateUser([FromBody] CreateUserRequest req)
+    {
+        if (!IsValidPhone(req.Phone, req.CountryCode))
+            return BadRequest("Invalid phone number");
 
-**Q: What are the key challenges when validating a date/time string like `"02/03/2025"` from US and European users?**
+        var normalized = NormalizeToE164(req.Phone, req.CountryCode);
+        var user = new User { Phone = normalized, Country = req.CountryCode };
+        _db.Users.Add(user);
+        _db.SaveChanges();
+        return Ok();
+    }
 
-> **Bottom line:** Format ambiguity is the core problem — `02/03` is February 3rd in the US and March 2nd in Europe, and there's no way to know which without user context.
-
-**Elaboration:** The solution is to never accept ambiguous date strings without a declared locale or format. The safest approach is to either require ISO 8601 (`2025-02-03`) from APIs or provide a date picker in the UI that outputs an unambiguous format. If you must parse free-text dates, you need the user's locale setting to disambiguate. Leap years add another layer: `02/29/2025` is invalid since 2025 isn't a leap year, and your parser must handle that rather than silently rolling over to March 1st.
-
----
-
-**Q: How would you validate that a booking end-date is after the start-date and neither is in the past — keeping logic consistent across React and Node.js?**
-
-> **Bottom line:** Put the validation rules in a shared TypeScript module that both the frontend and backend import directly.
-
-**Elaboration:** Define a `validateBookingDates(start: Date, end: Date): ValidationResult` function in a shared package — a monorepo `packages/validation` or a published internal library. Both React and the Node.js service import the same function, so the rules are literally identical. The one gotcha is "not in the past" — always recheck this on the server with the server's clock, since the client's clock can be wrong or manipulated. The frontend check is purely for UX feedback.
-
----
-
-**Q: What rules define a valid FQDN, and how does your validation differ between a DNS record hostname and a URL typed in a browser?**
-
-> **Bottom line:** An FQDN has specific length limits and label rules that differ from what browsers accept as a URL, so the validation strategy must match the use case.
-
-**Elaboration:** An FQDN has labels separated by dots, each label 1–63 ASCII characters, total length 253 characters max, no leading or trailing hyphens, and no underscores in hostnames (though underscores are valid in DNS names used for service records). For a DNS record, you enforce all of those rules strictly. For a browser URL, you also need to handle schemes, ports, paths, and query strings — plus IDN (internationalized) hostnames. Use a URL parser like the WHATWG URL API for browser inputs rather than a regex.
-
----
-
-**Q: How do you validate an IPv4 vs. IPv6 address? Why is `\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}` insufficient for IPv4?**
-
-> **Bottom line:** The regex matches structurally but accepts octets like `999`, so you must also verify each octet is 0–255 after splitting.
-
-**Elaboration:** For IPv4, parse the four segments and check each is an integer between 0 and 255 — the regex alone passes `999.999.999.999`. For IPv6, regex becomes impractical because of the `::` zero-compression notation, mixed IPv4-mapped addresses (`::ffff:192.0.2.1`), and zone IDs. The right approach is to use the platform's built-in address parser — `inet_pton` in C, `ipaddress` module in Python, or `net.parseIP` in Go — and let it fail on invalid input rather than reimplementing the spec in regex.
-
----
-
-**Q: A user enters `"2001:db8::1"` as an IP address. Is this valid? What edge cases does IPv6 introduce?**
-
-> **Bottom line:** Yes, it's valid — `::` is legal zero compression, and `2001:db8::/32` is a documented example range.
-
-**Elaboration:** IPv6 edge cases that IPv4 doesn't have: `::` can appear at most once and expands to fill the remaining groups with zeros; the total must expand to exactly 8 groups of 16 bits. IPv4-mapped addresses like `::ffff:192.168.1.1` are syntactically valid IPv6. Zone IDs (`fe80::1%eth0`) are valid in some contexts but invalid in others — e.g., you can't use them in a URL without percent-encoding. Link-local addresses (`fe80::/10`) and loopback (`::1`) may need special handling depending on your use case.
-
----
-
-**Q: How would you validate a currency amount string like `"$1,234.56"` or `"1.234,56 €"`? What locale considerations matter?**
-
-> **Bottom line:** Strip the currency symbol, use locale-aware parsing to handle thousands separators and decimal separators, then store as a fixed-point integer in the smallest currency unit.
-
-**Elaboration:** The US uses comma as thousands separator and period as decimal; Germany inverts this. You need to know the user's locale before parsing or you'll misinterpret `1.234` as twelve hundred thirty-four versus one-point-two-three-four. I use `Intl.NumberFormat` for display and a library like `dinero.js` or `decimal.js` for parsing and arithmetic. After parsing, store amounts as integers in cents or the currency's minor unit — never as a float.
+    public class CreateUserRequest { public string Phone { get; set; } public string CountryCode { get; set; } }
+}
+```
 
 ---
 
-**Q: What is the risk of using floating-point arithmetic after parsing a currency string?**
+**Q: Normalize `"(800) 555-0199"` to E.164 format. Walk through the steps.**
 
-> **Bottom line:** Floating-point can't represent most decimal fractions exactly, so rounding errors accumulate and you get incorrect financial totals.
+> Strip formatting, infer country code from context, parse with libphonenumber, then format as E.164.
 
-**Elaboration:** `0.1 + 0.2 === 0.30000000000000004` in JavaScript — that error is tiny but unacceptable in finance. The standard solution is to convert amounts to integers in the smallest unit (cents, pence, etc.) immediately after parsing, do all arithmetic in integers, and only convert back to a formatted decimal string for display. Alternatively, use a `Decimal` type from a library like `decimal.js` or Java's `BigDecimal` that performs arbitrary-precision arithmetic.
+Strip non-digits → `8005550199`. Infer country code (stored locale, GeoIP, or UI selector). Pass `("8005550199", "US")` to `libphonenumber.parse()`, call `isValidNumber()` to confirm it's real, and `format(E164)` → `+18005550199`. Common pitfalls: missing country context, or the number is valid format but unassigned (e.g., 555 numbers).
 
 ---
 
-**Q: Concrete pros and cons of writing your own regex vs. using `libphonenumber` for phone validation in a high-throughput system.**
+**Q: What's the core challenge validating ambiguous dates like `"02/03/2025"`?**
 
-> **Bottom line:** Roll your own regex only if you're validating a single, well-defined market and can accept a higher false-reject rate; use `libphonenumber` for anything international.
+> `02/03` is Feb 3 in the US, March 2 in Europe — you can't know which without user context.
 
-**Elaboration:** A custom regex has zero dependencies, compiles once, and runs in nanoseconds — at 100k RPS that matters. But phone numbering plans change, and your regex will silently reject valid new numbers or accept invalid ones when plans update. `libphonenumber` is authoritative and maintained by Google, but the JVM version is heavy (~2MB metadata) and the JavaScript port (`google-libphonenumber`) adds latency. The practical compromise for high throughput is to pre-validate with a cheap structural regex to reject obvious garbage, then use `libphonenumber` for the cases that pass structural checks.
+Never accept ambiguous dates without a declared locale. Require ISO 8601 from APIs or use a date picker in the UI. If you parse free text, validate leap years correctly — `02/29/2025` is invalid.
+
+```csharp
+using System.Globalization;
+
+public class DateValidationExample
+{
+    [HttpPost("bookings")]
+    public IActionResult CreateBooking([FromBody] BookingRequest req)
+    {
+        // GOOD: ISO 8601 from API (no ambiguity)
+        if (!DateTime.TryParseExact(req.Date, "yyyy-MM-dd",
+            CultureInfo.InvariantCulture, DateTimeStyles.None, out var date))
+            return BadRequest("Date must be yyyy-MM-dd format");
+
+        // Validate it's not in the past
+        if (date.Date < DateTime.UtcNow.Date)
+            return BadRequest("Booking date cannot be in the past");
+
+        // Check leap year automatically via DateTime
+        if (date.Month == 2 && date.Day == 29)
+        {
+            if (!DateTime.IsLeapYear(date.Year))
+                return BadRequest("Invalid date: not a leap year");
+        }
+
+        var booking = new Booking { Date = date };
+        _db.Bookings.Add(booking);
+        _db.SaveChanges();
+        return Ok();
+    }
+
+    // For display: format based on user's locale
+    public string FormatDateForUser(DateTime date, string userLocale)
+    {
+        var culture = new CultureInfo(userLocale);
+        return date.ToString("d", culture); // Respects user's date format
+    }
+
+    public class BookingRequest { public string Date { get; set; } }
+}
+```
+
+---
+
+**Q: How do you share booking-date validation logic between React and Node.js?**
+
+> Create a shared TypeScript module in a monorepo (`packages/validation`) that both frontend and backend import.
+
+One gotcha: "not in the past" must be rechecked server-side with the server's clock — client clocks are unreliable. Frontend checks are UX feedback only.
+
+---
+
+**Q: How does FQDN validation differ between DNS records and browser URLs?**
+
+> FQDN rules (each label 1–63 chars, no leading hyphens) differ from URL rules (must handle schemes, ports, paths, IDN).
+
+For DNS records, enforce FQDN rules strictly. For browser URLs, use a URL parser (WHATWG URL API) instead of regex.
+
+```csharp
+using System.Text.RegularExpressions;
+
+public class DomainValidatorExample
+{
+    // FQDN validation: strict DNS rules
+    public bool IsValidFqdn(string fqdn)
+    {
+        if (string.IsNullOrWhiteSpace(fqdn) || fqdn.Length > 253)
+            return false;
+
+        // Each label 1-63 chars, no leading/trailing hyphens
+        var labels = fqdn.Split('.');
+        return labels.Length >= 2 && labels.All(label =>
+            label.Length > 0 && label.Length <= 63 &&
+            !label.StartsWith("-") && !label.EndsWith("-") &&
+            Regex.IsMatch(label, @"^[a-zA-Z0-9-]+$"));
+    }
+
+    // URL validation: use Uri class for full parsing
+    public bool IsValidUrl(string url)
+    {
+        return Uri.TryCreate(url, UriKind.Absolute, out var uri) &&
+               (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+    }
+
+    [HttpPost("domains")]
+    public IActionResult RegisterDomain([FromBody] DomainRequest req)
+    {
+        if (!IsValidFqdn(req.Domain))
+            return BadRequest("Invalid domain name");
+
+        var domain = new Domain { Name = req.Domain };
+        _db.Domains.Add(domain);
+        _db.SaveChanges();
+        return Ok();
+    }
+
+    [HttpPost("webhooks")]
+    public IActionResult CreateWebhook([FromBody] WebhookRequest req)
+    {
+        if (!IsValidUrl(req.Url))
+            return BadRequest("Invalid webhook URL");
+
+        var webhook = new Webhook { Url = req.Url };
+        _db.Webhooks.Add(webhook);
+        _db.SaveChanges();
+        return Ok();
+    }
+
+    public class DomainRequest { public string Domain { get; set; } }
+    public class WebhookRequest { public string Url { get; set; } }
+}
+```
+
+---
+
+**Q: Why is the IPv4 regex `\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}` insufficient?**
+
+> The regex matches structurally but accepts octets like `999`, so you must also verify each octet is 0–255 after splitting.
+
+For IPv4, parse the four segments and check each is an integer between 0 and 255 — the regex alone passes `999.999.999.999`. For IPv6, regex becomes impractical because of the `::` zero-compression notation, mixed IPv4-mapped addresses (`::ffff:192.0.2.1`), and zone IDs. The right approach is to use the platform's built-in address parser — `inet_pton` in C, `ipaddress` module in Python, or `net.parseIP` in Go — and let it fail on invalid input rather than reimplementing the spec in regex.
+
+```csharp
+using System.Net;
+using System.Net.Sockets;
+
+public class IpValidator
+{
+    public bool IsValidIpAddress(string input)
+    {
+        return IPAddress.TryParse(input, out _);
+    }
+
+    public bool IsValidIPv4(string input)
+    {
+        if (!IPAddress.TryParse(input, out var address))
+            return false;
+        return address.AddressFamily == AddressFamily.InterNetwork;
+    }
+
+    public bool IsValidIPv6(string input)
+    {
+        if (!IPAddress.TryParse(input, out var address))
+            return false;
+        return address.AddressFamily == AddressFamily.InterNetworkV6;
+    }
+
+    [HttpPost("whitelist")]
+    public IActionResult AddIpWhitelist([FromBody] IpWhitelistRequest req)
+    {
+        if (!IsValidIpAddress(req.IpAddress))
+            return BadRequest("Invalid IP address");
+
+        var rule = new IpRule { IpAddress = req.IpAddress, Version = DetermineVersion(req.IpAddress) };
+        _db.IpRules.Add(rule);
+        _db.SaveChanges();
+        return Ok();
+    }
+
+    private string DetermineVersion(string ip)
+    {
+        return IsValidIPv4(ip) ? "IPv4" : "IPv6";
+    }
+
+    public class IpWhitelistRequest { public string IpAddress { get; set; } }
+}
+```
+
+---
+
+**Q: Is `"2001:db8::1"` valid? What IPv6 edge cases exist?**
+
+> Yes, it's valid — `::` is legal zero compression, and `2001:db8::/32` is a documented example range.
+
+IPv6 edge cases that IPv4 doesn't have: `::` can appear at most once and expands to fill the remaining groups with zeros; the total must expand to exactly 8 groups of 16 bits. IPv4-mapped addresses like `::ffff:192.168.1.1` are syntactically valid IPv6. Zone IDs (`fe80::1%eth0`) are valid in some contexts but invalid in others — e.g., you can't use them in a URL without percent-encoding. Link-local addresses (`fe80::/10`) and loopback (`::1`) may need special handling depending on your use case.
+
+---
+
+**Q: How do you validate IBAN (International Bank Account Number)?**
+
+> Validate structure: 2-letter country code, 2 check digits, then country-specific BBAN. Use a library or lookup table for country-specific lengths.
+
+An IBAN has a fixed length per country (15–34 characters total). The simplest approach: regex to reject obviously wrong formats, then use a library like `iban-js` to verify the checksum. Don't implement MOD-97 arithmetic yourself — the libraries are battle-tested and handle country rules correctly. For production payment systems, validate format then confirm the account exists with your payment processor before attempting a transfer.
+
+```csharp
+using System.Text.RegularExpressions;
+
+public class IbanValidator
+{
+    // Quick structural check
+    public bool IsValidIbanFormat(string iban)
+    {
+        if (string.IsNullOrWhiteSpace(iban)) return false;
+        iban = iban.Replace(" ", "").ToUpper();
+        
+        // 2 letters, 2 digits, then 1-30 alphanumeric
+        return Regex.IsMatch(iban, @"^[A-Z]{2}[0-9]{2}[A-Z0-9]{1,30}$");
+    }
+
+    [HttpPost("transfers")]
+    public async Task<IActionResult> CreateTransfer([FromBody] TransferRequest req)
+    {
+        if (!IsValidIbanFormat(req.ToAccount))
+            return BadRequest("Invalid IBAN format");
+
+        // In production: use a real IBAN validation library (IBAN4j, etc.)
+        // var validator = new IbanValidator();
+        // if (!validator.Validate(req.ToAccount))
+        //     return BadRequest("Invalid IBAN checksum");
+
+        // Confirm account exists with payment processor
+        var accountExists = await VerifyAccountWithBank(req.ToAccount);
+        if (!accountExists)
+            return BadRequest("Account not found");
+
+        var transfer = new Transfer { ToAccount = req.ToAccount, Amount = req.Amount };
+        _db.Transfers.Add(transfer);
+        _db.SaveChanges();
+        return Ok();
+    }
+
+    private Task<bool> VerifyAccountWithBank(string iban) => Task.FromResult(true);
+    public class TransferRequest { public string ToAccount { get; set; } public decimal Amount { get; set; } }
+}
+```
+
+---
+
+**Q: How do you validate locale-aware currency amounts?**
+
+> Parse with locale awareness (US: 1,234.56; Germany: 1.234,56), then store as integers in the smallest currency unit, never as floats.
+
+You must know the user's locale before parsing — `1.234` means different things in different regions. Use `Intl.NumberFormat` for display and `dinero.js` or `decimal.js` for parsing. Store as integers (cents, pence) to avoid floating-point rounding errors that accumulate in financial systems.
+
+---
+
+**Q: Why is floating-point arithmetic dangerous for currency?**
+
+> Floating-point can't represent most decimal fractions exactly, so rounding errors accumulate and you get incorrect financial totals.
+
+`0.1 + 0.2 === 0.30000000000000004` in JavaScript — that error is tiny but unacceptable in finance. The standard solution is to convert amounts to integers in the smallest unit (cents, pence, etc.) immediately after parsing, do all arithmetic in integers, and only convert back to a formatted decimal string for display. Alternatively, use a `Decimal` type from a library like `decimal.js` or Java's `BigDecimal` that performs arbitrary-precision arithmetic.
+
+```csharp
+using System.Globalization;
+
+public class CurrencyValidator
+{
+    // CORRECT: Use decimal type, not float/double
+    public decimal CalculateTotal(List<decimal> amounts)
+    {
+        return amounts.Aggregate(decimal.Zero, (sum, amt) => sum + amt);
+    }
+
+    // Parse currency respecting locale
+    public bool TryParseCurrency(string input, string locale, out long centAmount)
+    {
+        centAmount = 0;
+        var culture = new CultureInfo(locale);
+        
+        if (!decimal.TryParse(input, NumberStyles.Currency, culture, out decimal amount))
+            return false;
+        
+        // Convert to cents (smallest unit) — now only integers
+        centAmount = (long)(amount * 100);
+        return true;
+    }
+
+    public string FormatCurrency(long centAmount, string locale)
+    {
+        var culture = new CultureInfo(locale);
+        decimal amount = centAmount / 100m;  // Convert back from cents
+        return amount.ToString("C", culture);
+    }
+
+    [HttpPost("payments")]
+    public IActionResult CreatePayment([FromBody] PaymentRequest req)
+    {
+        if (!TryParseCurrency(req.Amount, req.Locale, out long centAmount))
+            return BadRequest("Invalid currency amount");
+
+        if (centAmount <= 0)
+            return BadRequest("Amount must be positive");
+
+        // Store only integers
+        var payment = new Payment { AmountInCents = centAmount, Currency = req.Currency };
+        _db.Payments.Add(payment);
+        _db.SaveChanges();
+        return Ok();
+    }
+
+    public class PaymentRequest { public string Amount { get; set; } public string Locale { get; set; } public string Currency { get; set; } }
+}
+```
 
 ---
 
 ## Level 4 — Common Pitfalls
 
-**Q: How does the Luhn algorithm work, and why is passing it not sufficient to validate a credit card number?**
+**Q: How does Luhn work? Why isn't it enough for credit card validation?**
 
-> **Bottom line:** Luhn is a checksum that catches transcription errors — it doesn't verify the number is issued, active, or belongs to the user.
+> Luhn catches transcription errors but passes ~10% of random 16-digit strings — it's not a security check.
 
-**Elaboration:** Starting from the rightmost digit, double every second digit; if doubling produces a number over 9, subtract 9. Sum all digits and check the total is divisible by 10. Luhn passes about 10% of random 16-digit strings, so it's not a meaningful security check. After Luhn you still need: BIN range lookup to confirm a real issuer prefix, card network check (Visa starts with 4, Mastercard 51-55), correct length for the network, and ultimately a real authorization call to the issuing bank.
+After Luhn, you still need: BIN lookup (real issuer?), network check (Visa starts with 4), correct length, and an authorization call to the bank.
+
+```csharp
+public class CreditCardValidator
+{
+    public bool IsValidLuhn(string cardNumber)
+    {
+        cardNumber = cardNumber.Replace(" ", "").Replace("-", "");
+        if (!long.TryParse(cardNumber, out _)) return false;
+
+        int sum = 0, isSecond = false;
+        for (int i = cardNumber.Length - 1; i >= 0; i--)
+        {
+            int digit = cardNumber[i] - '0';
+            if (isSecond)
+            {
+                digit *= 2;
+                if (digit > 9) digit -= 9;
+            }
+            sum += digit;
+            isSecond = !isSecond;
+        }
+        return sum % 10 == 0;  // Luhn check: sum divisible by 10
+    }
+
+    public bool IsValidCard(string cardNumber)
+    {
+        cardNumber = cardNumber.Replace(" ", "").Replace("-", "");
+        
+        // Luhn is insufficient — need multiple checks
+        if (!IsValidLuhn(cardNumber))
+            return false;
+        
+        if (!IsValidLength(cardNumber))
+            return false;
+        
+        if (!IsValidNetwork(cardNumber))
+            return false;
+
+        return true;
+    }
+
+    private bool IsValidNetwork(string cardNumber) =>
+        cardNumber[0] switch
+        {
+            '4' => true,  // Visa
+            '5' => true,  // Mastercard
+            '3' => true,  // AmEx/Discover
+            _ => false
+        };
+
+    private bool IsValidLength(string cardNumber) =>
+        cardNumber.Length switch { 13 or 15 or 16 => true, _ => false };
+
+    // Real validation: API call to payment processor
+    public async Task<bool> IsValidCardWithProcessor(string cardNumber)
+    {
+        // Local checks first
+        if (!IsValidCard(cardNumber))
+            return false;
+
+        // Then ask the payment processor
+        try
+        {
+            var token = await _stripeClient.ValidateCard(cardNumber);
+            return !string.IsNullOrEmpty(token);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+}
+```
 
 ---
 
-**Q: A QA engineer reports that the validator accepts `"4111 1111 1111 1111"` but rejects `"4111111111111111"`. Where is the bug?**
+**Q: Why does the validator accept `"4111 1111 1111 1111"` but reject `"4111111111111111"`?**
 
-> **Bottom line:** The validator is not stripping spaces before running the Luhn check or length validation.
+> The validator is not stripping spaces before running the Luhn check or length validation.
 
-**Elaboration:** The fix is a single normalization step at the top: `cardNumber = input.replace(/\s+/g, "")`. The validator should never assume input format — users copy from physical cards, from emails, from autofill, and each source may include spaces, dashes, or nothing. Normalize first, validate second. This is a classic example of missing input normalization before applying rules.
+The fix is a single normalization step at the top: `cardNumber = input.replace(/\s+/g, "")`. The validator should never assume input format — users copy from physical cards, from emails, from autofill, and each source may include spaces, dashes, or nothing. Normalize first, validate second. This is a classic example of missing input normalization before applying rules.
+
+```csharp
+public class CreditCardNormalizationExample
+{
+    // BAD: Forgets to normalize
+    public bool IsValidCardBad(string cardNumber)
+    {
+        if (cardNumber.Length != 16) return false;  // Rejects with spaces
+        return IsValidLuhn(cardNumber);
+    }
+
+    // GOOD: Normalize first
+    public bool IsValidCardGood(string cardNumber)
+    {
+        // Strip spaces and dashes
+        cardNumber = cardNumber.Replace(" ", "").Replace("-", "");
+        
+        if (cardNumber.Length != 16) return false;
+        if (!long.TryParse(cardNumber, out _)) return false;
+        
+        return IsValidLuhn(cardNumber);
+    }
+
+    private bool IsValidLuhn(string cardNumber)
+    {
+        int sum = 0, isSecond = false;
+        for (int i = cardNumber.Length - 1; i >= 0; i--)
+        {
+            int digit = cardNumber[i] - '0';
+            if (isSecond)
+            {
+                digit *= 2;
+                if (digit > 9) digit -= 9;
+            }
+            sum += digit;
+            isSecond = !isSecond;
+        }
+        return sum % 10 == 0;
+    }
+}
+```
 
 ---
 
-**Q: Should you store raw credit card numbers after validation? If not, what must happen immediately after validation succeeds?**
+**Q: Should you store raw credit card numbers after validation?**
 
-> **Bottom line:** Never store raw PANs — immediately tokenize through a PCI-DSS compliant vault like Stripe or Braintree.
+> Never store raw PANs — immediately tokenize through a PCI-DSS compliant vault like Stripe or Braintree.
 
-**Elaboration:** Storing raw card numbers makes you subject to PCI-DSS SAQ D compliance, which is expensive and difficult, and creates catastrophic liability if you're breached. The pattern is: validate the number client-side with Luhn + BIN check for UX feedback, then pass it directly to the payment processor's SDK which tokenizes it before it ever hits your server. Your backend receives a token, never the PAN. This keeps your system out of PCI scope entirely.
+Storing raw card numbers makes you subject to PCI-DSS SAQ D compliance, which is expensive and difficult, and creates catastrophic liability if you're breached. The pattern is: validate the number client-side with Luhn + BIN check for UX feedback, then pass it directly to the payment processor's SDK which tokenizes it before it ever hits your server. Your backend receives a token, never the PAN. This keeps your system out of PCI scope entirely.
+
+```csharp
+public class CreditCardStorageExample
+{
+    // BAD: Never do this
+    public void BadCreatePayment(string cardNumber, string cvv)
+    {
+        // Storing raw PAN — now you're subject to PCI-DSS
+        var payment = new Payment { CardNumber = cardNumber, CVV = cvv };
+        _db.Payments.Add(payment);
+        _db.SaveChanges();  // DANGER: Card data in database
+    }
+
+    // GOOD: Tokenize through payment processor
+    public async Task<IActionResult> GoodCreatePayment(string cardNumber, string cvv)
+    {
+        // Validate locally for UX feedback
+        cardNumber = cardNumber.Replace(" ", "").Replace("-", "");
+        if (!IsValidCard(cardNumber)) return BadRequest("Invalid card");
+
+        // Send card directly to Stripe/Braintree, never to your server
+        try
+        {
+            var token = await _stripeClient.CreateTokenAsync(cardNumber, cvv);
+            
+            // Store only the token, not the card
+            var payment = new Payment { StripeTokenId = token };
+            _db.Payments.Add(payment);
+            _db.SaveChanges();
+            
+            return Ok(new { tokenId = token });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest("Payment processor rejected card");
+        }
+    }
+
+    private bool IsValidCard(string cardNumber) => true; // Luhn check
+    public class Payment { public string StripeTokenId { get; set; } }
+}
+```
 
 ---
 
-**Q: Describe the structure of an IBAN and the validation algorithm (MOD 97). Why can't you validate it with a single regex?**
+**Q: Users are registering with invalid emails. What are the five most likely causes?**
 
-> **Bottom line:** An IBAN has a country-specific length and structure that a single regex can't encode, and MOD 97 requires arithmetic a regex can't perform.
+> A code path bypasses the validation layer — a direct DB call, legacy API version, feature flag, migration script, or race condition.
 
-**Elaboration:** An IBAN is: 2-letter country code, 2-digit check digits, then a BBAN of country-specific format and length (14 to 34 characters total depending on country). Validation steps: check overall length matches the country's expected length, verify the BBAN format for that country, then move the first four characters to the end, replace letters with digits (A=10, B=11, ...), and verify the resulting integer MOD 97 equals 1. The MOD 97 step requires big-integer arithmetic on up to a 34-digit number — well beyond what a regex can do.
+Debug by: (1) Query invalid records and correlate `created_at` with deployments. (2) Audit all write paths to the users table — find any that skip the service layer. (3) Check if an older API version without validation is still in use. (4) Look for disabled feature flags or environment checks in production. (5) Review recent migrations or seed scripts. Start with #1 and #2 — they're the most common.
+
+```csharp
+public class InvalidEmailDebugExample
+{
+    [HttpPost("v2/register")]  // Current API with validation
+    public IActionResult RegisterV2([FromBody] RegisterRequest req)
+    {
+        if (!IsValidEmail(req.Email))
+            return BadRequest("Invalid email");
+        
+        var user = new User { Email = req.Email };
+        _db.Users.Add(user);
+        _db.SaveChanges();
+        return Ok();
+    }
+
+    [HttpPost("v1/register")]  // Legacy endpoint — LIKELY CULPRIT
+    public IActionResult RegisterV1(string email, string password)
+    {
+        // Missing validation!
+        var user = new User { Email = email };  // Stores invalid emails
+        _db.Users.Add(user);
+        _db.SaveChanges();
+        return Ok();
+    }
+
+    // Direct database migration — another culprit
+    public void SeedUsersFromLegacySystem()
+    {
+        var legacyUsers = _legacyDb.Users.ToList();
+        foreach (var legacy in legacyUsers)
+        {
+            // Missing validation — bulk imports invalid emails
+            _db.Users.Add(new User { Email = legacy.Email });
+        }
+        _db.SaveChanges();
+    }
+
+    // Debug script
+    public void AuditInvalidEmails()
+    {
+        var invalid = _db.Users
+            .Where(u => !u.Email.Contains("@"))
+            .Select(u => new { u.Id, u.Email, u.CreatedAt })
+            .ToList();
+
+        foreach (var user in invalid)
+        {
+            Console.WriteLine($"User {user.Id}: {user.Email} created at {user.CreatedAt}");
+            // Correlate CreatedAt with deployment timestamps
+        }
+    }
+
+    private bool IsValidEmail(string email) => email?.Contains("@") ?? false;
+}
+```
 
 ---
 
-**Q: Walk through validating `"DE89 3704 0044 0532 0130 00"` step by step.**
+**Q: Domain model vs. service-layer validation — which approach and why?**
 
-> **Bottom line:** Strip spaces, check length is 22 for Germany, verify BBAN is all digits, rearrange, convert to integer, check MOD 97 === 1.
+> Use both: enforce hard invariants (non-null ID, positive amounts) in the domain model; business rules (uniqueness, cross-field dependencies) in the service layer.
 
-**Elaboration:** Step 1 — normalize: remove spaces → `DE89370400440532013000`. Step 2 — length: Germany expects 22 characters, ✓. Step 3 — move first four to end: `370400440532013000DE89`. Step 4 — replace letters: D=13, E=14 → `3704004405320130001314 89`. Step 5 — parse as integer and compute MOD 97: if result is 1, structurally valid. The check digits 89 were chosen to make MOD 97 equal exactly 1, so this specific IBAN passes.
+Domain model validation ensures invalid objects can never exist, but makes partial construction (like UI forms) awkward. Service-layer validation allows richer context and structured errors, but requires discipline to never skip. Split them: model owns structural correctness, service layer owns business correctness.
 
----
+```csharp
+// Domain model: enforce structural invariants
+public class Order
+{
+    public int Id { get; private set; }
+    public string CustomerId { get; private set; }
+    public decimal Amount { get; private set; }
 
-**Q: What is the difference between a structurally valid IBAN and a real, active bank account?**
+    // Private constructor — forces use of factory
+    private Order(int id, string customerId, decimal amount)
+    {
+        if (id <= 0) throw new ArgumentException("Id must be positive");
+        if (string.IsNullOrWhiteSpace(customerId)) throw new ArgumentException("CustomerId required");
+        if (amount <= 0) throw new ArgumentException("Amount must be positive");
 
-> **Bottom line:** A structurally valid IBAN means the format and checksum are correct; it says nothing about whether the account exists, is open, or belongs to the user.
+        Id = id;
+        CustomerId = customerId;
+        Amount = amount;
+    }
 
-**Elaboration:** MOD 97 validation is a format check, not an account existence check. You can construct a structurally valid IBAN for a closed account, a non-existent account, or even an account that belongs to someone else. Real-time account verification requires a separate API call — a pre-validation transfer service, the bank's own API, or SEPA instant credit transfer confirmation. When communicating to users, be explicit: "The format looks correct, but we can only confirm this is a real account when we attempt the first transfer."
+    // Factory method for construction
+    public static Result<Order> Create(int id, string customerId, decimal amount)
+    {
+        try
+        {
+            return Result<Order>.Ok(new Order(id, customerId, amount));
+        }
+        catch (ArgumentException ex)
+        {
+            return Result<Order>.Fail(ex.Message);
+        }
+    }
+}
 
----
+// Service layer: enforce business rules
+public class OrderService
+{
+    public Result CreateOrder(CreateOrderRequest req)
+    {
+        // Domain-level validation
+        var orderResult = Order.Create(req.Id, req.CustomerId, req.Amount);
+        if (!orderResult.Success)
+            return Result.Fail(orderResult.Error);
 
-**Q: A production bug report: "Some users are bypassing email validation and registering with clearly invalid addresses." What are the five most likely root causes?**
+        var order = orderResult.Value;
 
-> **Bottom line:** There's likely a code path — a direct API call, a race condition, an admin tool, or a migration script — that bypasses the validation layer.
+        // Business-level validation (context-dependent)
+        var customer = _db.Customers.Find(order.CustomerId);
+        if (customer == null)
+            return Result.Fail("Customer not found");
 
-**Elaboration:** The five most likely causes: (1) A direct call to the database or a lower-level service that skips the validation middleware — diagnose by auditing every write path to the users table. (2) A mobile app or legacy client calling an older API version that didn't have validation — check which endpoint versions are in use. (3) The validation is present but behind a feature flag or environment check that's off in production. (4) A data migration or seeding script that inserted records without running through the service layer. (5) A race condition where validation passes but the record is written by a different thread after the check — less likely for email format, more for uniqueness. I'd start by querying invalid records and correlating their `created_at` timestamps and source IPs with deployment events and known API paths.
+        if (order.Amount > customer.CreditLimit)
+            return Result.Fail("Order exceeds credit limit");
 
----
+        if (_db.Orders.Any(o => o.CustomerId == order.CustomerId && o.Amount == order.Amount && 
+            o.CreatedAt > DateTime.UtcNow.AddMinutes(-5)))
+            return Result.Fail("Duplicate order detected");
 
-**Q: Domain model validation vs. application-service layer validation — architectural trade-offs.**
+        _db.Orders.Add(order);
+        _db.SaveChanges();
+        return Result.Ok();
+    }
 
-> **Bottom line:** Domain model validation ensures invariants can never be violated; service-layer validation is more flexible but can let invalid objects exist in memory.
-
-**Elaboration:** Validating in the domain model constructor or factory means an invalid object literally cannot be created — you get a rock-solid invariant guarantee. The downside is that it makes partial construction for things like UI forms awkward, and it can couple the domain model to validation infrastructure. Service-layer validation keeps the domain model simple and allows richer context — you can access repos, check business rules, return structured error lists — but it relies on discipline to always call the validator before persisting. My preference: enforce hard invariants (non-null ID, positive amounts) in the domain model, and business rules (uniqueness, cross-field logic) in the service layer.
+    public class Result { public bool Success { get; set; } public string Error { get; set; } public static Result Ok() => new() { Success = true }; public static Result Fail(string err) => new() { Success = false, Error = err }; }
+    public class Result<T> { public bool Success { get; set; } public T Value { get; set; } public string Error { get; set; } public static Result<T> Ok(T val) => new() { Success = true, Value = val }; public static Result<T> Fail(string err) => new() { Success = false, Error = err }; }
+}
+```
 
 ---
 
 ## Level 5 — Internals & Deep Mechanics
 
-**Q: What is catastrophic backtracking / ReDoS, and how can a validation regex become a denial-of-service vector?**
+**Q: What is catastrophic backtracking (ReDoS) and how does it become a DoS vector?**
 
-> **Bottom line:** Catastrophic backtracking occurs when a regex engine explores exponentially many match paths on pathological input, turning a single request into a CPU spike.
+> Catastrophic backtracking occurs when nested quantifiers cause a regex engine to explore exponentially many match paths, turning one request into a CPU spike.
 
-**Elaboration:** It happens with nested quantifiers on overlapping character classes — the classic pattern is `(a+)+`. On input `"aaaaaaaaab"`, the engine tries every way to partition the `a`s between the outer and inner groups before failing, which is O(2^n). A malicious user who knows your email regex can craft a string that causes your Node.js server (single-threaded) to hang for seconds or minutes per request. The fix is to use possessive quantifiers or atomic groups where available, rewrite the regex to eliminate ambiguity, or use a linear-time engine.
+The classic pattern is `(a+)+`. On input `"aaaaaaaaab"`, the engine tries every partition of the `a`s before failing, which is O(2^n). A malicious user can craft input to hang your server for seconds. Fix it with possessive quantifiers, atomic groups, or rewriting to eliminate ambiguity.
 
+```csharp
+using System.Text.RegularExpressions;
+using System.Diagnostics;
+
+public class ReDoSExample
+{
+    // VULNERABLE: Nested quantifiers allow catastrophic backtracking
+    private static readonly Regex VulnerableEmail = 
+        new(@"^([a-zA-Z0-9]+\.?)+@[a-z]+\.com$");
+
+    // SAFE: Rewritten without nested quantifiers
+    private static readonly Regex SafeEmail = 
+        new(@"^[a-zA-Z0-9.]+@[a-z]+\.com$");
+
+    public void DemonstrateReDoS()
+    {
+        string attack = new string('a', 50) + "!";  // 50 a's followed by !
+
+        // Vulnerable version hangs for seconds
+        var sw = Stopwatch.StartNew();
+        try
+        {
+            var match = VulnerableEmail.IsMatch(attack);
+            sw.Stop();
+            Console.WriteLine($"Vulnerable: {sw.ElapsedMilliseconds}ms");  // ~10,000ms+
+        }
+        catch
+        {
+            Console.WriteLine("Vulnerable: Timeout or crash");
+        }
+
+        // Safe version completes instantly
+        sw.Restart();
+        var safeMatch = SafeEmail.IsMatch(attack);
+        sw.Stop();
+        Console.WriteLine($"Safe: {sw.ElapsedMilliseconds}ms");  // <1ms
+    }
+
+    // Best practice: validate regex patterns in CI
+    [HttpPost("emails")]
+    public IActionResult ValidateEmail([FromBody] string email)
+    {
+        // Use safe regex only
+        if (SafeEmail.IsMatch(email))
+            return Ok();
+
+        return BadRequest("Invalid email");
+    }
+}
 ```
-// Vulnerable — nested quantifier
-/^([a-zA-Z0-9]+\.?)+@[a-z]+\.com$/
-
-// Attack input — valid-looking prefix that forces backtracking
-"aaaaaaaaaaaaaaaa!"
-```
 
 ---
 
-**Q: How do possessive quantifiers and atomic groups prevent catastrophic backtracking? Are they available in your primary language?**
+**Q: How do possessive quantifiers and atomic groups prevent ReDoS?**
 
-> **Bottom line:** They prevent the engine from giving back already-matched characters, eliminating the backtracking paths that cause exponential behavior.
+> They prevent the engine from giving back already-matched characters, eliminating the backtracking paths that cause exponential behavior.
 
-**Elaboration:** A possessive quantifier (`++`, `*+`) matches as much as possible and never backtracks — once consumed, those characters are gone. Atomic groups `(?>...)` do the same for a subpattern. Both are available in Java and PHP but not in JavaScript's built-in regex engine — JS doesn't support possessive quantifiers or atomic groups as of ES2023. In JavaScript, the practical mitigations are: restructure the regex to eliminate overlap, use the `safe-regex` npm package to detect dangerous patterns, or run regex in a worker thread with a timeout.
-
----
-
-**Q: Why is phone-number validation inherently locale-dependent? Give a concrete example of the same digit string being valid in one country but invalid in another.**
-
-> **Bottom line:** Phone number length, area code structure, and valid prefix ranges are defined per-country by the ITU-T and national regulators, not by any universal rule.
-
-**Elaboration:** The digit string `0612345678` is a valid French mobile number (starts with 06) but is invalid in the Netherlands where mobile numbers are 10 digits starting with 06 — wait, actually that's valid in NL too. A cleaner example: `0800123456` is a valid freephone number in Germany but the same string is not a valid number in the US at all since US toll-free numbers require 10 digits. `libphonenumber` carries per-country metadata tables that encode these rules and is updated when numbering plans change, which is something no hand-written regex library can keep up with.
+A possessive quantifier (`++`, `*+`) matches as much as possible and never backtracks — once consumed, those characters are gone. Atomic groups `(?>...)` do the same for a subpattern. Both are available in Java and PHP but not in JavaScript's built-in regex engine — JS doesn't support possessive quantifiers or atomic groups as of ES2023. In JavaScript, the practical mitigations are: restructure the regex to eliminate overlap, use the `safe-regex` npm package to detect dangerous patterns, or run regex in a worker thread with a timeout.
 
 ---
 
-**Q: How does Punycode work, and what additional validation steps are needed for internationalized domain names (IDN)?**
+**Q: Why is phone validation locale-dependent? Give a concrete example.**
 
-> **Bottom line:** Punycode encodes Unicode labels into ASCII-compatible form so DNS can handle them — but validation must check for homograph attacks and IDNA compliance.
+> Phone number length, area code structure, and valid prefix ranges are defined per-country by ITU-T and national regulators.
 
-**Elaboration:** An IDN like `münchen.de` converts to `xn--mnchen-3ya.de` via Punycode, which uses a base-36 encoding of the non-ASCII characters appended after `xn--`. When accepting IDNs, you must: (1) validate each Unicode label against IDNA 2008 rules — not all Unicode characters are allowed in labels; (2) normalize to NFC; (3) check for homograph attacks where visually similar characters from different scripts create spoofed domains (`аpple.com` with Cyrillic `а`). Browser policies restrict mixing scripts in a single label, but server-side you need explicit script-consistency checks.
-
----
-
-**Q: How would date validation behave differently for the Iranian Solar Hijri calendar versus the Gregorian calendar?**
-
-> **Bottom line:** Most validation libraries assume Gregorian calendar structure — month lengths, leap year rules, epoch — none of which apply to the Solar Hijri calendar.
-
-**Elaboration:** The Solar Hijri year is 365 or 366 days but the leap year cycle is completely different — it follows an astronomical algorithm, not the Gregorian 400-year cycle. Month lengths are different too: the first six months have 31 days, months 7–11 have 30 days, and month 12 has 29 or 30. A library that assumes "February has 28 days unless divisible by 4" will fail completely. The implication is that you need calendar-aware date libraries (like `date-fns`'s locale support or `Temporal` with calendar extensions) and you must know the user's calendar system before validating any date.
+`0800123456` is a valid freephone number in Germany but not in the US (US toll-free is 10 digits). `libphonenumber` encodes per-country metadata and updates when plans change — something no static regex can maintain.
 
 ---
 
-**Q: Regex email validator (O(n), zero deps) vs. full RFC 5321-compliant parser at 50k submissions/day. Which do you recommend?**
+**Q: For 50k email submissions/day: regex validator or full RFC compliance?**
 
-> **Bottom line:** Use the regex approach — at 50k/day the throughput argument is irrelevant, and full RFC compliance brings complexity without meaningful benefit.
+> Use regex — throughput is irrelevant at 0.6/second, and RFC compliance brings complexity without benefit.
 
-**Elaboration:** 50k submissions per day is about 0.6 per second — no performance concern whatsoever. The real question is correctness vs. complexity. Full RFC 5321 compliance would accept quoted local parts and IP literals that your mail infrastructure almost certainly doesn't support, causing false positives. A well-tested regex rejects the same rare edge cases that your actual mail server would reject anyway. I'd use the regex plus an MX record check for the domain, and rely on a confirmation email as the final ground truth. Add `safe-regex` to your CI pipeline to catch any ReDoS risk.
+Full RFC 5321 would accept quoted local parts that your mail server doesn't support. A regex rejects the same edge cases your mail server would. Use regex + MX check + confirmation email as ground truth. Add `safe-regex` to CI to catch ReDoS risks.
 
 ---
 
 ## Level 6 — Trade-offs & Design Decisions
 
-**Q: Main advantages of adopting a third-party validation library (Zod, Joi, Yup, FluentValidation) vs. writing custom logic.**
+**Q: Third-party validation libraries vs. custom logic — advantages?**
 
-> **Bottom line:** Libraries give you declarative schemas, composability, and structured error messages in hours instead of days, with battle-tested edge case handling.
+> Libraries save days of work: declarative schemas, composability, structured errors, and type inference from a single source of truth.
 
-**Elaboration:** Writing validation by hand means reinventing error accumulation, nested object validation, conditional rules, and type coercion — all solved problems. Zod in particular gives you runtime validation and TypeScript type inference from a single schema, eliminating the need to keep a TypeScript interface and a validator in sync. The productivity gain is real, especially when requirements change: updating a Zod schema is a one-liner; updating hand-written if/else chains is error-prone.
+Hand-writing means rebuilding error accumulation, nested validation, conditional rules, and type coercion. Zod eliminates duplicating interfaces and validators. Changing requirements is a schema one-liner, not refactoring 200 if/else chains.
+
+```csharp
+using FluentValidation;
+
+// Custom logic approach — error-prone, verbose
+public class ManualValidator
+{
+    public List<string> ValidateUser(User user)
+    {
+        var errors = new List<string>();
+        
+        if (string.IsNullOrWhiteSpace(user.Name)) errors.Add("Name required");
+        if (user.Name.Length > 100) errors.Add("Name too long");
+        if (string.IsNullOrWhiteSpace(user.Email)) errors.Add("Email required");
+        if (!user.Email.Contains("@")) errors.Add("Email invalid");
+        if (user.Age < 18) errors.Add("Must be 18+");
+        if (user.Age > 120) errors.Add("Age implausible");
+        if (string.IsNullOrWhiteSpace(user.Phone)) errors.Add("Phone required");
+        
+        return errors;
+    }
+}
+
+// Library approach — declarative, maintainable
+public class UserValidator : AbstractValidator<User>
+{
+    public UserValidator()
+    {
+        RuleFor(u => u.Name)
+            .NotEmpty().WithMessage("Name required")
+            .MaximumLength(100).WithMessage("Name too long");
+
+        RuleFor(u => u.Email)
+            .NotEmpty().WithMessage("Email required")
+            .EmailAddress().WithMessage("Email invalid");
+
+        RuleFor(u => u.Age)
+            .GreaterThanOrEqualTo(18).WithMessage("Must be 18+")
+            .LessThanOrEqualTo(120).WithMessage("Age implausible");
+
+        RuleFor(u => u.Phone)
+            .NotEmpty().WithMessage("Phone required");
+    }
+}
+
+// Usage
+public class UserController
+{
+    private readonly UserValidator _validator = new();
+
+    [HttpPost]
+    public IActionResult CreateUser([FromBody] User user)
+    {
+        var result = _validator.Validate(user);
+        if (!result.IsValid)
+            return BadRequest(result.Errors.Select(e => e.ErrorMessage));
+
+        _db.Users.Add(user);
+        _db.SaveChanges();
+        return Ok();
+    }
+}
+```
 
 ---
 
-**Q: Risks and downsides of depending on a third-party validation library in a long-lived production system. How do you mitigate them?**
+**Q: What are the risks of third-party validation libraries and how do you mitigate them?**
 
-> **Bottom line:** The main risks are breaking changes across major versions and dependency abandonment — mitigate with a thin wrapper and a thorough test suite.
+> Breaking changes and abandonment — mitigate by wrapping the library behind an internal `validate` module instead of calling it directly everywhere.
 
-**Elaboration:** Joi has broken its API multiple times across major versions; migrating a large codebase is painful. Libraries can also be abandoned — if your validation logic is spread throughout 200 files with direct Joi calls, a migration is a massive refactor. My mitigation: wrap the library behind an internal `validate` module so the library is a single-file dependency, and maintain a comprehensive test suite for all validation rules. If the library is abandoned or breaks, you swap the internals without touching the rest of the codebase.
+If Joi breaks and you've called it across 200 files, migration is painful. Wrap it: create one internal module that uses the library. If it breaks or gets abandoned, you swap internals in one place. Maintain a comprehensive test suite for all rules.
+
+```csharp
+// BAD: Direct dependency on third-party library (FluentValidation)
+public class BadUserValidator : AbstractValidator<User>
+{
+    public BadUserValidator()
+    {
+        RuleFor(u => u.Email).EmailAddress();  // Tightly coupled
+    }
+}
+
+// Usage scattered everywhere
+public class UserController
+{
+    [HttpPost]
+    public IActionResult Create([FromBody] User user)
+    {
+        var validator = new BadUserValidator();  // Creates new instance everywhere
+        var result = validator.Validate(user);
+        return result.IsValid ? Ok() : BadRequest(result.Errors);
+    }
+}
+
+// GOOD: Wrap library in internal module
+// src/Validation/IValidator.cs (internal interface)
+public interface IValidator<T>
+{
+    ValidationResult Validate(T item);
+}
+
+// src/Validation/UserValidator.cs (internal implementation)
+public class UserValidator : IValidator<User>
+{
+    // Uses FluentValidation internally, but this is an implementation detail
+    private readonly AbstractValidator<User> _fluentValidator;
+
+    public UserValidator()
+    {
+        _fluentValidator = new InternalUserValidator();
+    }
+
+    public ValidationResult Validate(User user)
+    {
+        var result = _fluentValidator.Validate(user);
+        return new ValidationResult
+        {
+            IsValid = result.IsValid,
+            Errors = result.Errors.Select(e => e.ErrorMessage).ToList()
+        };
+    }
+
+    private class InternalUserValidator : AbstractValidator<User>
+    {
+        public InternalUserValidator()
+        {
+            RuleFor(u => u.Email).EmailAddress();
+        }
+    }
+}
+
+// Usage: only depends on internal interface
+public class UserController
+{
+    private readonly IValidator<User> _validator;
+
+    public UserController(IValidator<User> validator)
+    {
+        _validator = validator;  // Injected
+    }
+
+    [HttpPost]
+    public IActionResult Create([FromBody] User user)
+    {
+        var result = _validator.Validate(user);
+        return result.IsValid ? Ok() : BadRequest(result.Errors);
+    }
+}
+
+// Migration scenario: FluentValidation breaks or is abandoned
+// Change: only update src/Validation/UserValidator.cs
+// Benefit: application code remains unchanged
+
+public class ValidationResult { public bool IsValid { get; set; } public List<string> Errors { get; set; } }
+```
 
 ---
 
-**Q: Library A: 10M weekly downloads, last updated 2 years ago. Library B: 500k downloads, actively maintained. What factors guide your decision?**
+**Q: Choosing between a popular stale library and an active smaller one — factors?**
 
-> **Bottom line:** Maintenance activity matters more than download count for a security-sensitive component like validation.
+> Maintenance activity matters more than download count — pick the actively maintained one.
 
-**Elaboration:** For validation I'd lean toward Library B if it's actively maintained, because security vulnerabilities and edge case bugs get fixed. Beyond recency: check whether open issues are being responded to, whether the maintainer has a track record of responsible disclosure, whether there's a TypeScript type file, and whether the API surface is stable (check breaking changes in the changelog). Also check if Library A's download count is organic or driven by transitive dependencies — a library with 10M downloads but half of them are from a single popular package that's about to drop it is less compelling than it looks.
-
----
-
-**Q: Compare schema-based validation (JSON Schema, Zod) with imperative validation. When does each excel?**
-
-> **Bottom line:** Schema-based validation wins for well-structured data with predictable shapes; imperative validation wins for complex, context-dependent business rules.
-
-**Elaboration:** Zod or JSON Schema is ideal for API request bodies — the shape is well-defined, declarative schemas are readable and self-documenting, and the library handles error formatting. Imperative validation shines when rules are highly contextual: "this field is required only if the user has role X and the account is in state Y and today is a weekday." Trying to encode that in a declarative schema often produces something more complex and less readable than a well-named function. I use schema validation as the outer gate and imperative rules for business logic deeper in the call chain.
+Check: are issues being responded to? Is there responsible vulnerability disclosure? TypeScript support? API stability? A stale library with 10M downloads is less safe than active maintenance on a smaller package.
 
 ---
 
-**Q: How would you design a validation layer shared between a TypeScript frontend and a Node.js backend without duplicating rules?**
+**Q: Schema-based vs. imperative validation — when does each excel?**
 
-> **Bottom line:** Extract validation schemas into a shared TypeScript package in a monorepo and import it on both sides.
+> Schema-based for well-defined shapes (API bodies); imperative for context-dependent rules.
 
-**Elaboration:** In a monorepo (Nx or Turborepo), create a `packages/validation` package that exports Zod schemas. The React app and the Express/Fastify backend both import from that package — same schema, same error messages, zero duplication. The trade-off is coupling: a breaking change to a schema touches both sides simultaneously, which can be good (forces you to update both) or annoying (blocks independent deployment). For teams with separate frontend and backend repos, publish the package to a private npm registry with semantic versioning.
+Zod/JSON Schema is readable, self-documenting, and handles errors. Imperative shines for "required if role=X and state=Y and weekday" — encoding that in a schema is harder to read than a named function. Use schema as the outer gate, imperative rules deeper in the call chain.
+
+```csharp
+using FluentValidation;
+
+// Schema-based: good for fixed shapes
+public class CreateOrderSchema : AbstractValidator<CreateOrderRequest>
+{
+    public CreateOrderSchema()
+    {
+        RuleFor(x => x.CustomerId).NotEmpty();
+        RuleFor(x => x.Amount).GreaterThan(0);
+        RuleFor(x => x.Items).NotEmpty().Must(list => list.Count > 0);
+    }
+}
+
+public class CreateOrderRequest
+{
+    public string CustomerId { get; set; }
+    public decimal Amount { get; set; }
+    public List<OrderItem> Items { get; set; }
+}
+
+// Imperative: good for context-dependent rules
+public class OrderService
+{
+    public Result<Order> CreateOrder(CreateOrderRequest req, User currentUser)
+    {
+        // "Required if role=Manager and day=Friday"
+        if (currentUser.Role == "Manager" && DateTime.UtcNow.DayOfWeek == DayOfWeek.Friday)
+        {
+            if (string.IsNullOrEmpty(req.ApprovalCode))
+                return Result<Order>.Fail("ApprovalCode required for Friday manager orders");
+        }
+
+        // "Amount must not exceed customer's credit limit"
+        var customer = _db.Customers.Find(req.CustomerId);
+        if (req.Amount > customer.CreditLimit)
+            return Result<Order>.Fail("Exceeds credit limit");
+
+        // "Cannot order if customer has unpaid invoices over 30 days old"
+        var hasOverdueInvoices = customer.Invoices
+            .Where(inv => !inv.IsPaid && (DateTime.UtcNow - inv.DueDate).TotalDays > 30)
+            .Any();
+
+        if (hasOverdueInvoices)
+            return Result<Order>.Fail("Cannot order with overdue invoices");
+
+        var order = new Order { CustomerId = req.CustomerId, Amount = req.Amount };
+        _db.Orders.Add(order);
+        _db.SaveChanges();
+        return Result<Order>.Ok(order);
+    }
+}
+```
 
 ---
 
-**Q: Should validation error messages for a public REST API be verbose or terse? Security, usability, and DX trade-offs.**
+**Q: How do you share validation rules between TypeScript frontend and Node.js backend?**
 
-> **Bottom line:** Be verbose about what's wrong with the input, terse about internals — never leak schema details, server paths, or stack traces.
+> Extract validation schemas into a shared TypeScript package in a monorepo and import it on both sides.
 
-**Elaboration:** For developer experience, validation errors must be actionable: `{ "field": "email", "message": "must be a valid email address" }` lets the consuming developer fix their code in minutes. Terse errors like `"invalid input"` on a public API generate support tickets and negative reviews. The security concern is about revealing system internals — don't include SQL column names, regex patterns, or stack traces. The DX-security balance is: describe what the user submitted that was wrong, not how your system is built internally.
+In a monorepo (Nx or Turborepo), create a `packages/validation` package that exports Zod schemas. The React app and the Express/Fastify backend both import from that package — same schema, same error messages, zero duplication. The trade-off is coupling: a breaking change to a schema touches both sides simultaneously, which can be good (forces you to update both) or annoying (blocks independent deployment). For teams with separate frontend and backend repos, publish the package to a private npm registry with semantic versioning.
+
+```csharp
+// Monorepo structure:
+// packages/validation/UserSchema.ts — shared TypeScript
+// apps/web/src/... — React frontend imports UserSchema
+// apps/api/src/... — C# backend receives validated data
+
+// packages/validation/UserSchema.ts (Zod TypeScript)
+// export const userSchema = z.object({
+//   email: z.string().email(),
+//   age: z.number().min(18).max(120),
+//   name: z.string().min(1).max(100)
+// });
+
+// apps/web/src/pages/Register.tsx (Frontend)
+// import { userSchema } from '@myapp/validation';
+// const form = useForm({ resolver: zodResolver(userSchema) });
+
+// apps/api/src/Controllers/UserController.cs (C# Backend)
+// The C# backend receives pre-validated JSON from the frontend
+// Backend STILL validates independently (never trust client)
+
+[HttpPost("users")]
+public IActionResult CreateUser([FromBody] UserRequest req)
+{
+    // C# validation mirrors the shared TypeScript schema
+    if (string.IsNullOrWhiteSpace(req.Email)) return BadRequest("Email required");
+    if (!req.Email.Contains("@")) return BadRequest("Invalid email");
+    if (req.Age < 18 || req.Age > 120) return BadRequest("Age must be 18-120");
+    if (string.IsNullOrWhiteSpace(req.Name) || req.Name.Length > 100) 
+        return BadRequest("Name required, max 100 chars");
+
+    var user = new User { Email = req.Email, Age = req.Age, Name = req.Name };
+    _db.Users.Add(user);
+    _db.SaveChanges();
+    return Ok();
+}
+
+public class UserRequest { public string Email { get; set; } public int Age { get; set; } public string Name { get; set; } }
+```
+
+---
+
+**Q: Should validation error messages be verbose or terse? Trade-offs?**
+
+> Be verbose about what's wrong with the input, terse about internals — never leak schema details, server paths, or stack traces.
+
+For developer experience, validation errors must be actionable: `{ "field": "email", "message": "must be a valid email address" }` lets the consuming developer fix their code in minutes. Terse errors like `"invalid input"` on a public API generate support tickets and negative reviews. The security concern is about revealing system internals — don't include SQL column names, regex patterns, or stack traces. The DX-security balance is: describe what the user submitted that was wrong, not how your system is built internally.
+
+```csharp
+public class ErrorMessageExample
+{
+    // BAD: Terse and unhelpful
+    [HttpPost("bad")]
+    public IActionResult BadError([FromBody] UserRequest req)
+    {
+        try
+        {
+            if (!ValidateUser(req))
+                return BadRequest("Invalid input");  // User has no idea what's wrong
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.ToString());  // LEAKS internals!
+        }
+        return Ok();
+    }
+
+    // GOOD: Verbose about input, silent about internals
+    [HttpPost("good")]
+    public IActionResult GoodError([FromBody] UserRequest req)
+    {
+        var errors = new Dictionary<string, string>();
+
+        if (string.IsNullOrWhiteSpace(req.Email))
+            errors["email"] = "Email is required";
+        else if (!req.Email.Contains("@"))
+            errors["email"] = "Email must contain @ symbol";
+
+        if (req.Age < 18)
+            errors["age"] = "Must be at least 18 years old";
+
+        if (errors.Any())
+            return BadRequest(new { errors });  // User knows exactly what to fix
+
+        // Internal error — never expose to client
+        try
+        {
+            var user = CreateUser(req);
+            return Ok(user);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create user");  // Log internally
+            return StatusCode(500, "An error occurred");  // Generic response to client
+        }
+    }
+
+    private bool ValidateUser(UserRequest req) => true;
+    private User CreateUser(UserRequest req) => new();
+    public class UserRequest { public string Email { get; set; } public int Age { get; set; } }
+}
+```
 
 ---
 
 ## Level 7 — Advanced & Expert
 
-**Q: In a microservices architecture, how do you prevent validation logic from drifting between services?**
+**Q: How do you prevent validation logic from drifting across microservices?**
 
-> **Bottom line:** A shared schema registry or shared validation library with CI-enforced versioning is the only reliable way to keep rules consistent across services.
+> A shared library (tight coupling, consistent) or schema registry (loose coupling, language-agnostic) — never copy-paste.
 
-**Elaboration:** The options on a spectrum of coupling: a shared library (tight coupling but consistent), a schema registry like Confluent Schema Registry or a custom JSON Schema store (loose coupling, language-agnostic), or API gateway validation using OpenAPI specs (centralized but limited in expressiveness). For simple format rules like email and phone, a shared library in the org's internal npm/Maven registry works well. For rules that need to evolve independently per service, a schema registry with strict versioning is better. The anti-pattern is copy-pasting validation code between services — it drifts within months.
+For simple rules (email, phone), a shared library in your internal registry works well. For rules that evolve independently, use a schema registry like Confluent. Copy-pasting drifts within months.
 
----
+```csharp
+// Shared library approach: keeps validation consistent across services
+// NuGet package: MyApp.Validation (published to private npm)
 
-**Q: How does eventual consistency complicate uniqueness validation? What strategies exist, and what guarantees can they actually provide?**
+// packages/MyApp.Validation/UserValidator.cs
+public static class UserValidator
+{
+    public static bool IsValidEmail(string email) => 
+        !string.IsNullOrWhiteSpace(email) && email.Contains("@");
 
-> **Bottom line:** In a distributed system, uniqueness can only be guaranteed at the storage layer — application-level checks are always subject to race conditions.
+    public static bool IsValidAge(int age) => 
+        age >= 18 && age <= 150;
+}
 
-**Elaboration:** The classic TOCTOU (time-of-check-time-of-use) race: two requests check "is this email taken?" simultaneously, both see no conflict, and both insert — now you have a duplicate. The only true guarantee is a unique constraint at the database level. For distributed databases without ACID transactions, you can use optimistic locking, distributed locks via Redis SETNX, or idempotency keys. Each has a failure mode: database constraints give a cryptic error that must be translated to a user-friendly message; distributed locks add latency and have their own failure modes if the lock node goes down. Be honest with your team: eventual consistency means you accept a small window of inconsistency and resolve conflicts after the fact.
+// Service A: User Service
+public class UserService
+{
+    [HttpPost("users")]
+    public IActionResult CreateUser([FromBody] CreateUserRequest req)
+    {
+        if (!UserValidator.IsValidEmail(req.Email))
+            return BadRequest("Invalid email");
+        if (!UserValidator.IsValidAge(req.Age))
+            return BadRequest("Invalid age");
 
----
+        _db.Users.Add(new User { Email = req.Email, Age = req.Age });
+        _db.SaveChanges();
+        return Ok();
+    }
+}
 
-**Q: Designing a validation pipeline for IBANs, credit card numbers, and currency amounts at 100k RPS with P99 < 10ms.**
+// Service B: Order Service
+public class OrderService
+{
+    [HttpPost("orders")]
+    public IActionResult CreateOrder([FromBody] CreateOrderRequest req)
+    {
+        if (!UserValidator.IsValidEmail(req.CustomerEmail))
+            return BadRequest("Invalid customer email");
 
-> **Bottom line:** Pre-compile all regex and Luhn tables at startup, validate in-process with no I/O, and partition heavy work like MOD 97 to dedicated threads or WASM modules.
+        var order = new Order { CustomerEmail = req.CustomerEmail };
+        _db.Orders.Add(order);
+        _db.SaveChanges();
+        return Ok();
+    }
+}
 
-**Elaboration:** At 100k RPS per instance, each validation must complete in microseconds. Key design decisions: (1) Pre-compile all regex patterns at startup — never compile at request time. (2) Luhn check is O(n) on 16 digits — trivially fast, no optimization needed. (3) MOD 97 for IBAN operates on a ≤34-digit BigInteger — fast but avoid BigInt allocation per request; use a pre-allocated buffer. (4) BIN table lookups for card numbers should be an in-memory hash map loaded at startup, not a database query. (5) For currency parsing, pre-build locale-specific normalizers for your supported locales at startup. With these optimizations, all three validations complete well under 1ms per request, leaving 9ms of headroom for I/O and business logic.
-
----
-
-**Q: Walk me through designing a composable, extensible validation framework from scratch.**
-
-> **Bottom line:** Model validators as composable functions returning a typed result, compose them with AND/OR/NOT combinators, and thread context through for conditional rules.
-
-**Elaboration:** Each validator is a function `(value, context) => ValidationResult`. AND composition runs all validators and aggregates errors; OR composition passes if any validator passes; NOT inverts a result. Conditional rules take a predicate and a validator: `when(ctx => ctx.paymentMethod === "card", required(cardNumber))`. Error messages are keys into an i18n map, not raw strings, so they can be localized. The framework itself knows nothing about locales — it emits error keys, and the presentation layer resolves them. This keeps the core framework testable without any locale infrastructure.
-
-```typescript
-type Validator<T> = (value: T, ctx: Context) => ValidationResult;
-
-const and = <T>(...validators: Validator<T>[]): Validator<T> =>
-  (value, ctx) => validators.reduce((acc, v) => merge(acc, v(value, ctx)), ok());
-
-const when = <T>(pred: (ctx: Context) => boolean, v: Validator<T>): Validator<T> =>
-  (value, ctx) => pred(ctx) ? v(value, ctx) : ok();
+// Drift prevention:
+// - Update UserValidator in one place
+// - All services get consistent behavior via NuGet versioning
+// - CI ensures validation tests pass before publishing
+public class CreateUserRequest { public string Email { get; set; } public int Age { get; set; } }
+public class CreateOrderRequest { public string CustomerEmail { get; set; } }
 ```
 
 ---
 
-**Q: How would you make a validation framework internationalisation-aware?**
+**Q: How does eventual consistency complicate uniqueness validation?**
 
-> **Bottom line:** Emit error code keys from validators, resolve them to locale strings at the boundary layer, and store locale-specific format rules separately from validation logic.
+> Two requests can both pass "is this email taken?" checks simultaneously and both insert — only database constraints prevent duplicates.
 
-**Elaboration:** Validators return `{ code: "email.invalid", params: {} }` — never a human-readable string. The API response layer resolves codes to strings using the request's `Accept-Language` header. Format rules like date patterns and number separators are stored in locale configuration files, not hardcoded in validators. This means you can add a new locale by adding a config file, with zero changes to validation logic. The only discipline required is ensuring every new error code gets a translation entry before shipping — enforce this with a CI check.
+The TOCTOU race is unavoidable in distributed systems. Use database unique constraints as the real safety net. For conflict resolution: optimize locking, idempotency keys, or post-hoc cleanup. Be honest: eventual consistency means accepting a small window of inconsistency.
+
+```csharp
+public class UniquenessRaceConditionExample
+{
+    // VULNERABLE: Race condition window
+    public IActionResult BadRegister([FromBody] RegisterRequest req)
+    {
+        // Check 1: Email exists?
+        if (_db.Users.Any(u => u.Email == req.Email))
+            return BadRequest("Email taken");  // Window: another request may insert here
+
+        // Check 2: Insert
+        var user = new User { Email = req.Email };
+        _db.Users.Add(user);
+        _db.SaveChanges();  // May throw duplicate key exception!
+        return Ok();
+    }
+
+    // SAFE: Database enforces uniqueness
+    public IActionResult GoodRegister([FromBody] RegisterRequest req)
+    {
+        var user = new User { Email = req.Email };
+        
+        try
+        {
+            _db.Users.Add(user);
+            _db.SaveChanges();
+            return Ok();
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException sqlEx && sqlEx.Number == 2601)
+        {
+            // Unique constraint violation — email already exists
+            return BadRequest("Email already registered");
+        }
+    }
+
+    // BEST: Idempotency key prevents duplicates from retries
+    public IActionResult BestRegister([FromBody] RegisterRequest req, [FromHeader] string idempotencyKey)
+    {
+        // Check if request already processed
+        var existing = _db.IdempotencyKeys.FirstOrDefault(k => k.Key == idempotencyKey);
+        if (existing != null)
+            return Ok(existing.Response);  // Replay previous response
+
+        var user = new User { Email = req.Email };
+        try
+        {
+            _db.Users.Add(user);
+            _db.SaveChanges();
+
+            // Record this idempotency key
+            _db.IdempotencyKeys.Add(new() { Key = idempotencyKey, Response = user });
+            _db.SaveChanges();
+
+            return Ok(user);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException sqlEx && sqlEx.Number == 2601)
+        {
+            return BadRequest("Email already registered");
+        }
+    }
+
+    public class RegisterRequest { public string Email { get; set; } }
+}
+```
 
 ---
 
-**Q: Some teams push all validation to the database layer (constraints, triggers, stored procedures). What are the advantages and severe limitations?**
+**Q: How do you make a validation framework internationalization-aware?**
 
-> **Bottom line:** Database-layer validation is a reliable last line of defense but produces terrible error messages and is nearly impossible to test in isolation.
+> Emit error code keys from validators, resolve them to locale strings at the boundary layer, and store locale-specific format rules separately from validation logic.
 
-**Elaboration:** The advantage is that it's truly universal — no matter which application, script, or migration tool writes to the database, the rules apply. The limitations are severe: constraint violations bubble up as database errors with cryptic codes that must be parsed and mapped to user-friendly messages in every language your apps use. Triggers and stored procedures are notoriously hard to test, version-control, and migrate. They also add latency on every write. My position: use database constraints as a safety net for catastrophic invariants only, and put all user-facing validation in the application layer where it's testable and producesuseful error messages.
+Validators return `{ code: "email.invalid", params: {} }` — never a human-readable string. The API response layer resolves codes to strings using the request's `Accept-Language` header. Format rules like date patterns and number separators are stored in locale configuration files, not hardcoded in validators. This means you can add a new locale by adding a config file, with zero changes to validation logic. The only discipline required is ensuring every new error code gets a translation entry before shipping — enforce this with a CI check.
+
+```csharp
+using System.Globalization;
+
+public class I18nValidationExample
+{
+    // Validators emit error codes, not strings
+    public class ValidationError
+    {
+        public string Code { get; set; }      // "email.invalid"
+        public Dictionary<string, object> Params { get; set; }  // { "field": "email" }
+    }
+
+    public List<ValidationError> ValidateUser(UserRequest req)
+    {
+        var errors = new List<ValidationError>();
+
+        if (string.IsNullOrWhiteSpace(req.Email))
+            errors.Add(new() { Code = "field.required", Params = new() { { "field", "email" } } });
+        else if (!req.Email.Contains("@"))
+            errors.Add(new() { Code = "email.invalid", Params = new() { { "field", "email" } } });
+
+        if (req.Age < 18)
+            errors.Add(new() { Code = "age.minimum", Params = new() { { "min", 18 } } });
+
+        return errors;
+    }
+
+    // At API boundary: resolve codes to locale-specific strings
+    [HttpPost("users")]
+    public IActionResult CreateUser([FromBody] UserRequest req)
+    {
+        var errors = ValidateUser(req);
+        if (errors.Any())
+        {
+            var locale = Request.Headers["Accept-Language"].ToString() ?? "en-US";
+            var localizedErrors = errors
+                .Select(e => new { field = e.Params["field"], message = _i18n.Translate(e.Code, locale, e.Params) })
+                .ToList();
+
+            return BadRequest(new { errors = localizedErrors });
+        }
+
+        _db.Users.Add(new User { Email = req.Email });
+        _db.SaveChanges();
+        return Ok();
+    }
+
+    // Translation service
+    private readonly I18nService _i18n = new();
+
+    public class I18nService
+    {
+        private readonly Dictionary<string, Dictionary<string, string>> _translations = new()
+        {
+            { "en-US", new() { { "email.invalid", "Invalid email address" }, { "field.required", "{field} is required" }, { "age.minimum", "Must be at least {min} years old" } } },
+            { "es-ES", new() { { "email.invalid", "Correo inválido" }, { "field.required", "{field} es obligatorio" }, { "age.minimum", "Debe tener al menos {min} años" } } },
+            { "de-DE", new() { { "email.invalid", "Ungültige E-Mail" }, { "field.required", "{field} erforderlich" }, { "age.minimum", "Mindestens {min} Jahre alt" } } }
+        };
+
+        public string Translate(string code, string locale, Dictionary<string, object> @params)
+        {
+            if (!_translations.ContainsKey(locale))
+                locale = "en-US";
+
+            var message = _translations[locale].GetValueOrDefault(code, code);
+
+            foreach (var param in @params)
+                message = message.Replace($"{{{param.Key}}}", param.Value.ToString());
+
+            return message;
+        }
+    }
+
+    public class UserRequest { public string Email { get; set; } public int Age { get; set; } }
+}
+```
 
 ---
 
-**Q: Should an organization standardize on a single validation library across all teams, or let each team choose? Make the case for both sides, then give your recommendation.**
+**Q: Validating at the database layer only — advantages and limitations?**
 
-> **Bottom line:** Standardize on one library per language ecosystem, but don't force a cross-language standard — the consistency benefits outweigh the flexibility cost within a language stack.
+> Database-layer validation is truly universal but produces cryptic errors and is hard to test in isolation.
 
-**Elaboration:** The case for standardization: shared knowledge reduces onboarding time, cross-team code review is faster, shared wrapper libraries are feasible, and security patching is coordinated. The case for autonomy: teams have different needs — a real-time bidding service and an internal admin tool have radically different throughput and complexity profiles, and forcing one library may be a poor fit for edge cases. My recommendation: standardize per language — one library for TypeScript services, one for Python services — but don't mandate cross-language consistency since the problem spaces are different anyway. Publish an internal ADR with the rationale and revisit every 18 months. The worst outcome is five different validation libraries in the same TypeScript codebase; that inconsistency has real maintenance costs.
+Advantage: any app, script, or migration tool writes to the database with the rules applied. Limitations: constraint violations bubble up as codes that must be parsed and mapped to user-friendly messages per language. Triggers and stored procedures are hard to test, version-control, and add latency on every write. Use database constraints only for catastrophic invariants; put user-facing validation in the application layer where it's testable and produces useful error messages.
+
+```csharp
+// Database-layer validation (SQL)
+// CREATE TABLE Users (
+//     Id INT PRIMARY KEY IDENTITY,
+//     Email NVARCHAR(255) NOT NULL UNIQUE,
+//     Age INT CHECK (Age >= 0 AND Age <= 150),
+//     CreatedAt DATETIME DEFAULT GETUTCDATE()
+// );
+
+// Application-layer validation
+public class UserService
+{
+    // Advantages: testable, produces user-friendly errors
+    public Result CreateUser(CreateUserRequest req)
+    {
+        // Validate before database hit
+        if (string.IsNullOrWhiteSpace(req.Email))
+            return Result.Fail("Email is required");
+
+        if (req.Age < 0 || req.Age > 150)
+            return Result.Fail("Age must be between 0 and 150");
+
+        // Check uniqueness with application logic
+        if (_db.Users.Any(u => u.Email == req.Email))
+            return Result.Fail("Email is already registered");
+
+        var user = new User { Email = req.Email, Age = req.Age };
+
+        try
+        {
+            _db.Users.Add(user);
+            _db.SaveChanges();
+            return Result.Ok();
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException sqlEx)
+        {
+            // Catch database constraint violations and map to user messages
+            if (sqlEx.Number == 2601)  // Unique constraint
+                return Result.Fail("Email is already registered");
+            if (sqlEx.Number == 547)   // Check constraint
+                return Result.Fail("Data violates business rules");
+            
+            throw;  // Unexpected error
+        }
+    }
+
+    public class Result { public bool Success { get; set; } public string Error { get; set; } public static Result Ok() => new() { Success = true }; public static Result Fail(string err) => new() { Success = false, Error = err }; }
+    public class CreateUserRequest { public string Email { get; set; } public int Age { get; set; } }
+}
+```
+
+---
+
+**Q: Single standardized validation library across teams or let teams choose?**
+
+> Standardize per language but not across languages.
+
+Within a language, standardization wins: shared knowledge, faster reviews, coordinated security patches. The worst outcome is five different libraries in one TypeScript codebase. Cross-language mandates don't fit — real-time bidding and admin tools have different needs. Publish an ADR and revisit every 18 months.
+
+```csharp
+// Architecture Decision Record (ADR): C# Validation Standard
+// 
+// Decision: All C# services use FluentValidation + custom guards
+// Rationale: 
+//   - Consistent across codebase
+//   - Active maintenance & community
+//   - Composable validators
+//   - Good DX for developers
+//
+// Non-decision: 
+//   - Frontend (TypeScript) uses Zod — different needs, different ecosystem
+//   - Go services can use their own patterns — few services, slow churn
+
+// Enforced: All new endpoints validate with AbstractValidator<T>
+using FluentValidation;
+
+public class RegisterUserValidator : AbstractValidator<RegisterUserRequest>
+{
+    public RegisterUserValidator()
+    {
+        RuleFor(x => x.Email)
+            .NotEmpty().WithMessage("Email required")
+            .EmailAddress().WithMessage("Invalid email");
+
+        RuleFor(x => x.Password)
+            .MinimumLength(12).WithMessage("Password must be 12+ chars")
+            .Must(HasSpecialChar).WithMessage("Password must include special character");
+
+        RuleFor(x => x.Age)
+            .GreaterThanOrEqualTo(18).WithMessage("Must be 18+");
+    }
+
+    private bool HasSpecialChar(string password) => 
+        password.Any(c => !char.IsLetterOrDigit(c));
+}
+
+// All endpoints use this pattern
+[HttpPost("register")]
+public IActionResult Register([FromBody] RegisterUserRequest req)
+{
+    var validator = new RegisterUserValidator();
+    var result = validator.Validate(req);
+
+    if (!result.IsValid)
+        return BadRequest(result.Errors.Select(e => new { field = e.PropertyName, message = e.ErrorMessage }));
+
+    // ... create user
+    return Ok();
+}
+
+public class RegisterUserRequest { public string Email { get; set; } public string Password { get; set; } public int Age { get; set; } }
+```
