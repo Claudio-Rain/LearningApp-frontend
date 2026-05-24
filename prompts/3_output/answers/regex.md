@@ -28,6 +28,24 @@ bool hasAnyPhoneNumber = Regex.IsMatch(input, @"\d{3}-\d{4}");
 
 The pattern `\d{3}-\d{4}` is a static description — it never changes. A match is the concrete substring `"555-1234"` that the engine located in a real string by following that description. One pattern can produce zero, one, or many matches depending on the input. In .NET, the pattern is a `string` you pass to the `Regex` constructor, and a `Match` is the object you get back representing a single result.
 
+```csharp
+string pattern = @"\d{3}-\d{4}"; // The rule (doesn't change)
+string input = "Call 555-1234 today"; // The data
+
+var match = Regex.Match(input, pattern);
+if (match.Success)
+{
+    Console.WriteLine(match.Value); // "555-1234" (the match found)
+}
+
+// One pattern, many matches
+var matches = Regex.Matches(input, pattern);
+foreach (Match m in matches)
+{
+    Console.WriteLine(m.Value); // Each concrete match
+}
+```
+
 ---
 
 **Q: L1 What namespace and class do you use for regex in .NET? How does .NET differ from JavaScript?**

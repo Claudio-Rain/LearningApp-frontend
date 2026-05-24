@@ -45,8 +45,6 @@ const content = ref<JSONContent>(
 )
 const title = ref(props.item.title)
 
-console.log(content)
-
 watch(() => props.item.id, () => {
   content.value = typeof props.item.content === 'string'
     ? { type: 'doc', content: [] }

@@ -60,6 +60,8 @@ const emit = defineEmits<{ (e: 'change', value: JSONContent): void }>()
 
 const textColor = ref('#000000')
 
+let skipNextUpdate = false
+
 const editor = new Editor({
   extensions: [
     StarterKit,
@@ -81,15 +83,20 @@ const editor = new Editor({
   ],
   content: props.value,
   onUpdate: ({ editor }) => {
+    skipNextUpdate = true
     emit('change', editor.getJSON())
+    setTimeout(() => {
+      skipNextUpdate = false
+    }, 0)
   },
 })
 
 watch(
   () => props.value,
   (newVal) => {
-    const isSame = JSON.stringify(editor.getJSON()) === JSON.stringify(newVal)
-    if (!isSame) editor.commands.setContent(newVal, false)
+    if (skipNextUpdate) return
+    if (editor.isFocused) return
+    editor.commands.setContent(newVal, false)
   }
 )
 

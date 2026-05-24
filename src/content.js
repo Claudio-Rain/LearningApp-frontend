@@ -10,7 +10,7 @@ function injectContentDisplay() {
       <div class="content-body">
         <p id="content-text"></p>
       </div>
-      <div class="content-rating-buttons" style="display: none;">
+      <div class="content-rating-buttons">
         <button class="content-rating-btn btn-very-hard" data-score="-0.15" title="Very Hard">✕</button>
         <button class="content-rating-btn btn-hard" data-score="-0.10" title="Hard">−</button>
         <button class="content-rating-btn btn-good" data-score="0.10" title="Good">✓</button>
@@ -30,7 +30,8 @@ function injectContentDisplay() {
 
     .learning-content-widget {
       position: fixed;
-      bottom: 20px;
+      bottom: auto;
+      top: 20px;
       right: 20px;
       background: white;
       border-radius: 8px;
@@ -398,10 +399,13 @@ document.addEventListener('click', (e) => {
     chrome.runtime.sendMessage({ action: 'buttonClicked', buttonIndex: 1, notificationId: currentNotificationId });
   } else if (e.target.classList.contains('content-rating-btn')) {
     const score = parseFloat(e.target.getAttribute('data-score'));
+    console.log('Rating button clicked:', e.target.getAttribute('title'), 'Score:', score);
     chrome.runtime.sendMessage({
       action: 'recordRating',
       score: score,
       notificationId: currentNotificationId
+    }, (response) => {
+      console.log('Rating recorded:', { score, notificationId: currentNotificationId, response });
     });
   }
 });

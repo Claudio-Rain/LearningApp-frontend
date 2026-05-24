@@ -28,6 +28,22 @@ ProcessData(data);
 
 Think of a WPF or WinForms application that fetches data from a REST API synchronously on the UI thread. The window freezes, the user can't click anything, and Windows may even show "Not Responding." Async lets the UI thread stay responsive while the network call is in flight. The same principle applies in ASP.NET: a synchronously blocked thread is a thread that can't serve another request.
 
+```csharp
+// Sync blocks the UI
+public void OnButtonClick()
+{
+    string data = httpClient.GetString(url);  // UI freezes here
+    label.Text = data;  // stuck waiting
+}
+
+// Async keeps UI responsive
+public async void OnButtonClick()
+{
+    string data = await httpClient.GetStringAsync(url);  // UI stays responsive
+    label.Text = data;
+}
+```
+
 ---
 
 **Q: L1 What is the relationship between threads and asynchronous programming?**
@@ -35,6 +51,24 @@ Think of a WPF or WinForms application that fetches data from a REST API synchro
 > They are not the same thing — async is about freeing threads from waiting, not about creating more of them.
 
 A thread is an OS-level unit of execution. Asynchrony is a programming model that says "don't pin a thread to this work while it's waiting on I/O." When you `await` a network call, no thread is sitting there blocked — the OS uses an I/O completion port and resumes the continuation only when data arrives. You can write highly concurrent async code that uses very few threads.
+
+```csharp
+// Sync — pins a thread during wait
+Thread[] threads = new Thread[100];
+for (int i = 0; i < 100; i++)
+{
+    threads[i] = new Thread(() => httpClient.GetString(url));  // 100 threads blocked
+    threads[i].Start();
+}
+
+// Async — reuses the same thread
+var tasks = new List<Task>();
+for (int i = 0; i < 100; i++)
+{
+    tasks.Add(httpClient.GetStringAsync(url));  // 1 thread, 100 concurrent operations
+}
+await Task.WhenAll(tasks);
+```
 
 ---
 
@@ -44,6 +78,18 @@ A thread is an OS-level unit of execution. Asynchrony is a programming model tha
 
 Blocking matters because threads are expensive — the CLR thread pool has limits, and a thread blocked on I/O is wasted capacity. In a web server, if every request blocks a thread waiting on a DB query, you saturate the thread pool under moderate load and requests start queuing. Non-blocking I/O keeps threads free to handle other work during the wait.
 
+```csharp
+// Blocking — thread waits here
+var data = database.Query(sql);  // thread is stuck, can't serve other requests
+Console.WriteLine(data);
+
+// Non-blocking — thread returns immediately
+var dataTask = database.QueryAsync(sql);  // thread goes back to pool
+// ... thread handles other requests ...
+var data = await dataTask;  // resume when data arrives
+Console.WriteLine(data);
+```
+
 ---
 
 **Q: L1 What happens if a UI application calls a database synchronously on the main thread, and how does async change this?**
@@ -51,6 +97,22 @@ Blocking matters because threads are expensive — the CLR thread pool has limit
 > The UI freezes because the main thread is blocked and can't process paint or input events.
 
 The message loop that drives all UI rendering and user interaction runs on that same thread. If it's stuck waiting on a database round-trip, nothing else can happen — buttons don't respond, animations stop. Making the call async means the main thread returns to the message loop immediately, the UI stays live, and the continuation updates the UI once the data arrives.
+
+```csharp
+// Sync — UI freezes
+private void LoadButton_Click(object sender, EventArgs e)
+{
+    var users = db.GetUsers();  // UI thread blocked, window frozen
+    UserList.DataSource = users;
+}
+
+// Async — UI stays responsive
+private async void LoadButton_Click(object sender, EventArgs e)
+{
+    var users = await db.GetUsersAsync();  // thread released, UI updates smoothly
+    UserList.DataSource = users;
+}
+```
 
 ---
 
@@ -60,6 +122,17 @@ The message loop that drives all UI rendering and user interaction runs on that 
 
 Think of a `Task` like a ticket you get when you drop off dry cleaning — it represents work that will finish later. `async` tells the compiler to transform the method into a state machine. `await` says "pause here and give the thread back until this ticket is done." A continuation is the rest of the method after that pause — the compiler wires it up so it runs automatically when the awaited task completes.
 
+```csharp
+public async Task<string> FetchAndProcessAsync(string url)
+{
+    // Task is returned immediately
+    var data = await FetchAsync(url);  // await = pause here, give thread back
+    // Continuation: this runs when FetchAsync completes
+    var processed = Process(data);
+    return processed;
+}
+```
+
 ---
 
 **Q: L1 What is a thread pool, and why is it relevant when talking about async/await in .NET?**
@@ -67,6 +140,22 @@ Think of a `Task` like a ticket you get when you drop off dry cleaning — it re
 > The thread pool is a managed set of reusable threads, and async/await is designed to return threads to it as fast as possible rather than holding them blocked.
 
 Creating threads is expensive, so .NET maintains a pool and recycles them. When you `await` an I/O-bound task, the thread goes back to the pool to serve other work. When the I/O completes, a pool thread picks up the continuation. This is why async/await dramatically increases throughput in web servers — one thread can interleave many concurrent I/O-bound requests.
+
+```csharp
+// Without async: threads blocked, pool gets exhausted
+for (int i = 0; i < 1000; i++)
+{
+    ThreadPool.QueueUserWorkItem(_ => db.Query(sql));  // 1000 threads tied up
+}
+
+// With async: threads released immediately, pool reused
+var tasks = new List<Task>();
+for (int i = 0; i < 1000; i++)
+{
+    tasks.Add(db.QueryAsync(sql));  // same 4 threads handle all 1000 operations
+}
+await Task.WhenAll(tasks);
+```
 
 ---
 
@@ -100,6 +189,20 @@ public async Task<int> ComputeAsync(int[] data)
 
 For I/O-bound work, the OS API is already async, so you just `await` it. Wrapping I/O in `Task.Run` wastes a pool thread on blocking. CPU-bound work genuinely needs a background thread to avoid blocking the caller.
 
+```csharp
+// Right: I/O-bound with async/await
+public async Task<string> FetchDataAsync(string url)
+{
+    return await httpClient.GetStringAsync(url);  // no thread wasted
+}
+
+// Wrong: I/O-bound with Task.Run
+public async Task<string> FetchDataAsync(string url)
+{
+    return await Task.Run(() => httpClient.GetString(url));  // wastes a thread
+}
+```
+
 ---
 
 **Q: L2 Is it a good idea to wrap a database query with `Task.Run(() => db.Query(...))`?**
@@ -123,6 +226,19 @@ var result = await db.QueryAsync<User>("SELECT...");
 > Use `Task` when there's no result to return, `Task<T>` when there is, and `async void` only for event handlers where you have no choice.
 
 `Task` and `Task<T>` are awaitable and let callers observe completion and exceptions. `async void` swallows exceptions onto the `SynchronizationContext` and can't be awaited, so callers lose all visibility. Since C# 7 you also have `ValueTask` and `ValueTask<T>` for hot-path scenarios where the result is often available synchronously.
+
+```csharp
+public async Task LogAsync() { }  // no result, awaitable
+
+public async Task<string> GetDataAsync() { return "data"; }  // returns result, awaitable
+
+public async ValueTask<int> GetCachedAsync()  // often synchronous
+{
+    return _cache.ContainsKey("x") ? _cache["x"] : await FetchAsync();
+}
+
+public async void OnButtonClick() { }  // only for events
+```
 
 ---
 
@@ -195,6 +311,16 @@ public async Task<string> GetDataAsync(string url)
 
 At compile time, the compiler splits the method at every `await` into states in a generated state machine. At runtime, if the awaited task isn't done yet, the current thread is released — it goes back to the thread pool or message loop. When the task completes, a thread (often from the pool) picks up the continuation from the state machine and resumes execution on the line after `await`.
 
+```csharp
+public async Task<string> ProcessAsync()
+{
+    Console.WriteLine("Before await");
+    var result = await FetchAsync();  // thread released here, awaited task scheduled
+    Console.WriteLine("After await");  // runs later when FetchAsync completes
+    return result;
+}
+```
+
 ---
 
 **Q: L2 How do you obtain the result value from a `Task<T>` and what are the risks?**
@@ -218,6 +344,20 @@ string data = GetDataAsync(url).Result;
 > `Task.Delay` is non-blocking and async-friendly; `Thread.Sleep` blocks the current thread for the entire duration.
 
 `Thread.Sleep` holds the thread captive — it can't do anything else during the wait. `Task.Delay` uses a timer and releases the thread immediately, resuming the continuation after the delay expires. In async methods you should always use `await Task.Delay(...)`. `Thread.Sleep` is only appropriate in blocking code where you genuinely want to park the thread, which is rare.
+
+```csharp
+// Blocks the thread
+Thread.Sleep(2000);  // thread is wasted for 2 seconds
+
+// Releases the thread
+await Task.Delay(2000);  // thread is free, can handle other work
+
+// In async methods
+public async Task DoWorkAsync()
+{
+    await Task.Delay(2000);  // good - thread available
+}
+```
 
 ---
 
@@ -318,6 +458,20 @@ private async void Button_Click(object sender, EventArgs e)
 
 Controller actions already run on thread-pool threads. Wrapping work in `Task.Run` just queues to the pool from the pool — pure overhead. Use async I/O APIs directly instead. The only exception is genuine CPU-bound work, and even then it's suspicious in a controller.
 
+```csharp
+[HttpGet]
+public async Task<IActionResult> GetData()
+{
+    // Good: direct async I/O
+    var data = await _db.GetDataAsync();
+    
+    // Bad: wastes a thread switch
+    var computed = await Task.Run(() => ExpensiveCalculation(data));
+    
+    return Ok(computed);
+}
+```
+
 ---
 
 **Q: L3 What is a `CancellationToken` and how does it work?**
@@ -366,6 +520,20 @@ catch (OperationCanceledException)
 
 Make a method cancellation-aware by passing the token to all inner async calls (which check it themselves) or calling `token.ThrowIfCancellationRequested()` at logical checkpoints. Nothing forces the method to stop; it must actively participate.
 
+```csharp
+// Ignores cancellation
+public async Task DoWorkAsync(CancellationToken ct)
+{
+    await Task.Delay(5000);  // runs full 5 seconds even if ct cancelled
+}
+
+// Respects cancellation
+public async Task DoWorkAsync(CancellationToken ct)
+{
+    await Task.Delay(5000, ct);  // throws if ct cancelled
+}
+```
+
 ---
 
 **Q: L3 What exception is thrown during cancellation and how should you handle it?**
@@ -373,6 +541,23 @@ Make a method cancellation-aware by passing the token to all inner async calls (
 > `OperationCanceledException` (or its subclass `TaskCanceledException`) is thrown, and it should typically be caught separately and treated as a normal control flow event, not an error.
 
 Unlike `IOException` or `HttpRequestException`, cancellation usually means "the caller no longer needs this result" — it's expected, not exceptional. You should catch it, do any cleanup, and let it propagate or swallow it cleanly depending on the scenario. Don't log it as an error in production or wrap it in a generic error handler that alerts on it.
+
+```csharp
+try
+{
+    await LongRunningAsync(cancellationToken);
+}
+catch (OperationCanceledException)
+{
+    // Normal flow, not an error
+    Console.WriteLine("Operation was cancelled");
+}
+catch (Exception ex)
+{
+    // Unexpected error
+    logger.LogError(ex, "Operation failed");
+}
+```
 
 ---
 
@@ -438,6 +623,19 @@ while (tasks.Count > 0)
 
 If you're fetching 10,000 records from a database, buffering all of them in memory before processing is wasteful. `IAsyncEnumerable` lets you yield each item as soon as it's ready and process it, keeping memory flat. For producer/consumer decoupling with backpressure, `System.Threading.Channels` is the right primitive — it lets you control the buffer size and apply backpressure when the consumer is slower than the producer.
 
+```csharp
+// WhenAll — buffers everything
+var allTasks = urls.Select(FetchAsync);
+var results = await Task.WhenAll(allTasks);  // all in memory
+
+// IAsyncEnumerable — streams items
+public async IAsyncEnumerable<Data> FetchAllAsync()
+{
+    foreach (var url in urls)
+        yield return await FetchAsync(url);  // one at a time
+}
+```
+
 ---
 
 **Q: L3 What does `ConfigureAwait(false)` do and when would you use it?**
@@ -462,6 +660,19 @@ public async Task<string> LibraryMethodAsync()
 
 The deadlock happens like this: the caller calls `.Result`, holding the sync context; the awaited continuation needs the sync context to resume; deadlock. `ConfigureAwait(false)` breaks the cycle by letting the continuation run on any thread-pool thread, bypassing the captured context entirely.
 
+```csharp
+// Library code — use ConfigureAwait(false)
+public async Task<string> LibraryMethodAsync(string url)
+{
+    var response = await httpClient.GetStringAsync(url).ConfigureAwait(false);
+    return response.ToUpperInvariant();  // runs on any pool thread
+}
+
+// App code calling library with .Result
+// Would deadlock without ConfigureAwait(false) in library
+var result = LibraryMethodAsync(url).Result;
+```
+
 ---
 
 **Q: L3 Is it good advice to always add `ConfigureAwait(false)` everywhere?**
@@ -469,6 +680,21 @@ The deadlock happens like this: the caller calls `.Result`, holding the sync con
 > It's good advice for library code, but wrong in application code where you need to update UI or access context-bound objects after an await.
 
 In WPF or WinForms, after an `await` you often update UI elements — that must happen on the UI thread. If you `ConfigureAwait(false)`, the continuation may run on a pool thread and you'll get a cross-thread exception. The rule of thumb is: use `ConfigureAwait(false)` in libraries, omit it in application code that cares about context.
+
+```csharp
+// Library code — safe with ConfigureAwait(false)
+public async Task<Data> GetDataAsync()
+{
+    return await api.GetAsync("/data").ConfigureAwait(false);
+}
+
+// App code — must NOT use ConfigureAwait(false), needs UI thread
+public async void OnButtonClick()
+{
+    var data = await GetDataAsync();  // no ConfigureAwait
+    textBox.Text = data.ToString();  // must run on UI thread
+}
+```
 
 ---
 
@@ -487,6 +713,21 @@ The request thread holds the ASP.NET sync context. The inner `await` captures it
 > Every method in the call chain that uses `await` should itself be `async` and awaited by its caller — mixing sync blocking into the chain breaks async's non-blocking guarantee.
 
 If any layer in the chain calls `.Result` or `.Wait()`, you've reintroduced blocking at that point. Besides deadlock risk, you lose the scalability benefit of async — a thread is pinned for the duration of that block. Violations usually happen at seams where async code meets synchronous infrastructure, like legacy interfaces or test runners.
+
+```csharp
+// Broken chain — async blocked by sync
+public string GetUserName(int id)
+{
+    return GetUserNameAsync(id).Result;  // reintroduces blocking
+}
+
+// Proper chain — async all the way
+public async Task<string> GetUserNameAsync(int id)
+{
+    var user = await _db.GetUserAsync(id);
+    return user.Name;
+}
+```
 
 ---
 
@@ -514,6 +755,14 @@ async Task RunSafelyAsync(Task task)
 
 The safeguards are: a try/catch with logging inside the async method, a timeout or cancellation token so it can't hang forever, and no shared mutable state that could corrupt if the operation fails silently. Anything involving user data, billing, or critical side effects should not be fire-and-forget.
 
+```csharp
+// Acceptable fire-and-forget: logging
+_ = LogAnalyticsAsync(userId, action);
+
+// Unacceptable: payment processing
+_ = ProcessPaymentAsync(orderId);  // don't do this! must await
+```
+
 ---
 
 **Q: L4 Are there legitimate uses for `async void` besides event handlers?**
@@ -521,6 +770,20 @@ The safeguards are: a try/catch with logging inside the async method, a timeout 
 > Almost none — only event handlers are defensible, and those can be refactored to delegate to an `async Task` method.
 
 The safer pattern is a thin sync wrapper calling `async Task`: `private void OnClick(...) => _ = OnClickAsync(...);`, then handle exceptions inside `OnClickAsync`.
+
+```csharp
+// Event handler pattern — necessary evil
+private async void OnButtonClick(object sender, EventArgs e)
+{
+    await ProcessAsync();
+}
+
+// Better — delegating pattern
+private void OnButtonClick(object sender, EventArgs e) 
+    => _ = ProcessAsync();
+
+private async Task ProcessAsync() { }
+```
 
 ---
 
@@ -584,6 +847,15 @@ public async Task<List<User>> GetActiveUsersAsync()
 
 In a single-request CLI tool the scalability benefits of async don't matter, but using `httpClient.GetStringAsync` and awaiting it is simpler than forcing synchronous behavior via `.Result` or working around it. With `async Main` available since C# 7.1, there's no ceremony overhead. The trade-off is negligible.
 
+```csharp
+// Simple and clean
+static async Task Main(string[] args)
+{
+    var result = await httpClient.GetStringAsync("https://example.com");
+    Console.WriteLine(result);
+}
+```
+
 ---
 
 **Q: L6 Compare async/await, raw threads, and Rx for high-throughput event processing.**
@@ -592,6 +864,17 @@ In a single-request CLI tool the scalability benefits of async don't matter, but
 
 async/await handles the vast majority of server-side concurrent I/O cleanly. Raw threads are appropriate when you need strict affinity, custom scheduling, or are working below the abstraction level of tasks. Rx (System.Reactive) shines when you're composing event sequences — debouncing, merging streams, windowing — where async/await's linear model becomes awkward. For most backend work, async/await gets you 95% of the way there.
 
+```csharp
+// async/await — I/O work
+await Task.WhenAll(requests.Select(FetchAsync));
+
+// Rx — complex stream composition
+source.Throttle(TimeSpan.FromSeconds(1))
+      .DistinctUntilChanged()
+      .CombineLatest(other)
+      .Subscribe(x => Process(x));
+```
+
 ---
 
 **Q: L6 What's the difference between asynchrony and parallelism?**
@@ -599,6 +882,18 @@ async/await handles the vast majority of server-side concurrent I/O cleanly. Raw
 > Asynchrony is about not waiting — freeing the caller while work happens; parallelism is about doing multiple things simultaneously on multiple cores — they're independent axes.
 
 You can have async without parallelism: a single-threaded event loop (like early Node.js) handles thousands of concurrent connections asynchronously with one thread. You can have parallelism without async: `Parallel.For` runs CPU work on multiple threads synchronously from the caller's perspective. And you can have both: multiple async tasks running in parallel on the thread pool.
+
+```csharp
+// Async but not parallel — single thread
+var data = await FetchAsync();  // one thread, non-blocking
+
+// Parallel but not async — blocks caller
+Parallel.For(0, 1000, i => ExpensiveWork(i));  // multiple threads, blocking
+
+// Both async and parallel
+var tasks = Enumerable.Range(0, 1000).Select(FetchAsync);
+await Task.WhenAll(tasks);  // multiple threads, non-blocking
+```
 
 ---
 
@@ -634,6 +929,17 @@ Parallel.ForEach(bigData, item =>
 
 Libraries don't know the caller's context, so `ConfigureAwait(false)` prevents deadlocks. Make tokens optional with `CancellationToken.None` default. Never ship sync wrappers over async — it's dangerous. Follow Microsoft's guidance: go async all the way or stay synchronous, never mix.
 
+```csharp
+// Good library API design
+public async Task<Result> ProcessAsync(
+    string input,
+    CancellationToken cancellationToken = default)
+{
+    var data = await FetchDataAsync(input).ConfigureAwait(false);
+    return await TransformAsync(data, cancellationToken).ConfigureAwait(false);
+}
+```
+
 ---
 
 **Q: L6 Should a library expose a synchronous wrapper over an async method?**
@@ -668,6 +974,23 @@ public User GetUser(int id)
 > Introduce it at the top-level entry point and thread it all the way down; make it optional with a default of `CancellationToken.None` to avoid breaking existing callers.
 
 The token should flow from the outermost boundary — HTTP request handler, message consumer, user gesture — down through every async method in the chain. Making it optional with `CancellationToken.None` default is the pragmatic balance.
+
+```csharp
+// Entry point accepts token from outside
+[HttpGet]
+public async Task<IActionResult> Get(CancellationToken ct = default)
+{
+    var data = await _repo.GetAsync(ct);
+    var result = await ProcessAsync(data, ct);
+    return Ok(result);
+}
+
+// Thread token all the way down
+private async Task<Result> ProcessAsync(Data data, CancellationToken ct = default)
+{
+    return await TransformAsync(data, ct);
+}
+```
 
 ---
 
@@ -736,6 +1059,25 @@ public async IAsyncEnumerable<Order> GetOrdersAsync([EnumeratorCancellation] Can
 > Use `WithCancellation(token)` on the enumerable in the `await foreach` call, or decorate the producer parameter with `[EnumeratorCancellation]` so the token is injected automatically.
 
 `await foreach (var item in source.WithCancellation(ct))` passes the token to the underlying enumerator's `MoveNextAsync`. On the producer side, marking the `CancellationToken` parameter with `[EnumeratorCancellation]` lets the compiler wire it up automatically when called via `WithCancellation`. This makes cancellation work transparently throughout the chain.
+
+```csharp
+// Consumer — use WithCancellation
+await foreach (var item in GetItemsAsync().WithCancellation(ct))
+{
+    Process(item);
+}
+
+// Producer — use [EnumeratorCancellation]
+public async IAsyncEnumerable<Item> GetItemsAsync(
+    [EnumeratorCancellation] CancellationToken ct = default)
+{
+    foreach (var id in ids)
+    {
+        ct.ThrowIfCancellationRequested();
+        yield return await FetchAsync(id, ct);
+    }
+}
+```
 
 ---
 

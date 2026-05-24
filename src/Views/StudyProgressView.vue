@@ -302,15 +302,24 @@ const renderStrengthChart = () => {
 
 const renderTimelineChart = () => {
   if (!timelineChartRef.value) return
+  
   const dateMap = new Map<string, number>()
+  
   const today = new Date()
-  for (let i = 29; i >= 0; i--) dateMap.set(format(subDays(today, i), 'yyyy-MM-dd'), 0)
+  
+  for (let i = 29; i >= 0; i--) dateMap.set(format(subDays(today, i), 
+  'yyyy-MM-dd'), 0)
+
+  console.log(filteredAttemptLogs)
+
   filteredAttemptLogs.value.forEach(log => {
     const d = format(parseISO(log.created_at), 'yyyy-MM-dd')
     dateMap.set(d, (dateMap.get(d) ?? 0) + 1)
   })
+  
   const dates = Array.from(dateMap.keys())
   const counts = Array.from(dateMap.values())
+  
   const dateLabels = dates.map(d => format(parseISO(d), 'MMM d, yy'))
   if (chartInstances.timeline) {
     chartInstances.timeline.xAxis[0]?.setCategories(dateLabels, false)
@@ -415,40 +424,41 @@ const renderLearningCurveChart = () => {
 }
 
 const renderCompositionChart = () => {
-  if (!compositionChartRef.value || availableDates.value.length === 0) return
+  if (!compositionChartRef.value || filteredAttemptLogs.value.length === 0) return
   const sortedLogs = [...filteredAttemptLogs.value].sort(
     (a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime()
   )
-  const compositionByDate = new Map<string, { Critical: number; Struggling: number; Good: number; Mastered: number }>()
   const strengthByCard = new Map<string, number>(filteredCardProgress.value.map(p => [p.learning_item_id, p.strength_score]))
+  const compositionSnapshots: Array<{ Critical: number; Struggling: number; Good: number; Mastered: number }> = []
+  const labels: string[] = []
   const seenCards = new Set<string>()
-  sortedLogs.forEach(log => {
-    const dateStr = format(parseISO(log.created_at), 'yyyy-MM-dd')
+
+  sortedLogs.forEach((log, index) => {
     seenCards.add(log.learning_item_id)
-    const buckets = { Critical: 0, Struggling: 0, Good: 0, Mastered: 0 }
-    seenCards.forEach(id => {
-      const s = strengthByCard.get(id) ?? 0
-      if (s < 0.25) buckets.Critical++
-      else if (s < 0.5) buckets.Struggling++
-      else if (s < 0.75) buckets.Good++
-      else buckets.Mastered++
-    })
-    compositionByDate.set(dateStr, buckets)
+    if ((index + 1) % 5 === 0) {
+      const buckets = { Critical: 0, Struggling: 0, Good: 0, Mastered: 0 }
+      seenCards.forEach(id => {
+        const s = Math.min(1, Math.max(0, strengthByCard.get(id) ?? 0))
+        if (s < 0.25) buckets.Critical++
+        else if (s < 0.5) buckets.Struggling++
+        else if (s < 0.75) buckets.Good++
+        else buckets.Mastered++
+      })
+      compositionSnapshots.push(buckets)
+      labels.push(`After ${index + 1} attempts`)
+    }
   })
-  const dates = availableDates.value
-  const dateLabels = dates.map(d => format(parseISO(d), 'MMM d, yy'))
-  const pct = (d: string, key: keyof { Critical: number; Struggling: number; Good: number; Mastered: number }) => {
-    const comp = compositionByDate.get(d)
-    if (!comp) return 0
-    const total = comp.Critical + comp.Struggling + comp.Good + comp.Mastered
-    return total > 0 ? Math.round((comp[key] / total) * 100) : 0
+
+  const pct = (snapshot: { Critical: number; Struggling: number; Good: number; Mastered: number }, key: keyof { Critical: number; Struggling: number; Good: number; Mastered: number }) => {
+    const total = snapshot.Critical + snapshot.Struggling + snapshot.Good + snapshot.Mastered
+    return total > 0 ? Math.round((snapshot[key] / total) * 100) : 0
   }
-  const critical = dates.map(d => pct(d, 'Critical'))
-  const struggling = dates.map(d => pct(d, 'Struggling'))
-  const good = dates.map(d => pct(d, 'Good'))
-  const mastered = dates.map(d => pct(d, 'Mastered'))
+  const critical = compositionSnapshots.map(s => pct(s, 'Critical'))
+  const struggling = compositionSnapshots.map(s => pct(s, 'Struggling'))
+  const good = compositionSnapshots.map(s => pct(s, 'Good'))
+  const mastered = compositionSnapshots.map(s => pct(s, 'Mastered'))
   if (chartInstances.composition) {
-    chartInstances.composition.xAxis[0]?.setCategories(dateLabels, false)
+    chartInstances.composition.xAxis[0]?.setCategories(labels, false)
     chartInstances.composition.series[0]?.setData(critical, false)
     chartInstances.composition.series[1]?.setData(struggling, false)
     chartInstances.composition.series[2]?.setData(good, false)
@@ -458,7 +468,7 @@ const renderCompositionChart = () => {
   chartInstances.composition = Highcharts.chart(compositionChartRef.value, {
     chart: { type: 'areaspline' },
     title: { text: '' },
-    xAxis: { categories: dateLabels, tickInterval: Math.max(1, Math.floor(dateLabels.length / 8)) },
+    xAxis: { categories: labels, tickInterval: Math.max(1, Math.floor(labels.length / 8)) },
     yAxis: { title: { text: 'Composition (%)' }, min: 0, max: 100, stackLabels: { enabled: false }, gridLineWidth: 1, gridLineColor: 'rgba(0,0,0,0.08)' },
     plotOptions: { areaspline: { stacking: 'percent', lineWidth: 0, marker: { enabled: false }, dataLabels: { enabled: false } } },
     series: [
