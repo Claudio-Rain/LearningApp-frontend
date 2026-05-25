@@ -1,5 +1,5 @@
-import { getCurrentItem, clearCurrentItem } from '../utils/storage.js';
-import { recordAttempt } from './progressService.js';
+import { getNotificationLearningItemId, clearNotificationLearningItemId, getContentLearningItemId, clearContentLearningItemId } from '../utils/storage.js';
+import { recordAttempt, recordContentRating } from './progressService.js';
 
 export function setupMessageListeners() {
   chrome.notifications.onButtonClicked.addListener(handleNotificationButtonClick);
@@ -9,22 +9,22 @@ export function setupMessageListeners() {
 
 async function handleNotificationButtonClick(notificationId, buttonIndex) {
   console.log('[background] onButtonClicked: notificationId =', notificationId, '| buttonIndex =', buttonIndex);
-  const currentNotificationItem = await getCurrentItem();
-  if (!currentNotificationItem?.id) {
-    console.warn('[background] onButtonClicked: no currentNotificationItem, ignoring');
+  const learningItemId = await getNotificationLearningItemId();
+  if (!learningItemId) {
+    console.warn('[background] onButtonClicked: no notification_learning_item_id, ignoring');
     return;
   }
 
-  console.log('[background] onButtonClicked: item id =', currentNotificationItem.id);
+  console.log('[background] onButtonClicked: item id =', learningItemId);
 
   try {
-    await recordAttempt(currentNotificationItem.id, buttonIndex);
+    await recordAttempt(learningItemId, buttonIndex);
   } catch (error) {
     console.error('[background] onButtonClicked: error recording attempt:', error);
   }
 
   chrome.notifications.clear(notificationId);
-  await clearCurrentItem(notificationId);
+  await clearNotificationLearningItemId();
   console.log('[background] onButtonClicked: done, notification cleared');
 }
 
@@ -35,31 +35,50 @@ function handleNotificationClosed(notificationId) {
 function handleContentScriptMessage(request, _sender, sendResponse) {
   if (request.action === 'buttonClicked') {
     console.log('[background] received buttonClicked from content script, buttonIndex =', request.buttonIndex);
-    handleButtonClickedFromContent(request.buttonIndex, request.notificationId);
+    handleButtonClickedFromNotification(request.buttonIndex);
     sendResponse({ success: true });
   } else if (request.action === 'questionClosed') {
     console.log('[background] question closed from content script');
-    handleQuestionClosed(request.notificationId);
+    handleQuestionClosed();
+    sendResponse({ success: true });
+  } else if (request.action === 'recordRating') {
+    console.log('[background] received recordRating from content script, score =', request.score);
+    handleContentRating(request.score);
     sendResponse({ success: true });
   }
 }
 
-async function handleButtonClickedFromContent(buttonIndex, notificationId) {
-  const currentNotificationItem = await getCurrentItem();
-  if (!currentNotificationItem?.id) {
-    console.warn('[background] onMessage: no currentNotificationItem');
+async function handleButtonClickedFromNotification(buttonIndex) {
+  const learningItemId = await getNotificationLearningItemId();
+  if (!learningItemId) {
+    console.warn('[background] handleButtonClickedFromNotification: no notification_learning_item_id');
     return;
   }
 
   try {
-    await recordAttempt(currentNotificationItem.id, buttonIndex);
+    await recordAttempt(learningItemId, buttonIndex);
   } catch (error) {
-    console.error('[background] onMessage: error recording attempt:', error);
+    console.error('[background] handleButtonClickedFromNotification: error recording attempt:', error);
   }
 
-  await clearCurrentItem(notificationId);
+  await clearNotificationLearningItemId();
 }
 
-async function handleQuestionClosed(notificationId) {
-  await clearCurrentItem(notificationId);
+async function handleContentRating(score) {
+  const learningItemId = await getContentLearningItemId();
+  if (!learningItemId) {
+    console.warn('[background] handleContentRating: no content_learning_item_id');
+    return;
+  }
+
+  try {
+    console.log('[background] handleContentRating: recording rating for item', learningItemId, 'score:', score);
+    await recordContentRating(learningItemId, score);
+  } catch (error) {
+    console.error('[background] handleContentRating: error recording rating:', error);
+  }
+}
+
+async function handleQuestionClosed() {
+  await clearNotificationLearningItemId();
 }

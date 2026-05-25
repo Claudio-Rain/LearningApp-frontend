@@ -23,31 +23,28 @@ export async function getStudySettings() {
   };
 }
 
-export async function setCurrentItem(item) {
-  await chrome.storage.local.set({ currentNotificationItem: item });
+export async function setNotificationLearningItemId(itemId) {
+  await chrome.storage.local.set({ notification_learning_item_id: itemId });
 }
 
-export async function getCurrentItem() {
-  const { currentNotificationItem } = await chrome.storage.local.get('currentNotificationItem');
-  return currentNotificationItem ?? null;
+export async function getNotificationLearningItemId() {
+  const { notification_learning_item_id } = await chrome.storage.local.get('notification_learning_item_id');
+  return notification_learning_item_id ?? null;
 }
 
-export async function clearCurrentItem(notificationId) {
-  const { currentNotificationItem } = await chrome.storage.local.get('currentNotificationItem');
-  if (!notificationId || currentNotificationItem?._notificationId === notificationId) {
-    await chrome.storage.local.remove('currentNotificationItem');
-  }
+export async function clearNotificationLearningItemId() {
+  await chrome.storage.local.remove('notification_learning_item_id');
 }
 
-export async function setCurrentContent(item) {
-  await chrome.storage.local.set({ currentContent: item });
+export async function setContentLearningItemId(itemId) {
+  await chrome.storage.local.set({ content_learning_item_id: itemId });
 }
 
-export async function getCurrentContent() {
-  const { currentContent } = await chrome.storage.local.get('currentContent');
-  return currentContent ?? null;
+export async function getContentLearningItemId() {
+  const { content_learning_item_id } = await chrome.storage.local.get('content_learning_item_id');
+  return content_learning_item_id ?? null;
 }
 
-export async function clearCurrentContent() {
-  await chrome.storage.local.remove('currentContent');
+export async function clearContentLearningItemId() {
+  await chrome.storage.local.remove('content_learning_item_id');
 }

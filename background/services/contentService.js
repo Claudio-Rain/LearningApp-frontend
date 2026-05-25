@@ -3,7 +3,7 @@ import {
   getAllCardProgress,
   getCollections
 } from '../../src/database/index.ts';
-import { getStudySettings, setCurrentContent } from '../utils/storage.js';
+import { getStudySettings, setContentLearningItemId } from '../utils/storage.js';
 
 export async function fetchRandomContent() {
   const { contentCollectionId } = await getStudySettings();
@@ -39,7 +39,7 @@ export async function fetchRandomContent() {
 
   console.log('[background] fetchRandomContent: selected item', randomItem.title, '| has content:', !!randomItem.content);
 
-  await setCurrentContent(randomItem);
+  await setContentLearningItemId(randomItem.id);
   await notifyAllTabs(randomItem);
 }
 

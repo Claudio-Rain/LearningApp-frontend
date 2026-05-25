@@ -2,7 +2,7 @@ import {
   getLearningItems,
   getAllCardProgress
 } from '../../src/database/index.ts';
-import { getStudySettings, setCurrentItem, clearCurrentItem } from '../utils/storage.js';
+import { getStudySettings, setNotificationLearningItemId, clearNotificationLearningItemId } from '../utils/storage.js';
 import { formatNotificationTitle, formatNotificationMessage } from '../utils/notification.js';
 import { NOTIFICATION_TIMEOUT_MS, NOTIFICATION_PRIORITY } from '../constants.js';
 
@@ -26,7 +26,7 @@ export async function sendNotification() {
 
   console.log('[background] sendNotification: selected item (strength:', nextItem.progress?.strength_score ?? 'new', ')', nextItem.title);
 
-  await setCurrentItem({ ...nextItem, _notificationId: notificationId });
+  await setNotificationLearningItemId(nextItem.id);
 
   await sendToAllTabs(nextItem, notificationId);
   await createNativeNotification(notificationId, nextItem);
@@ -106,7 +106,7 @@ async function createNativeNotification(notificationId, item) {
           await chrome.tabs.sendMessage(tab.id, { action: 'hideQuestion' });
         } catch (err) {}
       }
-      await clearCurrentItem(notificationId);
+      await clearNotificationLearningItemId();
     }, NOTIFICATION_TIMEOUT_MS);
   });
 }

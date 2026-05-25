@@ -65,3 +65,58 @@ export async function recordAttempt(itemId, buttonIndex) {
     throw error;
   }
 }
+
+export async function recordContentRating(itemId, easeScore) {
+  const now = formatISO(new Date());
+
+  console.log('[background] recordContentRating: easeScore =', easeScore);
+
+  try {
+    console.log('[background] recordContentRating: creating attempt log');
+    await createAttemptLog({
+      learning_item_id: itemId,
+      ease_score: easeScore,
+      is_correct: easeScore > 0.3,
+      created_at: now
+    });
+    console.log('[background] recordContentRating: attempt log created, syncing');
+    await syncAttemptLogs();
+    console.log('[background] recordContentRating: attempt logs synced');
+
+    const allProgress = await getAllCardProgress();
+    console.log('[background] recordContentRating: allProgress count =', allProgress?.length ?? 0);
+    const progress = allProgress.find(p => p.learning_item_id === itemId);
+
+    if (progress) {
+      const totalAttempts = progress.total_attempts + 1;
+      const newStrength = Math.max(0, Math.min(1, progress.strength_score + easeScore));
+      console.log('[background] recordContentRating: updating card progress, newStrength =', newStrength);
+
+      await updateCardProgress({
+        ...progress,
+        strength_score: newStrength,
+        last_reviewed_at: now,
+        total_attempts: totalAttempts,
+        weighted_attempts: progress.weighted_attempts + easeScore
+      });
+      console.log('[background] recordContentRating: card progress updated');
+    } else {
+      console.log('[background] recordContentRating: no existing progress, creating new card progress');
+      await createCardProgress({
+        learning_item_id: itemId,
+        strength_score: Math.max(0, easeScore),
+        last_reviewed_at: now,
+        total_attempts: 1,
+        weighted_attempts: easeScore
+      });
+      console.log('[background] recordContentRating: card progress created');
+    }
+
+    console.log('[background] recordContentRating: syncing card progress');
+    await syncCardProgress();
+    console.log('[background] recordContentRating: card progress synced');
+  } catch (error) {
+    console.error('[background] recordContentRating: error recording rating:', error);
+    throw error;
+  }
+}
