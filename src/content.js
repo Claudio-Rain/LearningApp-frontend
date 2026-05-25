@@ -352,7 +352,6 @@ function updateContentDisplay(item) {
     titleEl.textContent = item.title || 'Learning Item';
     const plainText = extractPlainText(item.content);
 
-    // If content is empty, show placeholder
     if (!plainText || plainText.trim().length === 0) {
       textEl.textContent = '(No content available)';
       widget.style.opacity = '0.6';
@@ -390,7 +389,7 @@ if (document.readyState === 'loading') {
 document.addEventListener('click', (e) => {
   if (e.target.id === 'modal-close') {
     hideModal();
-    chrome.runtime.sendMessage({ action: 'questionClosed', notificationId: currentNotificationId });
+    chrome.runtime.sendMessage({ action: 'questionClosed' });
   } else if (e.target.id === 'modal-review-later') {
     hideModal();
     chrome.runtime.sendMessage({ action: 'buttonClicked', buttonIndex: 0, notificationId: currentNotificationId });
@@ -399,13 +398,12 @@ document.addEventListener('click', (e) => {
     chrome.runtime.sendMessage({ action: 'buttonClicked', buttonIndex: 1, notificationId: currentNotificationId });
   } else if (e.target.classList.contains('content-rating-btn')) {
     const score = parseFloat(e.target.getAttribute('data-score'));
-    console.log('Rating button clicked:', e.target.getAttribute('title'), 'Score:', score);
+    console.log('[content] Rating button clicked:', e.target.getAttribute('title'), 'Score:', score);
     chrome.runtime.sendMessage({
       action: 'recordRating',
-      score: score,
-      notificationId: currentNotificationId
+      score: score
     }, (response) => {
-      console.log('Rating recorded:', { score, notificationId: currentNotificationId, response });
+      console.log('[content] Rating recorded:', { score, response });
     });
   }
 });

@@ -43,9 +43,15 @@ function parseInline(text) {
 function buildTiptap(bottomLine, elaboration, codeBlock) {
   const nodes = []
 
+  // Parse inline markdown in bottomLine and wrap the result with bold
+  const bottomLineContent = parseInline(bottomLine).map(node => ({
+    ...node,
+    marks: [...(node.marks || []), { type: 'bold' }]
+  }))
+
   nodes.push({
     type: 'paragraph',
-    content: [{ type: 'text', text: bottomLine, marks: [{ type: 'bold' }] }]
+    content: bottomLineContent
   })
 
   if (elaboration) {

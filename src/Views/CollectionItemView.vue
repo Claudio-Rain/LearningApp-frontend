@@ -170,8 +170,10 @@ const handleDeleteLearningItem = async (item: LearningItem) => {
 }
 
 const handleContentUpdate = async (id: string, content: JSONContent, lastModified: string) => {
+  console.log('[CollectionItemView] handleContentUpdate', { id, contentLength: JSON.stringify(content).length, content: JSON.stringify(content) })
   const item = learningItems.value.find(i => i.id === id)
   if (item) {
+    console.log('[CollectionItemView] updating item.content', { id, contentLength: JSON.stringify(content).length, content: JSON.stringify(content) })
     item.content = content
     item.lastModified = lastModified
   }
