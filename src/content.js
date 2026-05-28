@@ -189,6 +189,8 @@ function injectContentDisplay() {
       backface-visibility: hidden;
       transition: opacity 0.3s ease;
       overflow-y: auto;
+      overflow-x: hidden;
+      box-sizing: border-box;
     }
 
     .card-side.front {
@@ -218,6 +220,11 @@ function injectContentDisplay() {
       display: flex;
       flex-direction: column;
       justify-content: flex-start;
+      width: 100%;
+      box-sizing: border-box;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      word-break: break-word;
     }
 
     .content-body p {
@@ -225,12 +232,16 @@ function injectContentDisplay() {
       font-size: 15px;
       line-height: 1.6;
       color: #1f2937;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
 
     .content-body div {
       font-size: 15px;
       line-height: 1.6;
       color: #1f2937;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
 
     /* Tiptap rendered content styles */
@@ -262,8 +273,10 @@ function injectContentDisplay() {
       background: #f3f4f6;
       padding: 2px 6px;
       border-radius: 3px;
-      font-family: monospace;
+      font-family: 'Courier New', monospace;
       font-size: 0.9em;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
 
     .content-body pre {
@@ -272,13 +285,18 @@ function injectContentDisplay() {
       padding: 12px;
       border-radius: 6px;
       overflow-x: auto;
+      overflow-y: auto;
       margin: 12px 0;
+      width: 100%;
+      box-sizing: border-box;
+      max-width: 100%;
     }
 
     .content-body pre code {
       background: none;
       padding: 0;
       color: inherit;
+      word-wrap: normal;
     }
 
     .content-body blockquote {
@@ -293,16 +311,29 @@ function injectContentDisplay() {
       border-collapse: collapse;
       width: 100%;
       margin: 12px 0;
+      box-sizing: border-box;
+      font-size: 0.95em;
     }
 
     .content-body table td, .content-body table th {
       border: 1px solid #d1d5db;
       padding: 8px;
+      box-sizing: border-box;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
 
     .content-body table th {
       background: #f3f4f6;
       font-weight: 600;
+    }
+
+    .content-body img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 6px;
+      margin: 12px 0;
+      display: block;
     }
 
     .content-footer {
