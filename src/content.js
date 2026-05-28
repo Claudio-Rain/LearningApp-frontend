@@ -93,9 +93,7 @@ function injectContentDisplay() {
       </div>
       <div class="flashcard-container" id="flashcard">
         <div class="card-side front">
-          <div class="content-body">
-            <p id="content-text"></p>
-          </div>
+          <h2 id="front-question" class="front-question"></h2>
         </div>
         <div class="card-side back">
           <div class="content-body">
@@ -104,7 +102,6 @@ function injectContentDisplay() {
         </div>
       </div>
       <div class="content-footer">
-        <div class="flip-hint" id="flip-hint">Click to reveal answer</div>
         <div class="content-rating-buttons" id="rating-buttons">
           <button class="content-rating-btn btn-very-hard" data-score="-0.15" title="Very Hard">✕</button>
           <button class="content-rating-btn btn-hard" data-score="-0.10" title="Hard">−</button>
@@ -197,12 +194,25 @@ function injectContentDisplay() {
       opacity: 1;
       z-index: 2;
       justify-content: center;
+      align-items: center;
     }
 
     .card-side.back {
       opacity: 0;
       z-index: 1;
       justify-content: flex-start;
+    }
+
+    .front-question {
+      margin: 0;
+      font-size: clamp(1.5rem, 4vw, 2.5rem);
+      font-weight: 700;
+      color: #111827;
+      text-align: center;
+      line-height: 1.4;
+      user-select: none;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
     }
 
     .flashcard-container.flipped .card-side.front {
@@ -344,18 +354,6 @@ function injectContentDisplay() {
       display: flex;
       flex-direction: column;
       gap: 8px;
-    }
-
-    .flip-hint {
-      font-size: 11px;
-      color: #9ca3af;
-      text-align: center;
-      transition: opacity 0.3s ease;
-    }
-
-    .flashcard-container.flipped ~ .content-footer .flip-hint {
-      opacity: 0;
-      pointer-events: none;
     }
 
     .content-rating-buttons {
@@ -636,15 +634,16 @@ function updateContentDisplay(item) {
   isFlipped = false;
 
   const titleEl = document.getElementById('content-title');
-  const questionEl = document.getElementById('content-text');
+  const frontQuestionEl = document.getElementById('front-question');
   const answerEl = document.getElementById('content-answer');
   const flashcard = document.getElementById('flashcard');
   const sideIndicator = document.getElementById('side-indicator');
   const widget = document.querySelector('.learning-content-widget');
 
-  if (!titleEl || !questionEl || !answerEl || !flashcard || !widget) return;
+  if (!titleEl || !frontQuestionEl || !answerEl || !flashcard || !widget) return;
 
   titleEl.textContent = item.title || 'Learning Item';
+  frontQuestionEl.textContent = item.title || 'Question';
 
   // Render answer with Tiptap support for rich content
   const plainText = extractPlainText(item.content);
