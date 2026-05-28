@@ -1,37 +1,84 @@
-// Import Tiptap for rendering rich content
-import { generateHTML } from '@tiptap/core'
-import StarterKit from '@tiptap/starter-kit'
-import Image from '@tiptap/extension-image'
-import Color from '@tiptap/extension-color'
-import TextStyle from '@tiptap/extension-text-style'
-import Highlight from '@tiptap/extension-highlight'
-import Underline from '@tiptap/extension-underline'
-import Table from '@tiptap/extension-table'
-import TableRow from '@tiptap/extension-table-row'
-import TableHeader from '@tiptap/extension-table-header'
-import TableCell from '@tiptap/extension-table-cell'
+// Simple Tiptap JSON to HTML renderer
+function renderTiptapContent(node, isQuestion = false) {
+  if (!node) return '';
+  if (typeof node === 'string') return escapeHtml(node);
 
-const tiptapExtensions = [
-  StarterKit,
-  Image,
-  Color,
-  TextStyle,
-  Highlight,
-  Underline,
-  Table.configure({ resizable: false }),
-  TableRow,
-  TableHeader,
-  TableCell,
-]
-
-function renderTiptapContent(content) {
-  if (!content) return '';
-  try {
-    return generateHTML(content, tiptapExtensions);
-  } catch (error) {
-    console.warn('[content] Error rendering Tiptap content:', error);
-    return extractPlainText(content);
+  // Handle text nodes
+  if (node.type === 'text') {
+    let text = escapeHtml(node.text || '');
+    if (node.marks) {
+      for (const mark of node.marks) {
+        switch (mark.type) {
+          case 'bold':
+            text = `<strong>${text}</strong>`;
+            break;
+          case 'italic':
+            text = `<em>${text}</em>`;
+            break;
+          case 'underline':
+            text = `<u>${text}</u>`;
+            break;
+          case 'code':
+            text = `<code>${text}</code>`;
+            break;
+          case 'highlight':
+            text = `<mark>${text}</mark>`;
+            break;
+          case 'textStyle':
+            if (mark.attrs?.color) {
+              text = `<span style="color: ${mark.attrs.color}">${text}</span>`;
+            }
+            break;
+        }
+      }
+    }
+    return text;
   }
+
+  // Handle block nodes
+  const content = node.content ? node.content.map(child => renderTiptapContent(child)).join('') : '';
+
+  switch (node.type) {
+    case 'doc':
+      return content;
+    case 'paragraph':
+      return `<p>${content}</p>`;
+    case 'heading':
+      const level = node.attrs?.level || 1;
+      return `<h${level}>${content}</h${level}>`;
+    case 'bulletList':
+      return `<ul>${content}</ul>`;
+    case 'orderedList':
+      return `<ol>${content}</ol>`;
+    case 'listItem':
+      return `<li>${content}</li>`;
+    case 'codeBlock':
+      return `<pre><code>${content}</code></pre>`;
+    case 'blockquote':
+      return `<blockquote>${content}</blockquote>`;
+    case 'horizontalRule':
+      return '<hr/>';
+    case 'hardBreak':
+      return '<br/>';
+    case 'image':
+      return `<img src="${escapeHtml(node.attrs?.src || '')}" alt="${escapeHtml(node.attrs?.alt || '')}" style="max-width: 100%; height: auto; border-radius: 4px; margin: 8px 0;">`;
+    case 'table':
+      return `<table>${content}</table>`;
+    case 'tableRow':
+      return `<tr>${content}</tr>`;
+    case 'tableHeader':
+      return `<th>${content}</th>`;
+    case 'tableCell':
+      return `<td>${content}</td>`;
+    default:
+      return content;
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 // Create persistent content display
