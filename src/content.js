@@ -615,22 +615,20 @@ function updateContentDisplay(item) {
 
   titleEl.textContent = item.title || 'Learning Item';
 
-  // Render question (usually plain text from title, but could be rich)
+  // Render answer with Tiptap support for rich content
   const plainText = extractPlainText(item.content);
 
   if (!plainText || plainText.trim().length === 0) {
-    questionEl.textContent = '(No content available)';
     answerEl.innerHTML = '<p>(No answer)</p>';
     widget.style.opacity = '0.6';
   } else {
-    questionEl.textContent = plainText;
     // Render answer with Tiptap support for rich content
     try {
       const renderedHTML = renderTiptapContent(item.content);
       answerEl.innerHTML = renderedHTML;
     } catch (error) {
       console.error('[content] Error rendering content:', error);
-      answerEl.textContent = plainText;
+      answerEl.innerHTML = `<p>${escapeHtml(plainText)}</p>`;
     }
     widget.style.opacity = '1';
   }
