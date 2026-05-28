@@ -1,3 +1,39 @@
+// Import Tiptap for rendering rich content
+import { generateHTML } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import Image from '@tiptap/extension-image'
+import Color from '@tiptap/extension-color'
+import TextStyle from '@tiptap/extension-text-style'
+import Highlight from '@tiptap/extension-highlight'
+import Underline from '@tiptap/extension-underline'
+import Table from '@tiptap/extension-table'
+import TableRow from '@tiptap/extension-table-row'
+import TableHeader from '@tiptap/extension-table-header'
+import TableCell from '@tiptap/extension-table-cell'
+
+const tiptapExtensions = [
+  StarterKit,
+  Image,
+  Color,
+  TextStyle,
+  Highlight,
+  Underline,
+  Table.configure({ resizable: false }),
+  TableRow,
+  TableHeader,
+  TableCell,
+]
+
+function renderTiptapContent(content) {
+  if (!content) return '';
+  try {
+    return generateHTML(content, tiptapExtensions);
+  } catch (error) {
+    console.warn('[content] Error rendering Tiptap content:', error);
+    return extractPlainText(content);
+  }
+}
+
 // Create persistent content display
 function injectContentDisplay() {
   const contentWidget = document.createElement('div');
@@ -6,15 +42,28 @@ function injectContentDisplay() {
     <div class="learning-content-widget">
       <div class="content-header">
         <h3 id="content-title">Learning Item</h3>
+        <span class="content-side-indicator" id="side-indicator">Question</span>
       </div>
-      <div class="content-body">
-        <p id="content-text"></p>
+      <div class="flashcard-container" id="flashcard">
+        <div class="card-side front">
+          <div class="content-body">
+            <p id="content-text"></p>
+          </div>
+        </div>
+        <div class="card-side back">
+          <div class="content-body">
+            <div id="content-answer"></div>
+          </div>
+        </div>
       </div>
-      <div class="content-rating-buttons">
-        <button class="content-rating-btn btn-very-hard" data-score="-0.15" title="Very Hard">✕</button>
-        <button class="content-rating-btn btn-hard" data-score="-0.10" title="Hard">−</button>
-        <button class="content-rating-btn btn-good" data-score="0.10" title="Good">✓</button>
-        <button class="content-rating-btn btn-easy" data-score="0.15" title="Easy">★</button>
+      <div class="content-footer">
+        <div class="flip-hint" id="flip-hint">Click to reveal answer</div>
+        <div class="content-rating-buttons" id="rating-buttons">
+          <button class="content-rating-btn btn-very-hard" data-score="-0.15" title="Very Hard">✕</button>
+          <button class="content-rating-btn btn-hard" data-score="-0.10" title="Hard">−</button>
+          <button class="content-rating-btn btn-good" data-score="0.10" title="Good">✓</button>
+          <button class="content-rating-btn btn-easy" data-score="0.15" title="Easy">★</button>
+        </div>
       </div>
     </div>
   `;
@@ -34,10 +83,10 @@ function injectContentDisplay() {
       top: 20px;
       right: 20px;
       background: white;
-      border-radius: 8px;
-      width: 300px;
-      max-height: 200px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      border-radius: 12px;
+      width: 480px;
+      max-height: 90vh;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
       z-index: 999998;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       display: flex;
@@ -45,15 +94,14 @@ function injectContentDisplay() {
       transition: all 0.2s ease;
     }
 
-    .learning-content-widget:hover {
-      max-height: 280px;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-    }
-
     .content-header {
       padding: 12px 16px;
       border-bottom: 1px solid #e5e7eb;
       background: #f9fafb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-radius: 12px 12px 0 0;
     }
 
     .content-header h3 {
@@ -61,44 +109,200 @@ function injectContentDisplay() {
       font-size: 14px;
       font-weight: 600;
       color: #111827;
-    }
-
-    .content-body {
-      padding: 12px 16px;
-      overflow-y: auto;
       flex: 1;
     }
 
-    .content-body p {
-      margin: 0;
-      font-size: 13px;
-      line-height: 1.5;
-      color: #374151;
+    .content-side-indicator {
+      font-size: 11px;
+      font-weight: 600;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: rgba(0, 0, 0, 0.05);
+      padding: 2px 8px;
+      border-radius: 4px;
     }
 
-    .content-rating-buttons {
-      display: none;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 6px;
+    .flashcard-container {
+      position: relative;
+      width: 100%;
+      flex: 1;
+      min-height: 300px;
+      cursor: pointer;
+    }
+
+    .card-side {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      backface-visibility: hidden;
+      transition: opacity 0.3s ease;
+      overflow-y: auto;
+    }
+
+    .card-side.front {
+      opacity: 1;
+      z-index: 2;
+      justify-content: center;
+    }
+
+    .card-side.back {
+      opacity: 0;
+      z-index: 1;
+      justify-content: flex-start;
+    }
+
+    .flashcard-container.flipped .card-side.front {
+      opacity: 0;
+      z-index: 1;
+    }
+
+    .flashcard-container.flipped .card-side.back {
+      opacity: 1;
+      z-index: 2;
+    }
+
+    .content-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+    }
+
+    .content-body p {
+      margin: 0 0 12px 0;
+      font-size: 15px;
+      line-height: 1.6;
+      color: #1f2937;
+    }
+
+    .content-body div {
+      font-size: 15px;
+      line-height: 1.6;
+      color: #1f2937;
+    }
+
+    /* Tiptap rendered content styles */
+    .content-body .ProseMirror {
+      outline: none;
+      padding: 0;
+    }
+
+    .content-body h1, .content-body h2, .content-body h3, .content-body h4, .content-body h5, .content-body h6 {
+      margin: 16px 0 8px 0;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .content-body h1 { font-size: 1.4em; }
+    .content-body h2 { font-size: 1.3em; }
+    .content-body h3 { font-size: 1.2em; }
+
+    .content-body ul, .content-body ol {
+      margin: 12px 0;
+      padding-left: 24px;
+    }
+
+    .content-body li {
+      margin: 4px 0;
+    }
+
+    .content-body code {
+      background: #f3f4f6;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: monospace;
+      font-size: 0.9em;
+    }
+
+    .content-body pre {
+      background: #1f2937;
+      color: #f3f4f6;
+      padding: 12px;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+
+    .content-body pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+    }
+
+    .content-body blockquote {
+      border-left: 3px solid #3b82f6;
+      padding-left: 12px;
+      margin: 12px 0;
+      color: #6b7280;
+      font-style: italic;
+    }
+
+    .content-body table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12px 0;
+    }
+
+    .content-body table td, .content-body table th {
+      border: 1px solid #d1d5db;
+      padding: 8px;
+    }
+
+    .content-body table th {
+      background: #f3f4f6;
+      font-weight: 600;
+    }
+
+    .content-footer {
       padding: 12px 16px;
       border-top: 1px solid #e5e7eb;
       background: #fafbfc;
+      border-radius: 0 0 12px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
 
-    .learning-content-widget:hover .content-rating-buttons {
+    .flip-hint {
+      font-size: 11px;
+      color: #9ca3af;
+      text-align: center;
+      transition: opacity 0.3s ease;
+    }
+
+    .flashcard-container.flipped ~ .content-footer .flip-hint {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .content-rating-buttons {
       display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
     }
 
     .content-rating-btn {
       padding: 8px;
       border: none;
       border-radius: 6px;
-      font-size: 14px;
+      font-size: 12px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s;
       color: white;
       font-family: inherit;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .flashcard-container.flipped ~ .content-footer .content-rating-btn {
+      opacity: 1;
+      pointer-events: auto;
     }
 
     .btn-very-hard {
@@ -131,6 +335,10 @@ function injectContentDisplay() {
 
     .btn-easy:hover {
       background: #16a34a;
+    }
+
+    .content-rating-btn:active {
+      transform: scale(0.95);
     }
   `;
 
@@ -340,26 +548,66 @@ function extractPlainText(node, separator = '\n') {
     : parts.join(separator);
 }
 
-// Escuchar mensajes del background script
+// State management
 let currentNotificationId = null;
+let currentItem = null;
+let isFlipped = false;
 
 function updateContentDisplay(item) {
+  currentItem = item;
+  isFlipped = false;
+
   const titleEl = document.getElementById('content-title');
-  const textEl = document.getElementById('content-text');
+  const questionEl = document.getElementById('content-text');
+  const answerEl = document.getElementById('content-answer');
+  const flashcard = document.getElementById('flashcard');
+  const sideIndicator = document.getElementById('side-indicator');
   const widget = document.querySelector('.learning-content-widget');
 
-  if (titleEl && textEl && widget) {
-    titleEl.textContent = item.title || 'Learning Item';
-    const plainText = extractPlainText(item.content);
+  if (!titleEl || !questionEl || !answerEl || !flashcard || !widget) return;
 
-    if (!plainText || plainText.trim().length === 0) {
-      textEl.textContent = '(No content available)';
-      widget.style.opacity = '0.6';
-    } else {
-      textEl.textContent = plainText;
-      widget.style.opacity = '1';
+  titleEl.textContent = item.title || 'Learning Item';
+
+  // Render question (usually plain text from title, but could be rich)
+  const plainText = extractPlainText(item.content);
+
+  if (!plainText || plainText.trim().length === 0) {
+    questionEl.textContent = '(No content available)';
+    answerEl.innerHTML = '<p>(No answer)</p>';
+    widget.style.opacity = '0.6';
+  } else {
+    questionEl.textContent = plainText;
+    // Render answer with Tiptap support for rich content
+    try {
+      const renderedHTML = renderTiptapContent(item.content);
+      answerEl.innerHTML = renderedHTML;
+    } catch (error) {
+      console.error('[content] Error rendering content:', error);
+      answerEl.textContent = plainText;
     }
+    widget.style.opacity = '1';
   }
+
+  // Reset flip state
+  flashcard.classList.remove('flipped');
+  sideIndicator.textContent = 'Question';
+
+  // Animate transition
+  widget.style.opacity = '0.7';
+  setTimeout(() => {
+    widget.style.opacity = '1';
+  }, 100);
+}
+
+function toggleFlip() {
+  const flashcard = document.getElementById('flashcard');
+  const sideIndicator = document.getElementById('side-indicator');
+
+  if (!flashcard) return;
+
+  isFlipped = !isFlipped;
+  flashcard.classList.toggle('flipped');
+  sideIndicator.textContent = isFlipped ? 'Answer' : 'Question';
 }
 
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
@@ -385,9 +633,41 @@ if (document.readyState === 'loading') {
   injectContentDisplay();
 }
 
-// Event listeners para los botones
+// Keyboard shortcuts
+function handleKeydown(e) {
+  // Space or Enter to flip
+  if ((e.key === ' ' || e.key === 'Enter') && e.target.closest('#learning-app-content')) {
+    e.preventDefault();
+    toggleFlip();
+  }
+  // Number keys for rating when flipped
+  else if (isFlipped && /^[1-4]$/.test(e.key) && e.target.closest('#learning-app-content')) {
+    const scores = { '1': -0.15, '2': -0.10, '3': 0.10, '4': 0.15 };
+    const score = scores[e.key];
+    console.log('[content] Keyboard rating:', { key: e.key, score });
+
+    // Send rating without waiting for response
+    chrome.runtime.sendMessage({
+      action: 'recordRating',
+      score: score
+    });
+
+    // Reset UI for next item
+    const widget = document.querySelector('.learning-content-widget');
+    if (widget) {
+      widget.style.opacity = '0.8';
+    }
+  }
+}
+
+// Click listeners
 document.addEventListener('click', (e) => {
-  if (e.target.id === 'modal-close') {
+  // Flashcard flip
+  if (e.target.closest('#flashcard')) {
+    toggleFlip();
+  }
+  // Modal controls
+  else if (e.target.id === 'modal-close') {
     hideModal();
     chrome.runtime.sendMessage({ action: 'questionClosed' });
   } else if (e.target.id === 'modal-review-later') {
@@ -396,14 +676,26 @@ document.addEventListener('click', (e) => {
   } else if (e.target.id === 'modal-correct') {
     hideModal();
     chrome.runtime.sendMessage({ action: 'buttonClicked', buttonIndex: 1, notificationId: currentNotificationId });
-  } else if (e.target.classList.contains('content-rating-btn')) {
+  }
+  // Content rating buttons (fire-and-forget)
+  else if (e.target.classList.contains('content-rating-btn')) {
     const score = parseFloat(e.target.getAttribute('data-score'));
     console.log('[content] Rating button clicked:', e.target.getAttribute('title'), 'Score:', score);
+
+    // Send rating without waiting for response (fire-and-forget)
     chrome.runtime.sendMessage({
       action: 'recordRating',
       score: score
-    }, (response) => {
-      console.log('[content] Rating recorded:', { score, response });
     });
+
+    // Immediately reset UI for next item
+    setTimeout(() => {
+      const widget = document.querySelector('.learning-content-widget');
+      if (widget) {
+        widget.style.opacity = '0.8';
+      }
+    }, 50);
   }
 });
+
+document.addEventListener('keydown', handleKeydown);

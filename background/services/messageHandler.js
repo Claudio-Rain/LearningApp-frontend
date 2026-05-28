@@ -1,5 +1,6 @@
 import { getNotificationLearningItemId, clearNotificationLearningItemId, getContentLearningItemId, clearContentLearningItemId } from '../utils/storage.js';
 import { recordAttempt, recordContentRating } from './progressService.js';
+import { fetchRandomContent } from './contentService.js';
 
 export function setupMessageListeners() {
   chrome.notifications.onButtonClicked.addListener(handleNotificationButtonClick);
@@ -74,6 +75,10 @@ async function handleContentRating(score) {
   try {
     console.log('[background] handleContentRating: recording rating for item', learningItemId, 'score:', score);
     await recordContentRating(learningItemId, score);
+
+    // Automatically fetch next item without interrupting the UI
+    console.log('[background] handleContentRating: fetching next item');
+    await fetchRandomContent();
   } catch (error) {
     console.error('[background] handleContentRating: error recording rating:', error);
   }
