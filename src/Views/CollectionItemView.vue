@@ -81,7 +81,6 @@ import {
   editCollection,
   syncLearningItems,
   syncCollections,
-  startSyncEngine,
   pullLearningItems
 } from '../database'
 
@@ -213,8 +212,6 @@ const handlePullItems = async () => {
 }
 
 onMounted(async () => {
-  startSyncEngine()
-  if (navigator.onLine) await pullLearningItems(collectionId)
   await loadData()
 })
 

@@ -67,7 +67,6 @@ import {
   createCollection,
   editCollection,
   removeCollection,
-  startSyncEngine,
   syncCollections,
   syncAll,
 } from '../../database'
@@ -166,7 +165,6 @@ const handleRefresh = async () => {
 
 onMounted(async () => {
   await loadCollections()
-  startSyncEngine()
   syncAll()
 })
 

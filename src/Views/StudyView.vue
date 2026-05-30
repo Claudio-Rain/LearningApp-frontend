@@ -222,8 +222,6 @@ const revisedCards = computed(() => {
   return count
 })
 
-const totalCards = computed(() => studyQueue.value.length)
-
 const currentStrengthLabel = computed(() => {
   const score = currentItem.value?.progress?.strength_score
   if (score === undefined || score === null) return 'New'
