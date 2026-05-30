@@ -468,9 +468,21 @@ onUnmounted(() => {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  gap: 12px;
   padding: 12px 20px;
   background-color: rgba(255, 255, 255, 0.95);
   flex-shrink: 0;
+}
+
+.study-header > div:first-child {
+  min-width: 0;
+  flex: 1;
+}
+
+.study-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header-actions {
@@ -547,10 +559,10 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   width: 100%;
-  gap: 4px;
+  max-width: 800px;
+  gap: 8px;
   flex: 1;
   min-height: 0;
-  margin: 0 48px;
 }
 
 .flashcard {
@@ -623,6 +635,12 @@ onUnmounted(() => {
   width: 100%;
 }
 
+@media (min-width: 700px) {
+  .rating-buttons {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
 .progress-container {
   display: none;
 }
@@ -657,11 +675,12 @@ onUnmounted(() => {
 
 .title-display {
   margin: auto;
-  font-size: clamp(1rem, 2.5vw, 1.6rem);
+  font-size: clamp(1.1rem, 3vw, 2rem);
   font-weight: 600;
   line-height: 1.3;
   color: rgba(0, 0, 0, 0.87);
   text-align: center;
+  word-break: break-word;
 }
 
 .timer-wrapper {
