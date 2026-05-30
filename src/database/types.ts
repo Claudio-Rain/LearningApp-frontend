@@ -38,3 +38,10 @@ export interface AttemptLog extends Syncable {
   ease_score: number
   created_at: string
 }
+
+export interface ExcludedItem extends Syncable {
+  id?: string
+  learningItemId: string
+  dateCreated: string
+  lastModified: string
+}

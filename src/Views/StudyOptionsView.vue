@@ -79,6 +79,62 @@
       class="mb-4"
     />
 
+    <v-divider class="my-6" />
+
+    <div class="exclusion-section">
+      <div class="d-flex align-center mb-1">
+        <span class="text-subtitle-2 font-weight-bold">Excluded Items</span>
+        <v-chip
+          v-if="excludedItemIds.size > 0"
+          size="x-small"
+          color="error"
+          class="ml-2"
+        >{{ excludedItemIds.size }}</v-chip>
+      </div>
+      <p class="text-caption text-medium-emphasis mb-3">
+        Items checked here are hidden from Study View, content widget, and notifications.
+      </p>
+      <v-select
+        v-model="exclusionCollectionId"
+        :items="collections"
+        item-title="title"
+        item-value="id"
+        label="Collection to browse"
+        variant="outlined"
+        density="comfortable"
+        :loading="loadingCollections"
+        no-data-text="No collections found"
+      />
+      <div v-if="loadingExclusionItems" class="text-caption text-medium-emphasis py-2">
+        Loading items…
+      </div>
+      <div v-else-if="exclusionCollectionId && exclusionItems.length === 0" class="text-caption text-medium-emphasis py-2">
+        No items in this collection.
+      </div>
+      <div v-else-if="exclusionCollectionId" class="exclusion-list">
+        <div
+          v-for="(item, index) in exclusionItems"
+          :key="item.id"
+          class="exclusion-item-row"
+          @click.capture="(e) => handleItemCapture(item.id!, index, e)"
+        >
+          <v-checkbox
+            :model-value="isExcluded(item.id!)"
+            :label="item.title"
+            density="compact"
+            hide-details
+            color="error"
+            @update:model-value="(v) => handleSingleToggle(item.id!, !!v, index)"
+          />
+        </div>
+      </div>
+      <div v-if="exclusionCollectionId" class="text-caption text-medium-emphasis mt-2">
+        {{ excludedInCurrentCollection }} excluded / {{ exclusionItems.length }} total
+      </div>
+    </div>
+
+    <v-divider class="my-6" />
+
     <v-alert
       v-if="saved"
       type="success"
@@ -97,9 +153,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { getCollections } from '../database'
+import { ref, computed, onMounted, watch } from 'vue'
+import { getCollections, getLearningItems } from '../database'
+import type { LearningItem } from '../database'
 import { useStudyViewCollection } from '../composables/useStudyViewCollection'
+import { useExcludedItems } from '../composables/useExcludedItems'
 
 declare const chrome: any
 
@@ -107,6 +165,54 @@ const collections = ref<{ id: string; title: string }[]>([])
 const loadingCollections = ref(false)
 
 const { studyViewCollectionId, setStudyViewCollectionId } = useStudyViewCollection()
+const { excludedItemIds, isExcluded, toggleExclusion } = useExcludedItems()
+const exclusionCollectionId = ref<string | null>(null)
+const exclusionItems = ref<LearningItem[]>([])
+const loadingExclusionItems = ref(false)
+const anchorIndex = ref<number | null>(null)
+
+const excludedInCurrentCollection = computed(
+  () => exclusionItems.value.filter(i => i.id && excludedItemIds.value.has(i.id)).length
+)
+
+watch(exclusionCollectionId, async (id) => {
+  anchorIndex.value = null
+  if (!id) {
+    exclusionItems.value = []
+    return
+  }
+  loadingExclusionItems.value = true
+  try {
+    const items = await getLearningItems(id)
+    exclusionItems.value = items.sort((a, b) => a.title.localeCompare(b.title))
+  } finally {
+    loadingExclusionItems.value = false
+  }
+})
+
+function handleItemCapture(itemId: string, index: number, event: MouseEvent) {
+  if (!event.shiftKey) return
+  event.stopPropagation()
+
+  if (anchorIndex.value === null) {
+    toggleExclusion(itemId, !isExcluded(itemId))
+    anchorIndex.value = index
+    return
+  }
+
+  const start = Math.min(anchorIndex.value, index)
+  const end = Math.max(anchorIndex.value, index)
+  const targetState = !isExcluded(itemId)
+  for (let i = start; i <= end; i++) {
+    const id = exclusionItems.value[i]?.id
+    if (id) toggleExclusion(id, targetState)
+  }
+}
+
+function handleSingleToggle(itemId: string, value: boolean, index: number) {
+  toggleExclusion(itemId, value)
+  anchorIndex.value = index
+}
 const contentCollectionId = ref<string | null>(null)
 const notificationCollectionId = ref<string | null>(null)
 const startHour = ref(9)
@@ -152,6 +258,8 @@ onMounted(async () => {
     if (stored.sessionEndHour != null) endHour.value = stored.sessionEndHour
     if (stored.notificationIntervalSeconds) intervalSeconds.value = stored.notificationIntervalSeconds
   }
+
+  exclusionCollectionId.value = studyViewCollectionId.value
 })
 
 async function saveNotificationSettings() {
@@ -177,7 +285,7 @@ async function saveNotificationSettings() {
 <style scoped>
 .study-options {
   width: 100%;
-  max-width: 480px;
+  max-width: 720px;
   margin: 0 auto;
   box-sizing: border-box;
 }
@@ -190,6 +298,11 @@ async function saveNotificationSettings() {
 
 .gap-3 {
   gap: 12px;
+}
+
+.exclusion-item-row {
+  cursor: pointer;
+  user-select: none;
 }
 
 @media (max-width: 400px) {

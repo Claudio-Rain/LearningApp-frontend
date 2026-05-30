@@ -5,8 +5,9 @@ const COLLECTIONS_STORE = 'collections'
 const LEARNING_ITEMS_STORE = 'learning_items'
 const CARD_PROGRESS_STORE = 'card_progress'
 const ATTEMPT_LOG_STORE = 'attempt_log'
+const EXCLUDED_ITEMS_STORE = 'excluded_items'
 
-export const dbPromise = openDB(DB_NAME, 4, {
+export const dbPromise = openDB(DB_NAME, 5, {
   upgrade(db, oldVersion) {
     if (oldVersion < 1) {
       if (!db.objectStoreNames.contains(COLLECTIONS_STORE)) {
@@ -36,7 +37,14 @@ export const dbPromise = openDB(DB_NAME, 4, {
         })
       }
     }
+    if (oldVersion < 5) {
+      if (!db.objectStoreNames.contains(EXCLUDED_ITEMS_STORE)) {
+        db.createObjectStore(EXCLUDED_ITEMS_STORE, {
+          keyPath: 'id',
+        })
+      }
+    }
   }
 })
 
-export { COLLECTIONS_STORE, LEARNING_ITEMS_STORE, CARD_PROGRESS_STORE, ATTEMPT_LOG_STORE }
+export { COLLECTIONS_STORE, LEARNING_ITEMS_STORE, CARD_PROGRESS_STORE, ATTEMPT_LOG_STORE, EXCLUDED_ITEMS_STORE }

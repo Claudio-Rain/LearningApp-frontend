@@ -164,6 +164,7 @@ import {
   removeLearningItem
 } from '../database'
 import type { Collection, LearningItem, CardProgress } from '../database/types'
+import { useExcludedItems } from '../composables/useExcludedItems'
 
 interface StudyItem extends LearningItem {
   progress?: CardProgress
@@ -277,7 +278,9 @@ const loadData = async () => {
     return
   }
 
-  learningItems.value = await getLearningItems(collectionId)
+  const { excludedItemIds } = useExcludedItems()
+  const all = await getLearningItems(collectionId)
+  learningItems.value = all.filter(i => !i.id || !excludedItemIds.value.has(i.id))
 
   const allProgress = await getAllCardProgress()
   const progressMap = new Map<string, CardProgress>()

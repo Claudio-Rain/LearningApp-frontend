@@ -1,7 +1,8 @@
 import {
   getLearningItems,
   getAllCardProgress,
-  getCollections
+  getCollections,
+  getAllExcludedItems
 } from '../../src/database/index.ts';
 import { getStudySettings, setContentLearningItemId } from '../utils/storage.js';
 import { parseISO } from 'date-fns';
@@ -23,10 +24,14 @@ export async function fetchRandomContent() {
 
   console.log('[background] fetchRandomContent: fetching items for collection', collectionId);
 
-  const [items, allProgress] = await Promise.all([
+  const [rawItems, allProgress, excluded] = await Promise.all([
     getLearningItems(collectionId),
-    getAllCardProgress()
+    getAllCardProgress(),
+    getAllExcludedItems()
   ]);
+
+  const excludedSet = new Set(excluded.map(e => e.learningItemId));
+  const items = (rawItems || []).filter(i => !excludedSet.has(i.id));
 
   console.log('[background] fetchRandomContent: items fetched, count =', items?.length ?? 0);
 

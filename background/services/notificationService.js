@@ -1,6 +1,7 @@
 import {
   getLearningItems,
-  getAllCardProgress
+  getAllCardProgress,
+  getAllExcludedItems
 } from '../../src/database/index.ts';
 import { getStudySettings, setNotificationLearningItemId, clearNotificationLearningItemId } from '../utils/storage.js';
 import { formatNotificationTitle, formatNotificationMessage } from '../utils/notification.js';
@@ -9,10 +10,13 @@ import { NOTIFICATION_TIMEOUT_MS, NOTIFICATION_PRIORITY } from '../constants.js'
 export async function sendNotification() {
   const { collectionId } = await getStudySettings();
   console.log('[background] sendNotification: fetching items for collection', collectionId);
-  const [items, allProgress] = await Promise.all([
+  const [rawItems, allProgress, excluded] = await Promise.all([
     getLearningItems(collectionId),
-    getAllCardProgress()
+    getAllCardProgress(),
+    getAllExcludedItems()
   ]);
+  const excludedSet = new Set(excluded.map(e => e.learningItemId));
+  const items = (rawItems || []).filter(i => !excludedSet.has(i.id));
   console.log('[background] sendNotification: items fetched, count =', items?.length ?? 0);
 
   if (!items || items.length === 0) {

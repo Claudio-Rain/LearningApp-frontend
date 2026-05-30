@@ -4,10 +4,11 @@ import {
   pullCollections,
   pullLearningItems,
   pullCardProgress,
-  pullAttemptLogs
+  pullAttemptLogs,
+  pullExcludedItems
 } from '../operations'
 
-export { pullCollections, pullLearningItems, pullCardProgress, pullAttemptLogs }
+export { pullCollections, pullLearningItems, pullCardProgress, pullAttemptLogs, pullExcludedItems }
 
 export async function pullAllLearningItems() {
   const collections = await local.getCollections()
@@ -72,16 +73,32 @@ export async function syncAttemptLogs() {
   }
 }
 
+export async function syncExcludedItems() {
+  const items = await local.getAllExcludedItems()
+  const pending = items.filter(i => i.syncStatus === 'pending')
+
+  for (const item of pending) {
+    try {
+      await remote.setExcludedItem(item)
+      await local.updateExcludedItem({ ...item, syncStatus: 'synced' })
+    } catch {
+      await local.updateExcludedItem({ ...item, syncStatus: 'error' })
+    }
+  }
+}
+
 export async function syncAll() {
   if (!navigator.onLine) return
   await pullCollections()
   await pullAllLearningItems()
   await pullCardProgress()
   await pullAttemptLogs()
+  await pullExcludedItems()
   await syncCollections()
   await syncLearningItems()
   await syncCardProgress()
   await syncAttemptLogs()
+  await syncExcludedItems()
 }
 
 export function startSyncEngine() {

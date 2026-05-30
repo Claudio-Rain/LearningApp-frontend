@@ -1,4 +1,4 @@
-export type { Collection, LearningItem, CardProgress, AttemptLog } from './types'
+export type { Collection, LearningItem, CardProgress, AttemptLog, ExcludedItem } from './types'
 export {
   startSyncEngine,
   syncAll,
@@ -6,13 +6,15 @@ export {
   syncCollections,
   syncLearningItems,
   syncCardProgress,
-  syncAttemptLogs
+  syncAttemptLogs,
+  syncExcludedItems
 } from './sync/syncEngine'
 export {
   pullCollections,
   pullLearningItems,
   pullCardProgress,
   pullAttemptLogs,
+  pullExcludedItems,
   createCollection,
   editCollection,
   removeCollection,
@@ -24,7 +26,9 @@ export {
   deleteCardProgress,
   createAttemptLog,
   updateAttemptLog,
-  deleteAttemptLog
+  deleteAttemptLog,
+  createExcludedItem,
+  removeExcludedItem
 } from './operations'
 export {
   getCollections,
@@ -35,5 +39,6 @@ export {
   getCardProgress,
   getAllCardProgress,
   getAttemptLogs,
-  getAllAttemptLogs
+  getAllAttemptLogs,
+  getAllExcludedItems
 } from './local'

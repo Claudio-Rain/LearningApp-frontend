@@ -76,6 +76,16 @@ export async function removeLearningItem(id: string) {
     await remote.deleteAttemptLogsByItemId(id)
   }
 
+  // Cascade: drop any excluded-item record pointing at this learning item.
+  const excluded = await local.getAllExcludedItems()
+  const match = excluded.find(e => e.learningItemId === id)
+  if (match?.id) {
+    await local.deleteExcludedItem(match.id)
+    if (navigator.onLine) {
+      await remote.deleteExcludedItem(match.id)
+    }
+  }
+
   await local.deleteLearningItem(id)
   if (navigator.onLine) {
     await remote.deleteLearningItem(id)
