@@ -4,6 +4,7 @@ import {
   getCollections
 } from '../../src/database/index.ts';
 import { getStudySettings, setContentLearningItemId } from '../utils/storage.js';
+import { parseISO } from 'date-fns';
 
 export async function fetchRandomContent() {
   const { contentCollectionId } = await getStudySettings();
@@ -35,42 +36,44 @@ export async function fetchRandomContent() {
   }
 
   const progressMap = new Map(allProgress.map(p => [p.learning_item_id, p]));
-  const randomItem = selectRandomContent(items, progressMap);
+  const itemToShow = selectWeakestContent(items, progressMap);
 
-  console.log('[background] fetchRandomContent: selected item', randomItem.title, '| has content:', !!randomItem.content);
+  console.log('[background] fetchRandomContent: selected item', itemToShow.title, '| has content:', !!itemToShow.content);
 
-  await setContentLearningItemId(randomItem.id);
-  await notifyAllTabs(randomItem);
+  await setContentLearningItemId(itemToShow.id);
+  await notifyAllTabs(itemToShow);
 }
 
-function selectRandomContent(items, progressMap) {
-  const withStrength = items.map(item => ({
-    item,
-    strength: progressMap.get(item.id)?.strength_score ?? 0,
-  }));
+function selectWeakestContent(items, progressMap) {
+  // Sort by StudyView logic: new items first, then weakest, then least recently reviewed
+  const sortedItems = items
+    .map((item) => ({
+      ...item,
+      progress: progressMap.get(item.id)
+    }))
+    .sort((a, b) => {
+      const aIsNew = !a.progress || a.progress.total_attempts === 0
+      const bIsNew = !b.progress || b.progress.total_attempts === 0
 
-  const weak = withStrength.filter(x => x.strength < 0.5);
-  const good = withStrength.filter(x => x.strength >= 0.5 && x.strength < 0.8);
+      // Primary: new (never revised) items first
+      if (aIsNew !== bIsNew) return aIsNew ? -1 : 1
 
-  let candidates;
-  if (weak.length > 0) {
-    candidates = weak;
-  } else if (good.length > 0) {
-    candidates = good;
-  } else {
-    const sorted = [...withStrength].sort((a, b) => a.strength - b.strength);
-    const lowestStrength = sorted[0].strength;
-    candidates = sorted.filter(x => x.strength <= lowestStrength + 0.05);
-  }
+      const aStrength = a.progress?.strength_score ?? 0
+      const bStrength = b.progress?.strength_score ?? 0
 
-  const weighted = candidates.map(({ item, strength }) => ({
-    item,
-    weight: (1 - strength) + 0.1,
-  }));
+      // Secondary: weakest items first
+      if (aStrength !== bStrength) return aStrength - bStrength
 
-  const totalWeight = weighted.reduce((sum, w) => sum + w.weight, 0);
-  let rand = Math.random() * totalWeight;
-  return weighted.find(w => (rand -= w.weight) <= 0)?.item ?? candidates[0].item;
+      // Tertiary: least recently reviewed first
+      const aReviewed = a.progress?.last_reviewed_at ? parseISO(a.progress.last_reviewed_at).getTime() : Number.MAX_VALUE
+      const bReviewed = b.progress?.last_reviewed_at ? parseISO(b.progress.last_reviewed_at).getTime() : Number.MAX_VALUE
+      if (aReviewed !== bReviewed) return aReviewed - bReviewed
+
+      // Quaternary: alphabetically by title
+      return a.title.localeCompare(b.title)
+    })
+
+  return sortedItems[0]
 }
 
 async function notifyAllTabs(item) {

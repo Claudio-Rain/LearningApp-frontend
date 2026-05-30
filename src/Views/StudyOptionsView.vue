@@ -2,18 +2,35 @@
   <div class="study-options pa-4">
     <h2 class="text-h6 mb-4">Study Options</h2>
 
-    <v-select
-      v-model="notificationCollectionId"
-      :items="collections"
-      item-title="title"
-      item-value="id"
-      label="Collection"
-      variant="outlined"
-      density="comfortable"
-      class="mb-3"
-      :loading="loadingCollections"
-      no-data-text="No collections found"
-    />
+    <div class="mb-4">
+      <label class="text-caption font-weight-bold d-block mb-2">Study Collection</label>
+      <v-select
+        v-model="contentCollectionId"
+        :items="collections"
+        item-title="title"
+        item-value="id"
+        label="Collection for content widget"
+        variant="outlined"
+        density="comfortable"
+        :loading="loadingCollections"
+        no-data-text="No collections found"
+      />
+    </div>
+
+    <div class="mb-4">
+      <label class="text-caption font-weight-bold d-block mb-2">Notifications</label>
+      <v-select
+        v-model="notificationCollectionId"
+        :items="collections"
+        item-title="title"
+        item-value="id"
+        label="Collection for notifications"
+        variant="outlined"
+        density="comfortable"
+        :loading="loadingCollections"
+        no-data-text="No collections found"
+      />
+    </div>
 
     <div class="d-flex gap-3 mb-3">
       <v-select
@@ -73,6 +90,7 @@ declare const chrome: any
 const collections = ref<{ id: string; title: string }[]>([])
 const loadingCollections = ref(false)
 
+const contentCollectionId = ref<string | null>(null)
 const notificationCollectionId = ref<string | null>(null)
 const startHour = ref(9)
 const endHour = ref(10)
@@ -104,11 +122,13 @@ onMounted(async () => {
 
   if (typeof chrome !== 'undefined' && chrome.storage) {
     const stored = await chrome.storage.local.get([
+      'contentCollectionId',
       'notificationCollectionId',
       'sessionStartHour',
       'sessionEndHour',
       'notificationIntervalSeconds',
     ])
+    if (stored.contentCollectionId) contentCollectionId.value = stored.contentCollectionId
     if (stored.notificationCollectionId) notificationCollectionId.value = stored.notificationCollectionId
     if (stored.sessionStartHour != null) startHour.value = stored.sessionStartHour
     if (stored.sessionEndHour != null) endHour.value = stored.sessionEndHour
@@ -121,6 +141,7 @@ async function saveNotificationSettings() {
   try {
     if (typeof chrome !== 'undefined' && chrome.storage) {
       await chrome.storage.local.set({
+        contentCollectionId: contentCollectionId.value,
         notificationCollectionId: notificationCollectionId.value,
         sessionStartHour: startHour.value,
         sessionEndHour: endHour.value,

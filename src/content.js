@@ -629,6 +629,25 @@ let currentNotificationId = null;
 let currentItem = null;
 let isFlipped = false;
 
+// Safe message sender that handles context invalidation
+function sendMessageSafely(message) {
+  try {
+    chrome.runtime.sendMessage(message).catch((error) => {
+      if (error?.message?.includes('context invalidated')) {
+        console.warn('[content] Extension context invalidated, message not sent:', message.action);
+      } else {
+        console.error('[content] Error sending message:', error);
+      }
+    });
+  } catch (error) {
+    if (error?.message?.includes('context invalidated')) {
+      console.warn('[content] Extension context invalidated, message not sent:', message.action);
+    } else {
+      console.error('[content] Error sending message:', error);
+    }
+  }
+}
+
 function updateContentDisplay(item) {
   currentItem = item;
   isFlipped = false;
@@ -686,16 +705,21 @@ function toggleFlip() {
 }
 
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
-  if (request.action === 'showQuestion') {
-    currentNotificationId = request.notificationId;
-    showQuestion(request.item);
-    sendResponse({ success: true });
-  } else if (request.action === 'hideQuestion') {
-    hideModal();
-    sendResponse({ success: true });
-  } else if (request.action === 'updateContent') {
-    updateContentDisplay(request.item);
-    sendResponse({ success: true });
+  try {
+    if (request.action === 'showQuestion') {
+      currentNotificationId = request.notificationId;
+      showQuestion(request.item);
+      sendResponse({ success: true });
+    } else if (request.action === 'hideQuestion') {
+      hideModal();
+      sendResponse({ success: true });
+    } else if (request.action === 'updateContent') {
+      updateContentDisplay(request.item);
+      sendResponse({ success: true });
+    }
+  } catch (error) {
+    console.error('[content] Error handling message:', error);
+    sendResponse({ success: false, error: error.message });
   }
 });
 
@@ -722,7 +746,7 @@ function handleKeydown(e) {
     console.log('[content] Keyboard rating:', { key: e.key, score });
 
     // Send rating without waiting for response
-    chrome.runtime.sendMessage({
+    sendMessageSafely({
       action: 'recordRating',
       score: score
     });
@@ -744,13 +768,13 @@ document.addEventListener('click', (e) => {
   // Modal controls
   else if (e.target.id === 'modal-close') {
     hideModal();
-    chrome.runtime.sendMessage({ action: 'questionClosed' });
+    sendMessageSafely({ action: 'questionClosed' });
   } else if (e.target.id === 'modal-review-later') {
     hideModal();
-    chrome.runtime.sendMessage({ action: 'buttonClicked', buttonIndex: 0, notificationId: currentNotificationId });
+    sendMessageSafely({ action: 'buttonClicked', buttonIndex: 0, notificationId: currentNotificationId });
   } else if (e.target.id === 'modal-correct') {
     hideModal();
-    chrome.runtime.sendMessage({ action: 'buttonClicked', buttonIndex: 1, notificationId: currentNotificationId });
+    sendMessageSafely({ action: 'buttonClicked', buttonIndex: 1, notificationId: currentNotificationId });
   }
   // Content rating buttons (fire-and-forget)
   else if (e.target.classList.contains('content-rating-btn')) {
@@ -758,7 +782,7 @@ document.addEventListener('click', (e) => {
     console.log('[content] Rating button clicked:', e.target.getAttribute('title'), 'Score:', score);
 
     // Send rating without waiting for response (fire-and-forget)
-    chrome.runtime.sendMessage({
+    sendMessageSafely({
       action: 'recordRating',
       score: score
     });
