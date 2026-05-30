@@ -38,12 +38,26 @@ export async function pullExcludedItems() {
 
 export async function createExcludedItem(learningItemId: string) {
   const now = formatISO(new Date())
-  return local.addExcludedItem({
+  const id = await local.addExcludedItem({
     learningItemId,
     dateCreated: now,
     lastModified: now,
     syncStatus: 'pending'
   } as ExcludedItem)
+
+  if (navigator.onLine) {
+    try {
+      const item = await local.getExcludedItem(String(id))
+      if (item) {
+        await remote.addExcludedItem(item)
+        await local.updateExcludedItem({ ...item, syncStatus: 'synced' })
+      }
+    } catch {
+      // stays as pending, syncAll will retry
+    }
+  }
+
+  return id
 }
 
 export async function removeExcludedItem(id: string) {

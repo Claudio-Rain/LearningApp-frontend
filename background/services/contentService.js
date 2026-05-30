@@ -7,7 +7,7 @@ import {
 import { getStudySettings, setContentLearningItemId } from '../utils/storage.js';
 import { parseISO } from 'date-fns';
 
-export async function fetchRandomContent() {
+export async function fetchRandomContent(skipItemId = null) {
   const { contentCollectionId } = await getStudySettings();
 
   let collectionId = contentCollectionId;
@@ -41,7 +41,7 @@ export async function fetchRandomContent() {
   }
 
   const progressMap = new Map(allProgress.map(p => [p.learning_item_id, p]));
-  const itemToShow = selectWeakestContent(items, progressMap);
+  const itemToShow = selectWeakestContent(items, progressMap, skipItemId);
 
   console.log('[background] fetchRandomContent: selected item', itemToShow.title, '| has content:', !!itemToShow.content);
 
@@ -49,7 +49,7 @@ export async function fetchRandomContent() {
   await notifyAllTabs(itemToShow);
 }
 
-function selectWeakestContent(items, progressMap) {
+function selectWeakestContent(items, progressMap, skipItemId = null) {
   // Sort by StudyView logic: new items first, then weakest, then least recently reviewed
   const sortedItems = items
     .map((item) => ({
@@ -77,6 +77,12 @@ function selectWeakestContent(items, progressMap) {
       // Quaternary: alphabetically by title
       return a.title.localeCompare(b.title)
     })
+
+  // Avoid showing the same item twice in a row after a rating
+  if (skipItemId && sortedItems.length > 1) {
+    const next = sortedItems.find(item => item.id !== skipItemId)
+    if (next) return next
+  }
 
   return sortedItems[0]
 }

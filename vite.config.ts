@@ -21,7 +21,8 @@ export default defineConfig({
         content: resolve(__dirname, 'src/content.js')
       },
       output: {
-        entryFileNames: '[name].js'
+        entryFileNames: (chunk) =>
+          chunk.name === 'popup' ? '[name]-[hash].js' : '[name].js'
       }
     }
   }

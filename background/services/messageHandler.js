@@ -1,4 +1,4 @@
-import { getNotificationLearningItemId, clearNotificationLearningItemId, getContentLearningItemId, clearContentLearningItemId } from '../utils/storage.js';
+import { getNotificationLearningItemId, clearNotificationLearningItemId, getContentLearningItemId } from '../utils/storage.js';
 import { recordAttempt, recordContentRating } from './progressService.js';
 import { fetchRandomContent } from './contentService.js';
 
@@ -76,9 +76,9 @@ async function handleContentRating(score) {
     console.log('[background] handleContentRating: recording rating for item', learningItemId, 'score:', score);
     await recordContentRating(learningItemId, score);
 
-    // Automatically fetch next item without interrupting the UI
+    // Automatically fetch next item, skipping the just-rated one to avoid getting stuck
     console.log('[background] handleContentRating: fetching next item');
-    await fetchRandomContent();
+    await fetchRandomContent(learningItemId);
   } catch (error) {
     console.error('[background] handleContentRating: error recording rating:', error);
   }

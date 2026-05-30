@@ -3,7 +3,10 @@ import {
   getAllExcludedItems,
   createExcludedItem,
   removeExcludedItem
-} from '@/database'
+} from '../database'
+import type { ExcludedItem } from '../database'
+
+declare const chrome: any
 
 const excludedItemIds = ref<Set<string>>(new Set())
 const excludedRecordMap = ref<Map<string, string>>(new Map()) // learningItemId -> excludedItem.id
@@ -18,8 +21,12 @@ function persistToChromeStorage() {
 
 async function load() {
   const all = await getAllExcludedItems()
-  excludedItemIds.value = new Set(all.map(e => e.learningItemId))
-  excludedRecordMap.value = new Map(all.filter(e => e.id).map(e => [e.learningItemId, e.id!]))
+  excludedItemIds.value = new Set(all.map((e: ExcludedItem) => e.learningItemId))
+  excludedRecordMap.value = new Map(
+    all
+      .filter((e: ExcludedItem) => e.id)
+      .map((e: ExcludedItem) => [e.learningItemId, e.id!])
+  )
   loaded = true
   persistToChromeStorage()
 }
