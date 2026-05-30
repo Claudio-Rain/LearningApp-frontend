@@ -61,6 +61,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useDisplay } from 'vuetify'
 import { useRouter, useRoute } from 'vue-router'
 import { getAllAttemptLogs, getCollections, getLearningItems } from '../database'
+import { useStudyViewCollection } from '../composables/useStudyViewCollection'
 
 const { mobile } = useDisplay()
 const router = useRouter()
@@ -68,7 +69,9 @@ const route = useRoute()
 
 const permanent = computed(() => !mobile.value)
 const drawer = ref(true)
-const lastCollectionId = ref<string | null>(null)
+const { studyViewCollectionId } = useStudyViewCollection()
+const lastCollectionId = computed(() => studyViewCollectionId.value ?? fallbackCollectionId.value)
+const fallbackCollectionId = ref<string | null>(null)
 
 const handleKeydown = (e: KeyboardEvent) => {
   if (e.key !== 'Enter') return
@@ -91,14 +94,14 @@ onMounted(async () => {
     for (const col of collections) {
       const items = await getLearningItems(col.id!)
       if (items.some(i => i.id === latestLog.learning_item_id)) {
-        lastCollectionId.value = col.id!
+        fallbackCollectionId.value = col.id!
         return
       }
     }
   }
 
   const random = collections[Math.floor(Math.random() * collections.length)]
-  if (random) lastCollectionId.value = random.id!
+  if (random) fallbackCollectionId.value = random.id!
 })
 
 onUnmounted(() => {

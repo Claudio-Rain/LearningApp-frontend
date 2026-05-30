@@ -3,7 +3,22 @@
     <h2 class="text-h6 mb-4">Study Options</h2>
 
     <div class="mb-4">
-      <label class="text-caption font-weight-bold d-block mb-2">Study Collection</label>
+      <label class="text-caption font-weight-bold d-block mb-2">Study View Collection</label>
+      <v-select
+        v-model="studyViewCollectionId"
+        :items="collections"
+        item-title="title"
+        item-value="id"
+        label="Collection displayed in Study View"
+        variant="outlined"
+        density="comfortable"
+        :loading="loadingCollections"
+        no-data-text="No collections found"
+      />
+    </div>
+
+    <div class="mb-4">
+      <label class="text-caption font-weight-bold d-block mb-2">Content Widget Collection</label>
       <v-select
         v-model="contentCollectionId"
         :items="collections"
@@ -18,7 +33,7 @@
     </div>
 
     <div class="mb-4">
-      <label class="text-caption font-weight-bold d-block mb-2">Notifications</label>
+      <label class="text-caption font-weight-bold d-block mb-2">Notifications Collection</label>
       <v-select
         v-model="notificationCollectionId"
         :items="collections"
@@ -32,7 +47,7 @@
       />
     </div>
 
-    <div class="d-flex gap-3 mb-3">
+    <div class="d-flex gap-3 mb-3 time-row">
       <v-select
         v-model="startHour"
         :items="hourOptions"
@@ -84,12 +99,14 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { getCollections } from '../database'
+import { useStudyViewCollection } from '../composables/useStudyViewCollection'
 
 declare const chrome: any
 
 const collections = ref<{ id: string; title: string }[]>([])
 const loadingCollections = ref(false)
 
+const { studyViewCollectionId, setStudyViewCollectionId } = useStudyViewCollection()
 const contentCollectionId = ref<string | null>(null)
 const notificationCollectionId = ref<string | null>(null)
 const startHour = ref(9)
@@ -122,6 +139,7 @@ onMounted(async () => {
 
   if (typeof chrome !== 'undefined' && chrome.storage) {
     const stored = await chrome.storage.local.get([
+      'studyViewCollectionId',
       'contentCollectionId',
       'notificationCollectionId',
       'sessionStartHour',
@@ -139,6 +157,7 @@ onMounted(async () => {
 async function saveNotificationSettings() {
   saving.value = true
   try {
+    setStudyViewCollectionId(studyViewCollectionId.value)
     if (typeof chrome !== 'undefined' && chrome.storage) {
       await chrome.storage.local.set({
         contentCollectionId: contentCollectionId.value,
@@ -157,9 +176,26 @@ async function saveNotificationSettings() {
 
 <style scoped>
 .study-options {
+  width: 100%;
   max-width: 480px;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
+
+@media (max-width: 600px) {
+  .study-options {
+    padding: 12px !important;
+  }
+}
+
 .gap-3 {
   gap: 12px;
+}
+
+@media (max-width: 400px) {
+  .time-row {
+    flex-direction: column !important;
+    gap: 0 !important;
+  }
 }
 </style>

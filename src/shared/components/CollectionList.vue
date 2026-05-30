@@ -146,6 +146,7 @@ const goToCollection = (id: string) => {
 }
 
 const goToStudy = (id: string) => {
+  localStorage.setItem('studyViewCollectionId', id)
   router.push({ name: 'study', params: { id } })
 }
 
