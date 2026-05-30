@@ -2,38 +2,38 @@
   <div class="flashcard-study">
     <!-- Header -->
     <div class="study-header">
-      <div>
-        <div class="study-title">{{ collection?.title }}</div>
-        <div class="study-subtitle">
-          {{ currentIndex + 1 }} / {{ studyQueue.length }}
-          <span class="strength-badge" :class="currentStrengthClass">{{ currentStrengthLabel }}</span>
+      <div class="header-top">
+        <div class="header-center">
+          <div class="study-title">{{ collection?.title }}</div>
+          <div class="study-subtitle">
+            {{ currentIndex + 1 }} / {{ studyQueue.length }}
+            <span class="stat-badge new-badge" :class="{ glowing: isCurrentCardNew }">New: {{ newCards }}</span>
+            <span class="stat-badge revised-badge" :class="{ glowing: !isCurrentCardNew }">Revised: {{ revisedCards }}</span>
+            <span v-if="currentStrengthLabel !== 'New'" class="strength-badge" :class="currentStrengthClass">{{ currentStrengthLabel }}</span>
+          </div>
         </div>
-        <div class="study-stats">
-          <span class="stat-badge new-badge" :class="{ glowing: isCurrentCardNew }">New: {{ newCards }}</span>
-          <span class="stat-badge revised-badge" :class="{ glowing: !isCurrentCardNew }">Revised: {{ revisedCards }}</span>
-          <span class="stat-badge total-badge">Total: {{ totalCards }}</span>
+        <div class="header-actions">
+          <template v-if="editDialog">
+            <v-btn variant="tonal" color="primary" size="small" @click="editDialog = false">Done</v-btn>
+          </template>
+          <template v-else>
+            <v-btn v-if="currentItem" class="header-edit-btn" icon="mdi-pencil-outline" variant="text" @click="editDialog = true" />
+            <v-btn v-if="currentItem" class="header-edit-btn" icon="mdi-delete-outline" variant="text" color="error" @click="confirmDelete" />
+          </template>
         </div>
       </div>
-      <div class="header-actions">
-        <template v-if="editDialog">
-          <v-btn variant="tonal" color="primary" size="small" @click="editDialog = false">Done</v-btn>
-        </template>
-        <template v-else>
-          <v-btn
-            v-if="currentItem"
-            icon="mdi-pencil-outline"
-            variant="text"
-            @click="editDialog = true"
-          />
-          <v-btn
-            v-if="currentItem"
-            icon="mdi-delete-outline"
-            variant="text"
-            color="error"
-            @click="confirmDelete"
-          />
-        </template>
-        <v-btn icon="mdi-arrow-left" variant="text" @click="goBack" />
+      <!-- Timer bar -->
+      <div v-if="studyQueue.length > 0 && currentItem" class="timer-wrapper">
+        <div class="timer-bar-bg">
+          <div class="timer-bar-fill" :class="{ 'timer-low': timeLeft <= 30 }"
+            :style="{ width: (timeLeft / 180 * 100) + '%' }"></div>
+        </div>
+        <div class="timer-label" :class="{ 'timer-label-low': timeLeft <= 30 }">
+          {{ Math.floor(timeLeft / 60) }}:{{ String(timeLeft % 60).padStart(2, '0') }}
+        </div>
+        <div v-if="timerExpired" class="timer-expired-banner">
+          ⏰ Move to the next question to avoid losing time!
+        </div>
       </div>
     </div>
 
@@ -42,7 +42,8 @@
       <v-card>
         <v-card-title>Delete item?</v-card-title>
         <v-card-text>
-          "<strong>{{ currentItem?.title }}</strong>" will be permanently deleted along with its progress and attempt history.
+          "<strong>{{ currentItem?.title }}</strong>" will be permanently deleted along with its progress and attempt
+          history.
         </v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -54,39 +55,16 @@
 
     <!-- Inline Edit Mode -->
     <div v-if="editDialog && editableItem" class="edit-mode">
-      <LearningItemView
-        :item="editableItem"
-        @update:title="onEditTitle"
-        @update:content="onEditContent"
-      />
+      <LearningItemView :item="editableItem" @update:title="onEditTitle" @update:content="onEditContent" />
     </div>
 
     <!-- Main Content -->
     <div v-else class="study-container">
       <div v-if="studyQueue.length > 0 && currentItem" class="flashcard-wrapper">
-        <!-- Timer bar (always visible) -->
-        <div class="timer-wrapper">
-          <div class="timer-bar-bg">
-            <div
-              class="timer-bar-fill"
-              :class="{ 'timer-low': timeLeft <= 30 }"
-              :style="{ width: (timeLeft / 180 * 100) + '%' }"
-            ></div>
-          </div>
-          <div class="timer-label" :class="{ 'timer-label-low': timeLeft <= 30 }">
-            {{ Math.floor(timeLeft / 60) }}:{{ String(timeLeft % 60).padStart(2, '0') }}
-          </div>
-          <div v-if="timerExpired" class="timer-expired-banner">
-            ⏰ Move to the next question to avoid losing time!
-          </div>
-        </div>
-
         <!-- Card -->
         <div class="flashcard" :class="{ flipped: isFlipped }" @click="isFlipped = !isFlipped">
           <!-- Front (Question) -->
           <div class="card-side front">
-            <div class="side-label">Question</div>
-
             <div class="card-content">
               <h2 class="title-display">{{ currentItem.title }}</h2>
             </div>
@@ -94,7 +72,6 @@
 
           <!-- Back (Answer) -->
           <div class="card-side back">
-            <div class="side-label">Answer</div>
             <div v-if="isFlipped" class="card-content">
               <TiptapDisplay :content="currentItem.content || { type: 'doc', content: [] }" />
             </div>
@@ -103,39 +80,19 @@
 
         <!-- Rating Buttons (show when flipped) -->
         <div v-if="isFlipped" class="rating-buttons">
-          <v-btn
-            @click="recordAttempt(-0.15)"
-            color="error"
-            variant="tonal"
-            size="large"
-          >
+          <v-btn @click="recordAttempt(-0.15)" color="error" variant="tonal" size="large">
             <v-icon start>mdi-close</v-icon>
             Very Hard
           </v-btn>
-          <v-btn
-            @click="recordAttempt(-0.10)"
-            color="warning"
-            variant="tonal"
-            size="large"
-          >
+          <v-btn @click="recordAttempt(-0.10)" color="warning" variant="tonal" size="large">
             <v-icon start>mdi-minus</v-icon>
             Hard
           </v-btn>
-          <v-btn
-            @click="recordAttempt(0.10)"
-            color="info"
-            variant="tonal"
-            size="large"
-          >
+          <v-btn @click="recordAttempt(0.10)" color="info" variant="tonal" size="large">
             <v-icon start>mdi-check</v-icon>
             Good
           </v-btn>
-          <v-btn
-            @click="recordAttempt(0.15)"
-            color="success"
-            variant="tonal"
-            size="large"
-          >
+          <v-btn @click="recordAttempt(0.15)" color="success" variant="tonal" size="large">
             <v-icon start>mdi-star</v-icon>
             Easy
           </v-btn>
@@ -143,10 +100,7 @@
 
         <!-- Progress Bar -->
         <div class="progress-container">
-          <v-progress-linear
-            :value="((currentIndex + 1) / studyQueue.length) * 100"
-            color="primary"
-          />
+          <v-progress-linear :value="((currentIndex + 1) / studyQueue.length) * 100" color="primary" />
         </div>
       </div>
 
@@ -155,6 +109,36 @@
         <p>No items to study</p>
       </div>
     </div>
+
+    <!-- Mobile FAB -->
+    <div v-if="currentItem && !editDialog" class="mobile-fab-container">
+      <div v-if="fabOpen" class="fab-actions">
+        <v-btn
+          class="fab-action-btn"
+          icon="mdi-pencil-outline"
+          color="primary"
+          size="small"
+          elevation="2"
+          @click="fabOpen = false; editDialog = true"
+        />
+        <v-btn
+          class="fab-action-btn"
+          icon="mdi-delete-outline"
+          color="error"
+          size="small"
+          elevation="2"
+          @click="fabOpen = false; confirmDelete()"
+        />
+      </div>
+      <v-btn
+        class="fab-main"
+        color="surface"
+        elevation="4"
+        icon
+        @click="fabOpen = !fabOpen"
+      ><v-icon size="24">{{ fabOpen ? 'mdi-close' : 'mdi-cog' }}</v-icon></v-btn>
+    </div>
+    <div v-if="fabOpen" class="fab-overlay" @click="fabOpen = false" />
   </div>
 </template>
 
@@ -198,6 +182,7 @@ const isFlipped = ref(false)
 const deleteDialog = ref(false)
 const deleting = ref(false)
 const editDialog = ref(false)
+const fabOpen = ref(false)
 
 const timeLeft = ref(180)
 const timerExpired = ref(false)
@@ -440,7 +425,7 @@ watch(currentIndex, () => {
 
 onMounted(async () => {
   startSyncEngine()
-window.addEventListener('keydown', handleKeydown)
+  window.addEventListener('keydown', handleKeydown)
   if (navigator.onLine) {
     await pullLearningItems(collectionId)
     await pullCardProgress()
@@ -466,15 +451,21 @@ onUnmounted(() => {
 
 .study-header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 20px;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 16px;
   background-color: rgba(255, 255, 255, 0.95);
   flex-shrink: 0;
 }
 
-.study-header > div:first-child {
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.header-center {
   min-width: 0;
   flex: 1;
 }
@@ -509,11 +500,6 @@ onUnmounted(() => {
   margin-top: 4px;
 }
 
-.study-stats {
-  display: flex;
-  gap: 12px;
-  margin-top: 8px;
-}
 
 .stat-badge {
   font-size: 0.7rem;
@@ -536,11 +522,6 @@ onUnmounted(() => {
   color: #388E3C;
 }
 
-.total-badge {
-  background-color: rgba(156, 39, 176, 0.15);
-  color: #7B1FA2;
-}
-
 .stat-badge.glowing {
   box-shadow: inset 0 0 0 2px currentColor;
   font-weight: 700;
@@ -550,7 +531,6 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   justify-content: center;
-  padding: 4px 16px;
   overflow: hidden;
 }
 
@@ -563,6 +543,7 @@ onUnmounted(() => {
   gap: 8px;
   flex: 1;
   min-height: 0;
+  padding: 4px 16px;
 }
 
 .flashcard {
@@ -579,7 +560,7 @@ onUnmounted(() => {
   position: absolute;
   width: 100%;
   height: 100%;
-  padding: 16px;
+  padding: 0px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -667,11 +648,30 @@ onUnmounted(() => {
   vertical-align: middle;
 }
 
-.strength-new      { background: rgba(33,150,243,0.15); color: #1976D2; }
-.strength-weak     { background: rgba(244,67,54,0.15);  color: #D32F2F; }
-.strength-fair     { background: rgba(255,152,0,0.15);  color: #E65100; }
-.strength-good     { background: rgba(33,150,243,0.15); color: #1565C0; }
-.strength-mastered { background: rgba(76,175,80,0.15);  color: #2E7D32; }
+.strength-new {
+  background: rgba(33, 150, 243, 0.15);
+  color: #1976D2;
+}
+
+.strength-weak {
+  background: rgba(244, 67, 54, 0.15);
+  color: #D32F2F;
+}
+
+.strength-fair {
+  background: rgba(255, 152, 0, 0.15);
+  color: #E65100;
+}
+
+.strength-good {
+  background: rgba(76, 175, 80, 0.15);
+  color: #2E7D32;
+}
+
+.strength-mastered {
+  background: rgba(156, 39, 176, 0.15);
+  color: #6A1B9A;
+}
 
 .title-display {
   margin: auto;
@@ -738,14 +738,21 @@ onUnmounted(() => {
 }
 
 @keyframes pump {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.06); }
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.06);
+  }
 }
 
 @media (max-width: 600px) {
   .study-header {
-    padding: 8px 12px;
     gap: 8px;
+    padding: 4px 12px;
   }
 
   .study-title {
@@ -756,18 +763,14 @@ onUnmounted(() => {
     font-size: 0.7rem;
   }
 
-  .study-stats {
-    gap: 6px;
-    margin-top: 4px;
-    flex-wrap: wrap;
-  }
+
 
   .stat-badge {
     font-size: 0.6rem;
     padding: 2px 6px;
   }
 
-  .study-container {
+  .flashcard-wrapper {
     padding: 8px 12px;
   }
 
@@ -803,6 +806,40 @@ onUnmounted(() => {
   .timer-expired-banner {
     font-size: 0.85rem;
     padding: 6px 12px;
+  }
+}
+
+.mobile-fab-container {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .header-edit-btn {
+    display: none;
+  }
+
+  .mobile-fab-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    position: fixed;
+    bottom: 24px;
+    right: 16px;
+    z-index: 100;
+  }
+
+  .fab-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .fab-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 99;
   }
 }
 </style>
