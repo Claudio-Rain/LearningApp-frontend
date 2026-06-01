@@ -693,6 +693,25 @@ function updateContentDisplay(item) {
   }, 100);
 }
 
+function showLoadingState() {
+  const flashcard = document.getElementById('flashcard');
+  const sideIndicator = document.getElementById('side-indicator');
+  const frontQuestionEl = document.getElementById('front-question');
+  const answerEl = document.getElementById('content-answer');
+  const titleEl = document.getElementById('content-title');
+  const widget = document.querySelector('.learning-content-widget');
+
+  if (!flashcard || !widget) return;
+
+  isFlipped = false;
+  flashcard.classList.remove('flipped');
+  if (sideIndicator) sideIndicator.textContent = 'Question';
+  if (titleEl) titleEl.textContent = '...';
+  if (frontQuestionEl) frontQuestionEl.textContent = '';
+  if (answerEl) answerEl.innerHTML = '';
+  widget.style.opacity = '0.5';
+}
+
 function toggleFlip() {
   const flashcard = document.getElementById('flashcard');
   const sideIndicator = document.getElementById('side-indicator');
@@ -745,17 +764,11 @@ function handleKeydown(e) {
     const score = scores[e.key];
     console.log('[content] Keyboard rating:', { key: e.key, score });
 
-    // Send rating without waiting for response
+    showLoadingState();
     sendMessageSafely({
       action: 'recordRating',
       score: score
     });
-
-    // Reset UI for next item
-    const widget = document.querySelector('.learning-content-widget');
-    if (widget) {
-      widget.style.opacity = '0.8';
-    }
   }
 }
 
@@ -781,19 +794,11 @@ document.addEventListener('click', (e) => {
     const score = parseFloat(e.target.getAttribute('data-score'));
     console.log('[content] Rating button clicked:', e.target.getAttribute('title'), 'Score:', score);
 
-    // Send rating without waiting for response (fire-and-forget)
+    showLoadingState();
     sendMessageSafely({
       action: 'recordRating',
       score: score
     });
-
-    // Immediately reset UI for next item
-    setTimeout(() => {
-      const widget = document.querySelector('.learning-content-widget');
-      if (widget) {
-        widget.style.opacity = '0.8';
-      }
-    }, 50);
   }
 });
 

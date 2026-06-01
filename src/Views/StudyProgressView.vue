@@ -428,17 +428,24 @@ const renderCompositionChart = () => {
   const sortedLogs = [...filteredAttemptLogs.value].sort(
     (a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime()
   )
-  const strengthByCard = new Map<string, number>(filteredCardProgress.value.map(p => [p.learning_item_id, p.strength_score]))
+  console.log("Card Progress: "+ filteredCardProgress.value.length)
+  console.log(filteredCardProgress)
+  console.log("Attempt Logs: " + filteredAttemptLogs.value.length)
+  console.log(filteredAttemptLogs)
+
+  const runningStrength = new Map<string, number>()
   const compositionSnapshots: Array<{ Critical: number; Struggling: number; Good: number; Mastered: number }> = []
   const labels: string[] = []
   const seenCards = new Set<string>()
 
   sortedLogs.forEach((log, index) => {
     seenCards.add(log.learning_item_id)
+    const prev = runningStrength.get(log.learning_item_id) ?? 0
+    runningStrength.set(log.learning_item_id, Math.min(1, Math.max(0, prev + log.ease_score)))
     if ((index + 1) % 5 === 0) {
       const buckets = { Critical: 0, Struggling: 0, Good: 0, Mastered: 0 }
       seenCards.forEach(id => {
-        const s = Math.min(1, Math.max(0, strengthByCard.get(id) ?? 0))
+        const s = runningStrength.get(id) ?? 0
         if (s < 0.25) buckets.Critical++
         else if (s < 0.5) buckets.Struggling++
         else if (s < 0.75) buckets.Good++

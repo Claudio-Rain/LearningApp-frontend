@@ -2,25 +2,6 @@
 
 ---
 
-- **Topic:** Asynchrony and Non-Blocking Environments
-  - **Knowledge:**
-    - General asynchronous programming concepts
-    - Able to explain the different I/O-bound and CPU-bound tasks
-    - Knows how to cancel async tasks after some time
-    - Knows how to handle errors in asynchronous operations
-    - Understanding different return types of async methods
-    - Able to process asynchronous tasks as they complete
-    - Understanding of ConfigureAwait
-    - What is the difference between Task.Delay and Thread.Sleep, when to use them?
-  - **Skills:**
-    - Uses async/await to create an asynchronous method (Task)
-    - Runs Task (Task.Run) and creates a continuation (Task.ContinueWith)
-    - Waits for Task completion (await, Task.WhenAll, Task.WhenAny, Wait())
-    - Obtains result from Task<T>
-    - Uses CancellationTokens to interrupt or cancel execution
-
----
-
 - **Topic:** Data Abstraction
   - **Knowledge:**
     - How to define abstract classes and interfaces?
