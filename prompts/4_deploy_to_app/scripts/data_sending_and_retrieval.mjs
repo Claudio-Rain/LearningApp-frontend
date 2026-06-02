@@ -1,7 +1,8 @@
-import { insertTopic } from './_lib.mjs'
+import { insertTopicFromFiles } from './_lib.mjs'
 import { fileURLToPath } from 'url'
 import { join, dirname } from 'path'
 
-const file = join(dirname(fileURLToPath(import.meta.url)), '../../3_output/answers/data_sending_and_retrieval.md')
-await insertTopic(file, 'Data Sending and Retrieval')
-process.exit(0)
+const __dirname = dirname(fileURLToPath(import.meta.url))
+const answersDir = join(__dirname, '../../3_output/answers/data_sending_and_retrieval')
+
+await insertTopicFromFiles(answersDir, 'Data Sending and Retrieval')
