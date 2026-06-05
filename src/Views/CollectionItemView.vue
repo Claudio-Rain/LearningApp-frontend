@@ -41,12 +41,6 @@
             {{ item.title }}
           </span>
         </template>
-        <template #item.dateCreated="{ item }">
-          {{ formatDate(item.dateCreated) }}
-        </template>
-        <template #item.lastModified="{ item }">
-          {{ formatDate(item.lastModified) }}
-        </template>
         <template #item.actions="{ item }">
           <v-btn icon="mdi-delete" size="x-small" variant="text" color="error"
             @click.stop="handleDeleteLearningItem(item)" />
@@ -68,7 +62,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { formatISO, parseISO, format } from 'date-fns'
+import { formatISO } from 'date-fns'
 import { useRoute, useRouter } from 'vue-router'
 import LearningItemView from './LearningItemView.vue'
 import type { JSONContent } from '@tiptap/vue-3'
@@ -95,22 +89,11 @@ const learningItems = ref<LearningItem[]>([])
 const selectedItem = ref<LearningItem | null>(null)
 const isPulling = ref(false)
 
-const dateSort = (a: string, b: string) =>
-  parseISO(a).getTime() - parseISO(b).getTime()
 const headers = [
   { title: '#', key: 'rowNumber', sortable: false, align: 'center' as const, width: '50px' },
   { title: 'Title', key: 'title', sortable: true },
-  { title: 'Created', key: 'dateCreated', sortable: true, sort: dateSort },
-  { title: 'Modified', key: 'lastModified', sortable: true, sort: dateSort },
   { title: '', key: 'actions', sortable: false, align: 'center' as const },
 ]
-const formatDate = (iso: string) => {
-  try {
-    return format(parseISO(iso), 'MMM d, yyyy h:mm a')
-  } catch {
-    return iso
-  }
-}
 
 const loadData = async () => {
   const allCollections = await getCollections()
@@ -285,7 +268,7 @@ onMounted(async () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 180px;
+  max-width: 370px;
   display: inline-block;
 }
 
@@ -309,11 +292,6 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-}
-
-.content-panel {
-  padding: 32px;
-  max-width: 720px;
 }
 
 .content-header {

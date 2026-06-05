@@ -146,7 +146,7 @@ onBeforeUnmount(() => editor.destroy())
 
 <style lang="scss">
 .learning-item-editor {
-  max-width: 800px;
+  width: 100%;
 }
 
 .editor-menu {
