@@ -214,6 +214,12 @@ onBeforeUnmount(() => editor.destroy())
     }
   }
 
+  hr {
+    border: none;
+    border-top: 1px solid #d1d5db;
+    margin: 0.75rem 0;
+  }
+
   .tableWrapper {
     margin: 1.5rem 0;
     overflow-x: auto;

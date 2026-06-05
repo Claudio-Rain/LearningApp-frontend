@@ -1,7 +1,7 @@
 <template>
   <div class="split-view">
     <!-- Left Panel -->
-    <div class="split-left">
+    <div class="split-left" :style="{ width: leftWidth + 'px', minWidth: leftWidth + 'px' }">
       <div class="panel-header">
         <div>
           <div class="panel-title">{{ collection?.title }}</div>
@@ -37,9 +37,14 @@
           <span style="font-size: 0.75rem; color: rgba(0, 0, 0, 0.5);">{{ index + 1 }}</span>
         </template>
         <template #item.title="{ item }">
-          <span :class="['item-title', { 'text-primary font-weight-medium': selectedItem?.id === item.id }]">
-            {{ item.title }}
-          </span>
+          <v-tooltip :text="item.title" location="top" open-delay="300" max-width="600">
+            <template #activator="{ props }">
+              <span v-bind="props"
+                :class="['item-title', { 'text-primary font-weight-medium': selectedItem?.id === item.id }]">
+                {{ item.title }}
+              </span>
+            </template>
+          </v-tooltip>
         </template>
         <template #item.actions="{ item }">
           <v-btn icon="mdi-delete" size="x-small" variant="text" color="error"
@@ -53,6 +58,8 @@
       </div>
     </div>
 
+    <div v-if="selectedItem" class="splitter" :class="{ dragging: isDragging }" @mousedown="startDrag" />
+
     <div v-if="selectedItem" class="split-right">
       <LearningItemView :item="selectedItem" @update:content="handleContentUpdate"
         @update:title="handleTitleUpdate" />
@@ -61,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { formatISO } from 'date-fns'
 import { useRoute, useRouter } from 'vue-router'
 import LearningItemView from './LearningItemView.vue'
@@ -94,6 +101,33 @@ const headers = [
   { title: 'Title', key: 'title', sortable: true },
   { title: '', key: 'actions', sortable: false, align: 'center' as const },
 ]
+
+// Draggable splitter between the table and the editor
+const leftWidth = ref(520)
+const isDragging = ref(false)
+
+const onDrag = (e: MouseEvent) => {
+  if (!isDragging.value) return
+  const min = 280
+  const max = window.innerWidth - 320
+  leftWidth.value = Math.min(max, Math.max(min, e.clientX))
+}
+
+const stopDrag = () => {
+  isDragging.value = false
+  document.body.style.userSelect = ''
+  document.removeEventListener('mousemove', onDrag)
+  document.removeEventListener('mouseup', stopDrag)
+}
+
+const startDrag = () => {
+  isDragging.value = true
+  document.body.style.userSelect = 'none'
+  document.addEventListener('mousemove', onDrag)
+  document.addEventListener('mouseup', stopDrag)
+}
+
+onUnmounted(stopDrag)
 
 const loadData = async () => {
   const allCollections = await getCollections()
@@ -206,14 +240,26 @@ onMounted(async () => {
   overflow: hidden;
 }
 
-/* Left panel — fixed width, scrollable */
+/* Left panel — resizable, scrollable (width set inline) */
 .split-left {
-  width: 520px;
-  min-width: 520px;
   display: flex;
   flex-direction: column;
   /* border-right: 1px solid rgba(0, 0, 0, 0.12); */
   overflow: hidden;
+}
+
+/* Draggable divider between the table and the editor */
+.splitter {
+  width: 6px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: rgba(0, 0, 0, 0.06);
+  transition: background 0.15s ease;
+}
+
+.splitter:hover,
+.splitter.dragging {
+  background: rgba(var(--v-theme-primary), 0.5);
 }
 
 .panel-header {
