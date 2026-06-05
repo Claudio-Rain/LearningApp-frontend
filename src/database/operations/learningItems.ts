@@ -9,12 +9,6 @@ export async function pullLearningItems(collectionId: string) {
     const localItems = await local.getLearningItems(collectionId)
     const localMap = new Map(localItems.map(i => [i.id, i]))
 
-    // Log only for Data Sending and Retrieval collection
-    if (collectionId === '6PC8xL7Fe0rNDy6P8pt8') {
-      console.log('Remote items:', remoteItems)
-      console.log('Local items:', localItems)
-    }
-
     for (const remoteItem of remoteItems) {
       const localItem = localMap.get(remoteItem.remoteId || remoteItem.id)
 
