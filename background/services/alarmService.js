@@ -26,9 +26,9 @@ export async function createAlarms() {
     periodInMinutes: intervalMinutes,
   });
 
-  console.log('[background] createAlarms: creating contentAlarm every 1 min');
+  console.log('[background] createAlarms: creating contentAlarm every 3 min');
   chrome.alarms.create("contentAlarm", {
-    periodInMinutes: 1,
+    periodInMinutes: 3,
   });
 }
 

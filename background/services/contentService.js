@@ -15,25 +15,39 @@ import { parseISO } from 'date-fns';
 // advanceSession: when true (after a rating), move the session cursor forward
 // before selecting the item to show. The content alarm leaves it false so it
 // re-displays the current session item instead of skipping ahead.
-export async function fetchRandomContent(advanceSession = false) {
+export async function fetchNextContentItem(advanceSession = false) {
   const { contentCollectionIds } = await getStudySettings();
+  const collectionIds = contentCollectionIds || [];
 
-  let collectionIds = contentCollectionIds;
+  // Validate the saved selection against the collections that actually exist.
+  // Stale IDs (e.g. after recreating/re-seeding collections) are the usual
+  // reason the widget "ignores" the chosen collections.
+  const collections = await getCollections();
+  const existingIds = new Set((collections || []).map(c => c.id));
+  const validIds = collectionIds.filter(id => existingIds.has(id));
+  const staleIds = collectionIds.filter(id => !existingIds.has(id));
 
-  if (!collectionIds || collectionIds.length === 0) {
-    const collections = await getCollections();
-    if (!collections || collections.length === 0) {
-      console.warn('[background] fetchRandomContent: no collections found');
-      return;
-    }
-    collectionIds = [collections[Math.floor(Math.random() * collections.length)].id];
-    console.log('[background] fetchRandomContent: randomly selected collection', collectionIds);
+  // Diagnostic: surfaces exactly how the saved selection lines up with reality.
+  console.log(
+    '[background] fetchNextContentItem: saved contentCollectionIds =', collectionIds,
+    '| existing collection IDs =', [...existingIds],
+    '| valid =', validIds, '| stale =', staleIds
+  );
+
+  if (collectionIds.length === 0) {
+    console.warn('[background] fetchNextContentItem: no content collections selected — pausing. Choose collections in Study Options.');
+    return;
   }
 
-  console.log('[background] fetchRandomContent: fetching items for collections', collectionIds);
+  if (validIds.length === 0) {
+    console.warn('[background] fetchNextContentItem: saved content collections no longer exist (stale IDs:', staleIds, ') — pausing. Re-select collections in Study Options.');
+    return;
+  }
+
+  console.log('[background] fetchNextContentItem: fetching items for collections', validIds);
 
   const [itemArrays, allProgress, excluded] = await Promise.all([
-    Promise.all(collectionIds.map(id => getLearningItems(id))),
+    Promise.all(validIds.map(id => getLearningItems(id))),
     getAllCardProgress(),
     getAllExcludedItems()
   ]);
@@ -43,10 +57,10 @@ export async function fetchRandomContent(advanceSession = false) {
   const excludedSet = new Set(excluded.map(e => e.learningItemId));
   const items = (rawItems || []).filter(i => !excludedSet.has(i.id));
 
-  console.log('[background] fetchRandomContent: items fetched, count =', items?.length ?? 0);
+  console.log('[background] fetchNextContentItem: items fetched, count =', items?.length ?? 0);
 
   if (!items || items.length === 0) {
-    console.warn('[background] fetchRandomContent: no items found, skipping content update');
+    console.warn('[background] fetchNextContentItem: no items found, skipping content update');
     return;
   }
 
@@ -62,7 +76,7 @@ export async function fetchRandomContent(advanceSession = false) {
   await setContentSession(session);
   await setContentLearningItemId(itemToShow.id);
 
-  console.log('[background] fetchRandomContent: selected item', itemToShow.title, '| has content:', !!itemToShow.content);
+  console.log('[background] fetchNextContentItem: selected item', itemToShow.title, '| has content:', !!itemToShow.content);
 
   const meta = buildMeta(itemToShow, items, progressMap, session);
   await notifyAllTabs(itemToShow, meta);

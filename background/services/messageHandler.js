@@ -5,7 +5,7 @@ import {
   removeFromContentSession
 } from '../utils/storage.js';
 import { recordAttempt, recordContentRating } from './progressService.js';
-import { fetchRandomContent } from './contentService.js';
+import { fetchNextContentItem } from './contentService.js';
 import { removeLearningItem } from '../../src/database/index.ts';
 
 export function setupMessageListeners() {
@@ -88,7 +88,7 @@ async function handleContentRating(score) {
 
     // Automatically advance the session to the next item
     console.log('[background] handleContentRating: fetching next item');
-    await fetchRandomContent(true);
+    await fetchNextContentItem(true);
   } catch (error) {
     console.error('[background] handleContentRating: error recording rating:', error);
   }
@@ -106,7 +106,7 @@ async function handleDeleteContentItem() {
     await removeLearningItem(learningItemId);
     // Drop it from the session queue; the cursor now points at the next item.
     await removeFromContentSession(learningItemId);
-    await fetchRandomContent(false);
+    await fetchNextContentItem(false);
   } catch (error) {
     console.error('[background] handleDeleteContentItem: error deleting item:', error);
   }

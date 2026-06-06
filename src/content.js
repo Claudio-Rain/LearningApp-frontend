@@ -912,9 +912,10 @@ function updateContentDisplay(item, meta) {
   // Render answer with Tiptap support for rich content
   const plainText = extractPlainText(item.content);
 
+  let targetOpacity = '1';
   if (!plainText || plainText.trim().length === 0) {
     answerEl.innerHTML = '<p>(No answer)</p>';
-    widget.style.opacity = '0.6';
+    targetOpacity = '0.6';
   } else {
     // Render answer with Tiptap support for rich content
     try {
@@ -923,17 +924,16 @@ function updateContentDisplay(item, meta) {
     } catch {
       answerEl.innerHTML = `<p>${escapeHtml(plainText)}</p>`;
     }
-    widget.style.opacity = '1';
   }
 
   // Reset flip state
   flashcard.classList.remove('flipped');
   sideIndicator.textContent = 'Question';
 
-  // Animate transition
+  // Animate transition, settling on the target opacity for this item
   widget.style.opacity = '0.7';
   setTimeout(() => {
-    widget.style.opacity = '1';
+    widget.style.opacity = targetOpacity;
   }, 100);
 }
 
@@ -989,9 +989,11 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     injectContentDisplay();
+    injectModal();
   });
 } else {
   injectContentDisplay();
+  injectModal();
 }
 
 // Keyboard shortcuts

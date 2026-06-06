@@ -1,6 +1,6 @@
 import { initializeAlarms, checkSessionTime, isSessionActive, stopSessionManually } from '../background/services/alarmService.js';
 import { sendNotification } from '../background/services/notificationService.js';
-import { fetchRandomContent } from '../background/services/contentService.js';
+import { fetchNextContentItem } from '../background/services/contentService.js';
 import { setupMessageListeners } from '../background/services/messageHandler.js';
 
 // Initialize on install
@@ -21,7 +21,7 @@ const ALARM_HANDLERS = {
       sendNotification();
     }
   },
-  contentAlarm: fetchRandomContent,
+  contentAlarm: () => fetchNextContentItem(true),
 };
 
 chrome.alarms.onAlarm.addListener((alarm) => {

@@ -33,6 +33,14 @@
         :loading="loadingCollections"
         no-data-text="No collections found"
       />
+      <v-alert
+        v-if="missingContentCollectionIds.length"
+        type="warning"
+        density="compact"
+        class="mt-2"
+      >
+        {{ missingContentCollectionIds.length }} previously selected collection(s) no longer exist and were ignored. Please re-select and save.
+      </v-alert>
     </div>
 
     <div class="mb-4">
@@ -217,6 +225,7 @@ function handleSingleToggle(itemId: string, value: boolean, index: number) {
   anchorIndex.value = index
 }
 const contentCollectionIds = ref<string[]>([])
+const missingContentCollectionIds = ref<string[]>([])
 const notificationCollectionId = ref<string | null>(null)
 const startHour = ref(9)
 const endHour = ref(10)
@@ -255,7 +264,11 @@ onMounted(async () => {
       'sessionEndHour',
       'notificationIntervalSeconds',
     ])
-    if (stored.contentCollectionIds?.length) contentCollectionIds.value = stored.contentCollectionIds
+    if (stored.contentCollectionIds?.length) {
+      const existingIds = new Set(collections.value.map(c => c.id))
+      contentCollectionIds.value = stored.contentCollectionIds.filter((id: string) => existingIds.has(id))
+      missingContentCollectionIds.value = stored.contentCollectionIds.filter((id: string) => !existingIds.has(id))
+    }
     if (stored.notificationCollectionId) notificationCollectionId.value = stored.notificationCollectionId
     if (stored.sessionStartHour != null) startHour.value = stored.sessionStartHour
     if (stored.sessionEndHour != null) endHour.value = stored.sessionEndHour
@@ -271,7 +284,7 @@ async function saveNotificationSettings() {
     setStudyViewCollectionId(studyViewCollectionId.value)
     if (typeof chrome !== 'undefined' && chrome.storage) {
       await chrome.storage.local.set({
-        contentCollectionIds: contentCollectionIds.value,
+        contentCollectionIds: [...contentCollectionIds.value],
         notificationCollectionId: notificationCollectionId.value,
         sessionStartHour: startHour.value,
         sessionEndHour: endHour.value,
