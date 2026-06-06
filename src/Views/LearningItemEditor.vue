@@ -2,31 +2,101 @@
 <template>
   <div class="learning-item-editor">
     <div v-if="editor" class="container">
-      <div class="editor-menu control-group">
-        <!-- existentes -->
-        <v-btn @click="editor.chain().focus().toggleBold().run()"
-          :class="{ 'is-active': editor.isActive('bold') }">Bold</v-btn>
-        <v-btn @click="editor.chain().focus().toggleItalic().run()"
-          :class="{ 'is-active': editor.isActive('italic') }">Italic</v-btn>
-        <v-btn @click="editor.chain().focus().toggleUnderline().run()"
-          :class="{ 'is-active': editor.isActive('underline') }">Underline</v-btn>
-        <v-btn @click="editor.chain().focus().toggleHighlight().run()"
-          :class="{ 'is-active': editor.isActive('highlight') }">Highlight</v-btn>
-        <input type="color" v-model="textColor" @input="editor.chain().focus().setColor(textColor).run()" />
-        <v-btn @click="editor.chain().focus().toggleCodeBlock().run()"
-          :class="{ 'is-active': editor.isActive('codeBlock') }">Code</v-btn>
-        <v-btn @click="editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()">
-          Insert table
-        </v-btn>
+      <div class="editor-menu">
+        <div class="editor-group">
+          <v-btn size="small" variant="text" icon
+            @click="editor.chain().focus().toggleBold().run()"
+            :class="{ 'is-active': editor.isActive('bold') }">
+            <v-icon>mdi-format-bold</v-icon>
+            <v-tooltip activator="parent" location="top">Bold</v-tooltip>
+          </v-btn>
+          <v-btn size="small" variant="text" icon
+            @click="editor.chain().focus().toggleItalic().run()"
+            :class="{ 'is-active': editor.isActive('italic') }">
+            <v-icon>mdi-format-italic</v-icon>
+            <v-tooltip activator="parent" location="top">Italic</v-tooltip>
+          </v-btn>
+          <v-btn size="small" variant="text" icon
+            @click="editor.chain().focus().toggleUnderline().run()"
+            :class="{ 'is-active': editor.isActive('underline') }">
+            <v-icon>mdi-format-underline</v-icon>
+            <v-tooltip activator="parent" location="top">Underline</v-tooltip>
+          </v-btn>
+          <v-btn size="small" variant="text" icon
+            @click="editor.chain().focus().toggleHighlight().run()"
+            :class="{ 'is-active': editor.isActive('highlight') }">
+            <v-icon>mdi-marker</v-icon>
+            <v-tooltip activator="parent" location="top">Highlight</v-tooltip>
+          </v-btn>
+          <label class="color-picker" title="Text color">
+            <v-icon size="small">mdi-format-color-text</v-icon>
+            <span class="color-swatch" :style="{ backgroundColor: textColor }"></span>
+            <input type="color" v-model="textColor"
+              @input="editor.chain().focus().setColor(textColor).run()" />
+          </label>
+        </div>
+
+        <div class="editor-divider"></div>
+
+        <div class="editor-group">
+          <v-btn size="small" variant="text" icon
+            @click="editor.chain().focus().toggleCodeBlock().run()"
+            :class="{ 'is-active': editor.isActive('codeBlock') }">
+            <v-icon>mdi-code-tags</v-icon>
+            <v-tooltip activator="parent" location="top">Code block</v-tooltip>
+          </v-btn>
+          <v-btn size="small" variant="text" icon
+            @click="editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()">
+            <v-icon>mdi-table-plus</v-icon>
+            <v-tooltip activator="parent" location="top">Insert table</v-tooltip>
+          </v-btn>
+        </div>
+
         <template v-if="editor.isActive('table')">
-          <v-btn @click="editor.chain().focus().addColumnBefore().run()">Col antes</v-btn>
-          <v-btn @click="editor.chain().focus().addColumnAfter().run()">Col después</v-btn>
-          <v-btn @click="editor.chain().focus().deleteColumn().run()">Del col</v-btn>
-          <v-btn @click="editor.chain().focus().addRowBefore().run()">Fila antes</v-btn>
-          <v-btn @click="editor.chain().focus().addRowAfter().run()">Fila después</v-btn>
-          <v-btn @click="editor.chain().focus().deleteRow().run()">Del fila</v-btn>
-          <v-btn @click="editor.chain().focus().mergeOrSplit().run()">Merge/split</v-btn>
-          <v-btn @click="editor.chain().focus().deleteTable().run()">Del tabla</v-btn>
+          <div class="editor-divider"></div>
+
+          <div class="editor-group">
+            <v-btn size="small" variant="text" icon
+              @click="editor.chain().focus().addColumnBefore().run()">
+              <v-icon>mdi-table-column-plus-before</v-icon>
+              <v-tooltip activator="parent" location="top">Column before</v-tooltip>
+            </v-btn>
+            <v-btn size="small" variant="text" icon
+              @click="editor.chain().focus().addColumnAfter().run()">
+              <v-icon>mdi-table-column-plus-after</v-icon>
+              <v-tooltip activator="parent" location="top">Column after</v-tooltip>
+            </v-btn>
+            <v-btn size="small" variant="text" icon
+              @click="editor.chain().focus().deleteColumn().run()">
+              <v-icon>mdi-table-column-remove</v-icon>
+              <v-tooltip activator="parent" location="top">Delete column</v-tooltip>
+            </v-btn>
+            <v-btn size="small" variant="text" icon
+              @click="editor.chain().focus().addRowBefore().run()">
+              <v-icon>mdi-table-row-plus-before</v-icon>
+              <v-tooltip activator="parent" location="top">Row before</v-tooltip>
+            </v-btn>
+            <v-btn size="small" variant="text" icon
+              @click="editor.chain().focus().addRowAfter().run()">
+              <v-icon>mdi-table-row-plus-after</v-icon>
+              <v-tooltip activator="parent" location="top">Row after</v-tooltip>
+            </v-btn>
+            <v-btn size="small" variant="text" icon
+              @click="editor.chain().focus().deleteRow().run()">
+              <v-icon>mdi-table-row-remove</v-icon>
+              <v-tooltip activator="parent" location="top">Delete row</v-tooltip>
+            </v-btn>
+            <v-btn size="small" variant="text" icon
+              @click="editor.chain().focus().mergeOrSplit().run()">
+              <v-icon>mdi-table-merge-cells</v-icon>
+              <v-tooltip activator="parent" location="top">Merge / split</v-tooltip>
+            </v-btn>
+            <v-btn size="small" variant="text" icon
+              @click="editor.chain().focus().deleteTable().run()">
+              <v-icon>mdi-table-remove</v-icon>
+              <v-tooltip activator="parent" location="top">Delete table</v-tooltip>
+            </v-btn>
+          </div>
         </template>
       </div>
 
@@ -152,12 +222,75 @@ onBeforeUnmount(() => editor.destroy())
 .editor-menu {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 8px;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 6px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.02);
 
-  button.is-active {
-    background-color: #007bff;
-    color: white;
+  .editor-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .editor-divider {
+    width: 1px;
+    align-self: stretch;
+    margin: 2px 6px;
+    background: rgba(0, 0, 0, 0.1);
+  }
+
+  .v-btn {
+    color: rgba(0, 0, 0, 0.7);
+    border-radius: 8px;
+    transition: background-color 0.15s ease, color 0.15s ease;
+
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.06);
+    }
+
+    &.is-active {
+      background-color: rgb(var(--v-theme-primary));
+      color: white;
+    }
+  }
+
+  // Color picker styled as a toolbar button with a swatch.
+  .color-picker {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 32px;
+    padding: 0 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: rgba(0, 0, 0, 0.7);
+    transition: background-color 0.15s ease;
+
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.06);
+    }
+
+    .color-swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+    }
+
+    input[type='color'] {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
   }
 }
 
@@ -169,6 +302,26 @@ onBeforeUnmount(() => editor.destroy())
 
 .tiptap {
   :first-child { margin-top: 0; }
+
+  h1, h2, h3, h4 {
+    font-weight: 700;
+    line-height: 1.2;
+    margin: 1.5rem 0 0.5rem;
+  }
+
+  h1 { font-size: 1.6rem; }
+  h2 { font-size: 1.35rem; }
+  h3 { font-size: 1.15rem; }
+  h4 { font-size: 1rem; }
+
+  p { margin: 0.5rem 0; }
+
+  ul, ol {
+    margin: 0.5rem 0;
+    padding-left: 1.25rem;
+  }
+
+  li > p { margin: 0.15rem 0; }
 
   table {
     border-collapse: collapse;
@@ -229,6 +382,18 @@ onBeforeUnmount(() => editor.destroy())
     cursor: col-resize;
   }
 
+  // Inline code (`backticks`) — not inside a code block.
+  code {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 0.35rem;
+    color: #e8a0a0;
+    font-family: 'JetBrainsMono', monospace;
+    font-size: 0.85em;
+    font-weight: 400;
+    padding: 0.12em 0.4em;
+  }
+
   pre {
     background: rgb(var(--v-theme-darkColor));
     border-radius: 0.5rem;
@@ -239,6 +404,7 @@ onBeforeUnmount(() => editor.destroy())
 
     code {
       background: none;
+      border: none;
       color: inherit;
       font-size: 0.8rem;
       padding: 0;

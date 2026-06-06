@@ -48,10 +48,19 @@ export default {
 
     select {
       position: absolute;
-      background-color: rgb(var(--v-theme-lightColor));
-      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="Black" d="M7 10l5 5 5-5z"/></svg>');
       right: 0.5rem;
       top: 0.5rem;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      padding: 0.15rem 1.6rem 0.15rem 0.5rem;
+      border-radius: 0.35rem;
+      color: rgb(var(--v-theme-darkColor));
+      background-color: rgb(var(--v-theme-lightColor));
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="Black" d="M7 10l5 5 5-5z"/></svg>');
+      background-repeat: no-repeat;
+      background-position: right 0.25rem center;
+      background-size: 1.1rem;
     }
   }
 }

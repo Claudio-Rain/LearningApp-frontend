@@ -47,7 +47,7 @@
           </v-tooltip>
         </template>
         <template #item.actions="{ item }">
-          <v-btn icon="mdi-delete" size="x-small" variant="text" color="error"
+          <v-btn icon="mdi-delete" size="x-small" variant="text" color="grey"
             @click.stop="handleDeleteLearningItem(item)" />
         </template>
       </v-data-table>
