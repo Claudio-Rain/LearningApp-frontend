@@ -4,43 +4,33 @@
     <div v-if="editor" class="container">
       <div class="editor-menu">
         <div class="editor-group">
-          <v-btn size="small" variant="text" icon
-            @click="editor.chain().focus().toggleBold().run()"
+          <v-btn size="small" variant="text" icon @click="editor.chain().focus().toggleBold().run()"
             :class="{ 'is-active': editor.isActive('bold') }">
             <v-icon>mdi-format-bold</v-icon>
             <v-tooltip activator="parent" location="top">Bold</v-tooltip>
           </v-btn>
-          <v-btn size="small" variant="text" icon
-            @click="editor.chain().focus().toggleItalic().run()"
+          <v-btn size="small" variant="text" icon @click="editor.chain().focus().toggleItalic().run()"
             :class="{ 'is-active': editor.isActive('italic') }">
             <v-icon>mdi-format-italic</v-icon>
             <v-tooltip activator="parent" location="top">Italic</v-tooltip>
           </v-btn>
-          <v-btn size="small" variant="text" icon
-            @click="editor.chain().focus().toggleUnderline().run()"
+          <v-btn size="small" variant="text" icon @click="editor.chain().focus().toggleUnderline().run()"
             :class="{ 'is-active': editor.isActive('underline') }">
             <v-icon>mdi-format-underline</v-icon>
             <v-tooltip activator="parent" location="top">Underline</v-tooltip>
           </v-btn>
-          <v-btn size="small" variant="text" icon
-            @click="editor.chain().focus().toggleHighlight().run()"
+          <v-btn size="small" variant="text" icon @click="editor.chain().focus().toggleHighlight().run()"
             :class="{ 'is-active': editor.isActive('highlight') }">
             <v-icon>mdi-marker</v-icon>
             <v-tooltip activator="parent" location="top">Highlight</v-tooltip>
           </v-btn>
-          <label class="color-picker" title="Text color">
-            <v-icon size="small">mdi-format-color-text</v-icon>
-            <span class="color-swatch" :style="{ backgroundColor: textColor }"></span>
-            <input type="color" v-model="textColor"
-              @input="editor.chain().focus().setColor(textColor).run()" />
-          </label>
+
         </div>
 
         <div class="editor-divider"></div>
 
         <div class="editor-group">
-          <v-btn size="small" variant="text" icon
-            @click="editor.chain().focus().toggleCodeBlock().run()"
+          <v-btn size="small" variant="text" icon @click="editor.chain().focus().toggleCodeBlock().run()"
             :class="{ 'is-active': editor.isActive('codeBlock') }">
             <v-icon>mdi-code-tags</v-icon>
             <v-tooltip activator="parent" location="top">Code block</v-tooltip>
@@ -56,43 +46,35 @@
           <div class="editor-divider"></div>
 
           <div class="editor-group">
-            <v-btn size="small" variant="text" icon
-              @click="editor.chain().focus().addColumnBefore().run()">
+            <v-btn size="small" variant="text" icon @click="editor.chain().focus().addColumnBefore().run()">
               <v-icon>mdi-table-column-plus-before</v-icon>
               <v-tooltip activator="parent" location="top">Column before</v-tooltip>
             </v-btn>
-            <v-btn size="small" variant="text" icon
-              @click="editor.chain().focus().addColumnAfter().run()">
+            <v-btn size="small" variant="text" icon @click="editor.chain().focus().addColumnAfter().run()">
               <v-icon>mdi-table-column-plus-after</v-icon>
               <v-tooltip activator="parent" location="top">Column after</v-tooltip>
             </v-btn>
-            <v-btn size="small" variant="text" icon
-              @click="editor.chain().focus().deleteColumn().run()">
+            <v-btn size="small" variant="text" icon @click="editor.chain().focus().deleteColumn().run()">
               <v-icon>mdi-table-column-remove</v-icon>
               <v-tooltip activator="parent" location="top">Delete column</v-tooltip>
             </v-btn>
-            <v-btn size="small" variant="text" icon
-              @click="editor.chain().focus().addRowBefore().run()">
+            <v-btn size="small" variant="text" icon @click="editor.chain().focus().addRowBefore().run()">
               <v-icon>mdi-table-row-plus-before</v-icon>
               <v-tooltip activator="parent" location="top">Row before</v-tooltip>
             </v-btn>
-            <v-btn size="small" variant="text" icon
-              @click="editor.chain().focus().addRowAfter().run()">
+            <v-btn size="small" variant="text" icon @click="editor.chain().focus().addRowAfter().run()">
               <v-icon>mdi-table-row-plus-after</v-icon>
               <v-tooltip activator="parent" location="top">Row after</v-tooltip>
             </v-btn>
-            <v-btn size="small" variant="text" icon
-              @click="editor.chain().focus().deleteRow().run()">
+            <v-btn size="small" variant="text" icon @click="editor.chain().focus().deleteRow().run()">
               <v-icon>mdi-table-row-remove</v-icon>
               <v-tooltip activator="parent" location="top">Delete row</v-tooltip>
             </v-btn>
-            <v-btn size="small" variant="text" icon
-              @click="editor.chain().focus().mergeOrSplit().run()">
+            <v-btn size="small" variant="text" icon @click="editor.chain().focus().mergeOrSplit().run()">
               <v-icon>mdi-table-merge-cells</v-icon>
               <v-tooltip activator="parent" location="top">Merge / split</v-tooltip>
             </v-btn>
-            <v-btn size="small" variant="text" icon
-              @click="editor.chain().focus().deleteTable().run()">
+            <v-btn size="small" variant="text" icon @click="editor.chain().focus().deleteTable().run()">
               <v-icon>mdi-table-remove</v-icon>
               <v-tooltip activator="parent" location="top">Delete table</v-tooltip>
             </v-btn>
@@ -225,10 +207,9 @@ onBeforeUnmount(() => editor.destroy())
   align-items: center;
   gap: 4px;
   margin-bottom: 12px;
-  padding: 6px 8px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.02);
+  // padding: 6px 8px;
+  // border-radius: 10px;
+  // background: rgba(0, 0, 0, 0.02);
 
   .editor-group {
     display: flex;
@@ -248,7 +229,8 @@ onBeforeUnmount(() => editor.destroy())
     color: rgba(0, 0, 0, 0.7);
     border-radius: 8px;
     transition: background-color 0.15s ease, color 0.15s ease;
-
+    border: 1px solid rgba(0, 0, 0, 0.08);
+  
     &:hover {
       background-color: rgba(0, 0, 0, 0.06);
     }
@@ -301,27 +283,48 @@ onBeforeUnmount(() => editor.destroy())
 }
 
 .tiptap {
-  :first-child { margin-top: 0; }
+  :first-child {
+    margin-top: 0;
+  }
 
-  h1, h2, h3, h4 {
+  h1,
+  h2,
+  h3,
+  h4 {
     font-weight: 700;
     line-height: 1.2;
     margin: 1.5rem 0 0.5rem;
   }
 
-  h1 { font-size: 1.6rem; }
-  h2 { font-size: 1.35rem; }
-  h3 { font-size: 1.15rem; }
-  h4 { font-size: 1rem; }
+  h1 {
+    font-size: 1.6rem;
+  }
 
-  p { margin: 0.5rem 0; }
+  h2 {
+    font-size: 1.35rem;
+  }
 
-  ul, ol {
+  h3 {
+    font-size: 1.15rem;
+  }
+
+  h4 {
+    font-size: 1rem;
+  }
+
+  p {
+    margin: 0.5rem 0;
+  }
+
+  ul,
+  ol {
     margin: 0.5rem 0;
     padding-left: 1.25rem;
   }
 
-  li > p { margin: 0.15rem 0; }
+  li>p {
+    margin: 0.15rem 0;
+  }
 
   table {
     border-collapse: collapse;
@@ -330,7 +333,8 @@ onBeforeUnmount(() => editor.destroy())
     table-layout: fixed;
     width: 100%;
 
-    td, th {
+    td,
+    th {
       border: 1px solid #d1d5db;
       box-sizing: border-box;
       min-width: 1em;
@@ -338,7 +342,9 @@ onBeforeUnmount(() => editor.destroy())
       position: relative;
       vertical-align: top;
 
-      > * { margin-bottom: 0; }
+      >* {
+        margin-bottom: 0;
+      }
     }
 
     th {
@@ -350,7 +356,10 @@ onBeforeUnmount(() => editor.destroy())
     .selectedCell:after {
       background: #e5e7eb;
       content: '';
-      left: 0; right: 0; top: 0; bottom: 0;
+      left: 0;
+      right: 0;
+      top: 0;
+      bottom: 0;
       pointer-events: none;
       position: absolute;
       z-index: 2;
@@ -410,17 +419,54 @@ onBeforeUnmount(() => editor.destroy())
       padding: 0;
     }
 
-    .hljs-comment, .hljs-quote { color: #6dbf67; }
-    .hljs-variable, .hljs-template-variable, .hljs-attribute,
-    .hljs-tag, .hljs-regexp, .hljs-link, .hljs-selector-id,
-    .hljs-selector-class { color: #f98181; }
-    .hljs-number, .hljs-meta, .hljs-built_in, .hljs-literal,
-    .hljs-type, .hljs-params { color: #fbbc88; }
-    .hljs-string, .hljs-symbol, .hljs-bullet { color: #b9f18d; }
-    .hljs-title, .hljs-section { color: #faf594; }
-    .hljs-keyword, .hljs-selector-tag { color: #70cff8; }
-    .hljs-emphasis { font-style: italic; }
-    .hljs-strong { font-weight: 700; }
+    .hljs-comment,
+    .hljs-quote {
+      color: #6dbf67;
+    }
+
+    .hljs-variable,
+    .hljs-template-variable,
+    .hljs-attribute,
+    .hljs-tag,
+    .hljs-regexp,
+    .hljs-link,
+    .hljs-selector-id,
+    .hljs-selector-class {
+      color: #f98181;
+    }
+
+    .hljs-number,
+    .hljs-meta,
+    .hljs-built_in,
+    .hljs-literal,
+    .hljs-type,
+    .hljs-params {
+      color: #fbbc88;
+    }
+
+    .hljs-string,
+    .hljs-symbol,
+    .hljs-bullet {
+      color: #b9f18d;
+    }
+
+    .hljs-title,
+    .hljs-section {
+      color: #faf594;
+    }
+
+    .hljs-keyword,
+    .hljs-selector-tag {
+      color: #70cff8;
+    }
+
+    .hljs-emphasis {
+      font-style: italic;
+    }
+
+    .hljs-strong {
+      font-weight: 700;
+    }
   }
 }
 </style>

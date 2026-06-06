@@ -3,20 +3,27 @@
     <!-- Left Panel -->
     <div class="split-left" :style="{ width: leftWidth + 'px', minWidth: leftWidth + 'px' }">
       <div class="panel-header">
-        <div>
-          <div class="panel-title">{{ collection?.title }}</div>
-        </div>
+        <div class="panel-title">{{ collection?.title }}</div>
         <div class="header-buttons">
           <v-btn
             size="small"
+            variant="tonal"
             prepend-icon="mdi-sync"
             @click="handlePullItems"
             :loading="isPulling"
             title="Pull latest items from Firebase"
+            class="action-btn"
           >
             Pull
           </v-btn>
-          <v-btn color="primary" size="small" prepend-icon="mdi-plus" @click="handleAddLearningItem">
+          <v-btn
+            color="primary"
+            size="small"
+            variant="flat"
+            prepend-icon="mdi-plus"
+            @click="handleAddLearningItem"
+            class="action-btn"
+          >
             Add
           </v-btn>
         </div>
@@ -31,6 +38,7 @@
         density="comfortable"
         class="item-table"
         hover
+        :row-props="({ item }: any) => ({ class: selectedItem?.id === item.id ? 'selected-row' : '' })"
         @click:row="(_: any, { item }: any) => selectedItem = item"
       >
         <template #item.rowNumber="{ index }">
@@ -40,7 +48,7 @@
           <v-tooltip :text="item.title" location="top" open-delay="300" max-width="600">
             <template #activator="{ props }">
               <span v-bind="props"
-                :class="['item-title', { 'text-primary font-weight-medium': selectedItem?.id === item.id }]">
+                :class="['item-title']">
                 {{ item.title }}
               </span>
             </template>
@@ -48,7 +56,7 @@
         </template>
         <template #item.actions="{ item }">
           <v-btn icon="mdi-delete" size="x-small" variant="text" color="grey"
-            @click.stop="handleDeleteLearningItem(item)" />
+            class="delete-btn" @click.stop="handleDeleteLearningItem(item)" />
         </template>
       </v-data-table>
 
@@ -250,11 +258,11 @@ onMounted(async () => {
 
 /* Draggable divider between the table and the editor */
 .splitter {
-  width: 6px;
+  width: 4px;
   flex-shrink: 0;
   cursor: col-resize;
-  background: rgba(0, 0, 0, 0.06);
-  transition: background 0.15s ease;
+  background: white;
+  /* transition: background 0.15s ease; */
 }
 
 .splitter:hover,
@@ -264,17 +272,24 @@ onMounted(async () => {
 
 .panel-header {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
   padding: 16px;
-  /* border-bottom: 1px solid rgba(0, 0, 0, 0.08); */
   flex-shrink: 0;
 }
 
 .header-buttons {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
+}
+
+.action-btn {
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.01em !important;
+  text-transform: none !important;
 }
 
 .panel-title {
@@ -299,6 +314,20 @@ onMounted(async () => {
   flex: 1;
   overflow-y: auto;
   cursor: pointer;
+}
+
+:deep(tr.selected-row) {
+  background: rgba(0, 0, 0, 0.06) !important;
+  box-shadow: inset 2px 0 0 0 #000;
+}
+
+:deep(.delete-btn) {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+:deep(tr:hover .delete-btn) {
+  opacity: 1;
 }
 
 :deep(.v-table__wrapper) {

@@ -1,15 +1,17 @@
 <template>
   <div>
     <!-- Botón hamburguesa -->
-    <v-app-bar flat>
+    <v-app-bar flat class="app-bar-gradient" height="60">
       <v-app-bar-nav-icon @click="drawer = !drawer" />
-      <v-app-bar-title>Learning App</v-app-bar-title>
+      <v-app-bar-title>
+        <span class="toolbar-title">Learning App</span>
+      </v-app-bar-title>
     </v-app-bar>
 
     <!-- Navigation Drawer -->
-    <v-navigation-drawer v-model="drawer" :permanent="permanent" width="180" class="pa-4">
-      <v-list nav>
-        <v-list-item :to="{ name: 'collections' }" rounded="lg" class="my-1">
+    <v-navigation-drawer v-model="drawer" :permanent="permanent" width="220" class="nav-drawer">
+      <v-list nav class="px-2">
+        <v-list-item :to="{ name: 'collections' }" rounded="lg" class="nav-item my-1">
           <template #prepend>
             <v-icon>mdi-book-open-variant</v-icon>
           </template>
@@ -20,7 +22,7 @@
           v-if="lastCollectionId"
           :to="{ name: 'study', params: { id: lastCollectionId } }"
           rounded="lg"
-          class="my-1 study-btn"
+          class="nav-item my-1 study-btn"
           color="primary"
           active-color="primary"
           base-color="primary"
@@ -29,23 +31,28 @@
             <v-icon>mdi-play-circle-outline</v-icon>
           </template>
           <v-list-item-title class="font-weight-bold">Study</v-list-item-title>
+          <template #append>
+            <v-chip size="x-small" color="primary" variant="flat" class="kbd-chip">⏎</v-chip>
+          </template>
         </v-list-item>
 
-        <v-list-item :to="{ name: 'studyOptions' }" rounded="lg" class="my-1">
+        <v-list-subheader class="nav-subheader">MANAGE</v-list-subheader>
+
+        <v-list-item :to="{ name: 'studyOptions' }" rounded="lg" class="nav-item my-1">
           <template #prepend>
             <v-icon>mdi-cog-outline</v-icon>
           </template>
           <v-list-item-title>Study Options</v-list-item-title>
         </v-list-item>
 
-        <v-list-item :to="{ name: 'bulkInsert' }" rounded="lg" class="my-1">
+        <v-list-item :to="{ name: 'bulkInsert' }" rounded="lg" class="nav-item my-1">
           <template #prepend>
             <v-icon>mdi-import</v-icon>
           </template>
           <v-list-item-title>Bulk Insert</v-list-item-title>
         </v-list-item>
 
-        <v-list-item :to="{ name: 'htmlBulkInsert' }" rounded="lg" class="my-1">
+        <v-list-item :to="{ name: 'htmlBulkInsert' }" rounded="lg" class="nav-item my-1">
           <template #prepend>
             <v-icon>mdi-language-html5</v-icon>
           </template>
@@ -110,7 +117,48 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* App bar */
+/* .app-bar-gradient {
+  background-color: #0e76a8 !important;
+} */
+
+.toolbar-title {
+  letter-spacing: 2px;
+  font-size: 1rem;
+  /* margin-left: 1rem; */
+  text-transform: uppercase;
+}
+
+/* Drawer */
+.nav-drawer {
+  border-right: 0px solid rgba(var(--v-border-color), 0.08);
+}
+
+.nav-subheader {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+  opacity: 0.5;
+  margin-top: 8px;
+}
+
+/* Nav items */
+.nav-item {
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.nav-item:hover {
+  transform: translateX(3px);
+  background: rgba(var(--v-theme-primary), 0.06);
+}
+
 .study-btn {
   background: rgba(var(--v-theme-primary), 0.12);
+}
+
+.kbd-chip {
+  font-size: 0.7rem;
+  font-weight: 700;
+  opacity: 0.85;
 }
 </style>

@@ -1,7 +1,7 @@
 <!-- LearningItemView.vue -->
 <template>
   <div class="content-panel">
-    <div class="content-header">
+    <div>
       <v-textarea
         v-model="title"
         class="content-title-input"
@@ -99,10 +99,7 @@ const handleTitleInput = () => {
   display: flex;
   flex-direction: column;
 }
-.content-header {
-  margin-bottom: 24px;
-  padding-bottom: 16px;
-}
+
 .editor-fill {
   flex: 1;
   min-height: 0;
