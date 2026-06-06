@@ -13,7 +13,7 @@ export async function getAllLearningItems(): Promise<LearningItem[]> {
 }
 
 export async function addLearningItem(item: LearningItem): Promise<IDBValidKey> {
-  const newItem = { ...item, id: crypto.randomUUID() }
+  const newItem = JSON.parse(JSON.stringify({ ...item, id: crypto.randomUUID() }))
   return (await dbPromise).add(LEARNING_ITEMS_STORE, newItem)
 }
 
@@ -22,7 +22,7 @@ export async function deleteLearningItem(id: string): Promise<void> {
 }
 
 export async function updateLearningItem(item: LearningItem): Promise<void> {
-  await (await dbPromise).put(LEARNING_ITEMS_STORE, item)
+  await (await dbPromise).put(LEARNING_ITEMS_STORE, JSON.parse(JSON.stringify(item)))
 }
 
 export async function updateLearningItemTitle(id: string, title: string): Promise<void> {
