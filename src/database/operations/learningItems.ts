@@ -26,9 +26,7 @@ export async function pullLearningItems(collectionId: string) {
 
     // Cases 2-4: check local items that vanished from remote
     const remoteIds = new Set(remoteItems.map(r => r.remoteId || r.id))
-    console.log('[pull] remoteIds:', [...remoteIds])
     for (const localItem of localItems) {
-      console.log('[pull] localItem', localItem.id, 'syncStatus:', localItem.syncStatus, 'inRemote:', remoteIds.has(localItem.id!))
       if (localItem.id && !remoteIds.has(localItem.id) && (localItem.syncStatus === 'synced' || localItem.syncStatus === undefined)) {
         await local.deleteLearningItem(localItem.id)
       }

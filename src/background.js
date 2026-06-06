@@ -5,13 +5,11 @@ import { setupMessageListeners } from '../background/services/messageHandler.js'
 
 // Initialize on install
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('[background] onInstalled fired');
   initializeAlarms();
 });
 
 // Initialize on startup
 chrome.runtime.onStartup.addListener(() => {
-  console.log('[background] onStartup fired');
   initializeAlarms();
 });
 
@@ -27,12 +25,9 @@ const ALARM_HANDLERS = {
 };
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  console.log('[background] alarm fired:', alarm.name);
   const handler = ALARM_HANDLERS[alarm.name];
   if (handler) {
     handler();
-  } else {
-    console.warn('[background] no handler for alarm:', alarm.name);
   }
 });
 

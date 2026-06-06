@@ -316,7 +316,6 @@ const loadData = async () => {
       return a.title.localeCompare(b.title)
     })
 
-  console.log('Study queue:', studyQueue.value.map(item => ({ title: item.title, strength: item.progress?.strength_score ?? 0 })))
 }
 
 const recordAttempt = async (easeScore: number) => {
@@ -334,7 +333,7 @@ const recordAttempt = async (easeScore: number) => {
   }).then(() => {
     syncAttemptLogs()
     new BroadcastChannel('study-progress').postMessage('attempt')
-  }).catch(console.error)
+  }).catch(() => {})
 
   const progress = cardProgressMap.value.get(itemId)
   if (progress) {
@@ -347,7 +346,7 @@ const recordAttempt = async (easeScore: number) => {
       weighted_attempts: progress.weighted_attempts + easeScore
     }
     cardProgressMap.value.set(itemId, updatedProgress)
-    updateCardProgress(updatedProgress).then(() => syncCardProgress()).catch(console.error)
+    updateCardProgress(updatedProgress).then(() => syncCardProgress()).catch(() => {})
   } else {
     const newProgress = {
       learning_item_id: itemId,

@@ -98,7 +98,6 @@ const formatDate = (iso: string) => {
 // 📥 Load data
 const loadCollections = async () => {
   collections.value = await getCollections()
-  console.log(collections)
 }
 
 // ➕ Add

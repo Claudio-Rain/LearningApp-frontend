@@ -675,8 +675,7 @@ function updateContentDisplay(item) {
     try {
       const renderedHTML = renderTiptapContent(item.content);
       answerEl.innerHTML = renderedHTML;
-    } catch (error) {
-      console.error('[content] Error rendering content:', error);
+    } catch {
       answerEl.innerHTML = `<p>${escapeHtml(plainText)}</p>`;
     }
     widget.style.opacity = '1';
@@ -737,7 +736,6 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
       sendResponse({ success: true });
     }
   } catch (error) {
-    console.error('[content] Error handling message:', error);
     sendResponse({ success: false, error: error.message });
   }
 });
@@ -762,8 +760,6 @@ function handleKeydown(e) {
   else if (isFlipped && /^[1-4]$/.test(e.key) && e.target.closest('#learning-app-content')) {
     const scores = { '1': -0.15, '2': -0.10, '3': 0.10, '4': 0.15 };
     const score = scores[e.key];
-    console.log('[content] Keyboard rating:', { key: e.key, score });
-
     showLoadingState();
     sendMessageSafely({
       action: 'recordRating',
@@ -792,8 +788,6 @@ document.addEventListener('click', (e) => {
   // Content rating buttons (fire-and-forget)
   else if (e.target.classList.contains('content-rating-btn')) {
     const score = parseFloat(e.target.getAttribute('data-score'));
-    console.log('[content] Rating button clicked:', e.target.getAttribute('title'), 'Score:', score);
-
     showLoadingState();
     sendMessageSafely({
       action: 'recordRating',
