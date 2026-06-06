@@ -1,13 +1,9 @@
 # Excluded Learning Items — Implementation Plan
-
 ## Overview
-
 A global "excluded items" list stored as its own entity (IndexedDB + Firestore), synced like every other entity, and injected as a filter into all study algorithms. Managed from a single section at the bottom of StudyOptionsView.
 
 ---
-
 ## Phase 1 — Data Layer
-
 ### 1.1 Type definition (`src/database/types.ts`)
 Add the new interface:
 ```ts
@@ -17,8 +13,8 @@ export interface ExcludedItem extends Syncable {
   dateCreated: string
   lastModified: string
 }
-```
 
+```
 ### 1.2 IndexedDB store (`src/database/local/db.ts`)
 - Bump DB version to **5**
 - Add `excluded_items` object store with `keyPath: 'id'` in the `oldVersion < 5` migration block
@@ -60,7 +56,6 @@ Export from `src/database/operations/index.ts`.
 Re-export `createExcludedItem`, `removeExcludedItem`, `pullExcludedItems`.
 
 ---
-
 ## Phase 2 — Composable
 
 ### `src/composables/useExcludedItems.ts`

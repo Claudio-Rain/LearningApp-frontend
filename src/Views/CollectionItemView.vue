@@ -28,7 +28,7 @@
         :items="learningItems"
         :items-per-page="-1"
         :sort-by="[{ key: 'title', order: 'asc' }]"
-        density="compact"
+        density="comfortable"
         class="item-table"
         hover
         @click:row="(_: any, { item }: any) => selectedItem = item"
@@ -314,8 +314,9 @@ onMounted(async () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 370px;
+  max-width: 500px;
   display: inline-block;
+  font-size: 1rem;
 }
 
 .empty-state {
