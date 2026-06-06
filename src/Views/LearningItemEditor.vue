@@ -88,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount } from 'vue'
+import { watch, onBeforeUnmount } from 'vue'
 import type { JSONContent } from '@tiptap/vue-3'
 import { Editor, EditorContent, VueNodeViewRenderer } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
@@ -109,8 +109,6 @@ const lowlight = createLowlight(all)
 
 const props = defineProps<{ value: JSONContent }>()
 const emit = defineEmits<{ (e: 'change', value: JSONContent): void }>()
-
-const textColor = ref('#000000')
 
 let skipNextUpdate = false
 

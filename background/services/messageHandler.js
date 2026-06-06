@@ -1,6 +1,12 @@
-import { getNotificationLearningItemId, clearNotificationLearningItemId, getContentLearningItemId } from '../utils/storage.js';
+import {
+  getNotificationLearningItemId,
+  clearNotificationLearningItemId,
+  getContentLearningItemId,
+  removeFromContentSession
+} from '../utils/storage.js';
 import { recordAttempt, recordContentRating } from './progressService.js';
 import { fetchRandomContent } from './contentService.js';
+import { removeLearningItem } from '../../src/database/index.ts';
 
 export function setupMessageListeners() {
   chrome.notifications.onButtonClicked.addListener(handleNotificationButtonClick);
@@ -46,6 +52,10 @@ function handleContentScriptMessage(request, _sender, sendResponse) {
     console.log('[background] received recordRating from content script, score =', request.score);
     handleContentRating(request.score);
     sendResponse({ success: true });
+  } else if (request.action === 'deleteContentItem') {
+    console.log('[background] received deleteContentItem from content script');
+    handleDeleteContentItem();
+    sendResponse({ success: true });
   }
 }
 
@@ -76,11 +86,29 @@ async function handleContentRating(score) {
     console.log('[background] handleContentRating: recording rating for item', learningItemId, 'score:', score);
     await recordContentRating(learningItemId, score);
 
-    // Automatically fetch next item, skipping the just-rated one to avoid getting stuck
+    // Automatically advance the session to the next item
     console.log('[background] handleContentRating: fetching next item');
-    await fetchRandomContent(learningItemId);
+    await fetchRandomContent(true);
   } catch (error) {
     console.error('[background] handleContentRating: error recording rating:', error);
+  }
+}
+
+async function handleDeleteContentItem() {
+  const learningItemId = await getContentLearningItemId();
+  if (!learningItemId) {
+    console.warn('[background] handleDeleteContentItem: no content_learning_item_id');
+    return;
+  }
+
+  try {
+    console.log('[background] handleDeleteContentItem: deleting item', learningItemId);
+    await removeLearningItem(learningItemId);
+    // Drop it from the session queue; the cursor now points at the next item.
+    await removeFromContentSession(learningItemId);
+    await fetchRandomContent(false);
+  } catch (error) {
+    console.error('[background] handleDeleteContentItem: error deleting item:', error);
   }
 }
 

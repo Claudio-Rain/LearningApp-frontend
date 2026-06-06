@@ -88,8 +88,27 @@ function injectContentDisplay() {
   contentWidget.innerHTML = `
     <div class="learning-content-widget">
       <div class="content-header">
-        <h3 id="content-title">Learning Item</h3>
-        <span class="content-side-indicator" id="side-indicator">Question</span>
+        <div class="content-header-main">
+          <h3 id="content-title">Learning Item</h3>
+          <div class="content-subtitle">
+            <span class="content-counter" id="content-counter">0 / 0</span>
+            <span class="content-stat-badge content-new-badge" id="content-new-badge">New: 0</span>
+            <span class="content-stat-badge content-revised-badge" id="content-revised-badge">Revised: 0</span>
+            <span class="content-strength-badge" id="content-strength-badge" style="display: none;"></span>
+          </div>
+        </div>
+        <div class="content-header-actions">
+          <span class="content-side-indicator" id="side-indicator">Question</span>
+          <button class="content-delete-btn" id="content-delete" title="Delete item">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="content-timer" id="content-timer">
+        <div class="content-timer-bar-bg">
+          <div class="content-timer-bar-fill" id="content-timer-fill"></div>
+        </div>
+        <div class="content-timer-label" id="content-timer-label">3:00</div>
       </div>
       <div class="flashcard-container" id="flashcard">
         <div class="card-side front">
@@ -144,8 +163,14 @@ function injectContentDisplay() {
       background: #f9fafb;
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
+      gap: 8px;
       border-radius: 12px 12px 0 0;
+    }
+
+    .content-header-main {
+      min-width: 0;
+      flex: 1;
     }
 
     .content-header h3 {
@@ -153,7 +178,149 @@ function injectContentDisplay() {
       font-size: 14px;
       font-weight: 600;
       color: #111827;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .content-subtitle {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .content-counter {
+      font-size: 11px;
+      font-weight: 600;
+      color: #6b7280;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .content-stat-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      transition: box-shadow 0.3s ease;
+    }
+
+    .content-new-badge {
+      background-color: rgba(33, 150, 243, 0.15);
+      color: #1976d2;
+    }
+
+    .content-revised-badge {
+      background-color: rgba(76, 175, 80, 0.15);
+      color: #388e3c;
+    }
+
+    .content-stat-badge.glowing {
+      box-shadow: inset 0 0 0 2px currentColor;
+      font-weight: 700;
+    }
+
+    .content-strength-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    .content-strength-badge.strength-weak {
+      background: rgba(244, 67, 54, 0.15);
+      color: #d32f2f;
+    }
+
+    .content-strength-badge.strength-fair {
+      background: rgba(255, 152, 0, 0.15);
+      color: #e65100;
+    }
+
+    .content-strength-badge.strength-good {
+      background: rgba(76, 175, 80, 0.15);
+      color: #2e7d32;
+    }
+
+    .content-strength-badge.strength-mastered {
+      background: rgba(156, 39, 176, 0.15);
+      color: #6a1b9a;
+    }
+
+    .content-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .content-delete-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: #ef4444;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-family: inherit;
+    }
+
+    .content-delete-btn:hover {
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    .content-timer {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      border-bottom: 1px solid #e5e7eb;
+      background: #fafbfc;
+    }
+
+    .content-timer-bar-bg {
       flex: 1;
+      height: 6px;
+      background: rgba(0, 0, 0, 0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .content-timer-bar-fill {
+      height: 100%;
+      width: 100%;
+      background: #4caf50;
+      border-radius: 3px;
+      transition: width 1s linear, background 0.5s;
+    }
+
+    .content-timer-bar-fill.timer-low {
+      background: #f44336;
+    }
+
+    .content-timer-label {
+      font-size: 12px;
+      color: #6b7280;
+      font-variant-numeric: tabular-nums;
+      font-weight: 500;
+      transition: color 0.5s;
+    }
+
+    .content-timer-label.timer-label-low {
+      color: #f44336;
+      font-weight: 700;
     }
 
     .content-side-indicator {
@@ -629,6 +796,81 @@ let currentNotificationId = null;
 let currentItem = null;
 let isFlipped = false;
 
+// Timer (mirrors Study View: 3-minute countdown, resets on each new item)
+const TIMER_DURATION = 180;
+let contentTimeLeft = TIMER_DURATION;
+let contentTimerInterval = null;
+
+function updateTimerDisplay() {
+  const fill = document.getElementById('content-timer-fill');
+  const label = document.getElementById('content-timer-label');
+  const low = contentTimeLeft <= 30;
+  if (fill) {
+    fill.style.width = (contentTimeLeft / TIMER_DURATION * 100) + '%';
+    fill.classList.toggle('timer-low', low);
+  }
+  if (label) {
+    label.textContent = `${Math.floor(contentTimeLeft / 60)}:${String(contentTimeLeft % 60).padStart(2, '0')}`;
+    label.classList.toggle('timer-label-low', low);
+  }
+}
+
+function clearContentTimer() {
+  if (contentTimerInterval) {
+    clearInterval(contentTimerInterval);
+    contentTimerInterval = null;
+  }
+}
+
+function startContentTimer() {
+  clearContentTimer();
+  contentTimeLeft = TIMER_DURATION;
+  updateTimerDisplay();
+  contentTimerInterval = setInterval(() => {
+    if (contentTimeLeft > 0) {
+      contentTimeLeft--;
+      updateTimerDisplay();
+    } else {
+      clearContentTimer();
+    }
+  }, 1000);
+}
+
+function strengthInfo(score) {
+  if (score < 0.25) return { label: 'Weak', cls: 'strength-weak' };
+  if (score < 0.5) return { label: 'Fair', cls: 'strength-fair' };
+  if (score < 0.75) return { label: 'Good', cls: 'strength-good' };
+  return { label: 'Mastered', cls: 'strength-mastered' };
+}
+
+function updateMetaDisplay(meta) {
+  if (!meta) return;
+  const counter = document.getElementById('content-counter');
+  const newBadge = document.getElementById('content-new-badge');
+  const revisedBadge = document.getElementById('content-revised-badge');
+  const strengthBadge = document.getElementById('content-strength-badge');
+
+  if (counter) counter.textContent = `${meta.sessionIndex + 1} / ${meta.sessionTotal}`;
+  if (newBadge) {
+    newBadge.textContent = `New: ${meta.newCards}`;
+    newBadge.classList.toggle('glowing', !!meta.isNew);
+  }
+  if (revisedBadge) {
+    revisedBadge.textContent = `Revised: ${meta.revisedCards}`;
+    revisedBadge.classList.toggle('glowing', !meta.isNew);
+  }
+  if (strengthBadge) {
+    if (meta.isNew || meta.strengthScore == null) {
+      strengthBadge.style.display = 'none';
+    } else {
+      const { label, cls } = strengthInfo(meta.strengthScore);
+      strengthBadge.textContent = label;
+      strengthBadge.className = `content-strength-badge ${cls}`;
+      strengthBadge.style.display = 'inline-block';
+    }
+  }
+}
+
 // Safe message sender that handles context invalidation
 function sendMessageSafely(message) {
   try {
@@ -648,9 +890,12 @@ function sendMessageSafely(message) {
   }
 }
 
-function updateContentDisplay(item) {
+function updateContentDisplay(item, meta) {
   currentItem = item;
   isFlipped = false;
+
+  updateMetaDisplay(meta);
+  startContentTimer();
 
   const titleEl = document.getElementById('content-title');
   const frontQuestionEl = document.getElementById('front-question');
@@ -732,7 +977,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
       hideModal();
       sendResponse({ success: true });
     } else if (request.action === 'updateContent') {
-      updateContentDisplay(request.item);
+      updateContentDisplay(request.item, request.meta);
       sendResponse({ success: true });
     }
   } catch (error) {
@@ -770,6 +1015,15 @@ function handleKeydown(e) {
 
 // Click listeners
 document.addEventListener('click', (e) => {
+  // Delete current item
+  if (e.target.closest('#content-delete')) {
+    e.stopPropagation();
+    if (confirm('Delete this item permanently? Its progress and attempt history will be removed.')) {
+      showLoadingState();
+      sendMessageSafely({ action: 'deleteContentItem' });
+    }
+    return;
+  }
   // Flashcard flip
   if (e.target.closest('#flashcard')) {
     toggleFlip();

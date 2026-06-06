@@ -372,7 +372,7 @@ const renderTimelineChart = () => {
     legend: { enabled: false },
     credits: { enabled: false },
     tooltip: {
-      formatter: function(this: Highcharts.TooltipFormatterContextObject) {
+      formatter: function(this: any) {
         const dateStr = dates[this.point.index]
         const label = dateStr ? format(parseISO(dateStr), 'EEEE, MMM d') : this.x
         return `<span style="font-size:11px">${label}</span><br/><b>${this.y}</b> attempts`
@@ -544,7 +544,7 @@ const renderStudyHoursChart = () => {
     hourCounts[hour]++
   })
   const peak = Math.max(...hourCounts)
-  const data = hourCounts.map((count, hour) => ({
+  const data = hourCounts.map((count) => ({
     y: count,
     color: count === peak && peak > 0 ? '#2196F3' : '#90CAF9'
   }))
@@ -566,7 +566,7 @@ const renderStudyHoursChart = () => {
     legend: { enabled: false },
     credits: { enabled: false },
     tooltip: {
-      formatter: function(this: Highcharts.TooltipFormatterContextObject) {
+      formatter: function(this: any) {
         return `<b>${categories[this.point.index]}</b><br/><b>${this.y}</b> attempts`
       }
     }
@@ -645,7 +645,7 @@ const renderStudyHeatmapChart = () => {
   const maxVal = Math.max(...heatData.map(d => d[2]), 1)
 
   if (chartInstances.studyHeatmap) {
-    chartInstances.studyHeatmap.addColorAxis[0]?.update({ max: maxVal }, false)
+    (chartInstances.studyHeatmap as any).colorAxis[0]?.update({ max: maxVal }, false)
     chartInstances.studyHeatmap.series[0]?.setData(heatData, true, { duration: 300 })
     return
   }
@@ -688,7 +688,7 @@ const renderStudyHeatmapChart = () => {
     credits: { enabled: false },
     tooltip: {
       formatter: function(this: any) {
-        const day = dayList[this.point.x]
+        const day = dayList[this.point.x] ?? -1
         const fullDate = dayLabelMap.get(day) ?? `Day ${day}`
         return `<b>${fullDate}, ${hourCategories[this.point.y]}</b><br/><b>${this.point.value}</b> attempts`
       }

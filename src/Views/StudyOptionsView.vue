@@ -18,15 +18,18 @@
     </div>
 
     <div class="mb-4">
-      <label class="text-caption font-weight-bold d-block mb-2">Content Widget Collection</label>
+      <label class="text-caption font-weight-bold d-block mb-2">Content Widget Collections</label>
       <v-select
-        v-model="contentCollectionId"
+        v-model="contentCollectionIds"
         :items="collections"
         item-title="title"
         item-value="id"
-        label="Collection for content widget"
+        label="Collections for content widget"
         variant="outlined"
         density="comfortable"
+        multiple
+        chips
+        closable-chips
         :loading="loadingCollections"
         no-data-text="No collections found"
       />
@@ -213,7 +216,7 @@ function handleSingleToggle(itemId: string, value: boolean, index: number) {
   toggleExclusion(itemId, value)
   anchorIndex.value = index
 }
-const contentCollectionId = ref<string | null>(null)
+const contentCollectionIds = ref<string[]>([])
 const notificationCollectionId = ref<string | null>(null)
 const startHour = ref(9)
 const endHour = ref(10)
@@ -246,13 +249,13 @@ onMounted(async () => {
   if (typeof chrome !== 'undefined' && chrome.storage) {
     const stored = await chrome.storage.local.get([
       'studyViewCollectionId',
-      'contentCollectionId',
+      'contentCollectionIds',
       'notificationCollectionId',
       'sessionStartHour',
       'sessionEndHour',
       'notificationIntervalSeconds',
     ])
-    if (stored.contentCollectionId) contentCollectionId.value = stored.contentCollectionId
+    if (stored.contentCollectionIds?.length) contentCollectionIds.value = stored.contentCollectionIds
     if (stored.notificationCollectionId) notificationCollectionId.value = stored.notificationCollectionId
     if (stored.sessionStartHour != null) startHour.value = stored.sessionStartHour
     if (stored.sessionEndHour != null) endHour.value = stored.sessionEndHour
@@ -268,7 +271,7 @@ async function saveNotificationSettings() {
     setStudyViewCollectionId(studyViewCollectionId.value)
     if (typeof chrome !== 'undefined' && chrome.storage) {
       await chrome.storage.local.set({
-        contentCollectionId: contentCollectionId.value,
+        contentCollectionIds: contentCollectionIds.value,
         notificationCollectionId: notificationCollectionId.value,
         sessionStartHour: startHour.value,
         sessionEndHour: endHour.value,
