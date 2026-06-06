@@ -73,9 +73,27 @@
         <div ref="strengthChartRef" class="chart"></div>
       </div>
 
-      <div class="chart-wrapper full-width">
+      <div class="chart-wrapper">
+        <h3>Peak Study Hours</h3>
+        <p class="chart-subtitle">Which hours of the day you study the most (last 30 days)</p>
+        <div ref="studyHoursChartRef" class="chart"></div>
+      </div>
+
+      <div class="chart-wrapper">
+        <h3>Most Active Days</h3>
+        <p class="chart-subtitle">Which days of the week you study the most (last 30 days)</p>
+        <div ref="studyDaysChartRef" class="chart"></div>
+      </div>
+
+      <div class="chart-wrapper">
         <h3>Study History (Last 30 Days)</h3>
         <div ref="timelineChartRef" class="chart"></div>
+      </div>
+
+      <div class="chart-wrapper">
+        <h3>Study Heatmap</h3>
+        <p class="chart-subtitle">Attempts by day of month and hour — darker means more study (last 30 days)</p>
+        <div ref="studyHeatmapChartRef" class="chart chart-heatmap"></div>
       </div>
 
       <div class="chart-wrapper full-width">
@@ -105,6 +123,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { parseISO, subDays, format } from 'date-fns'
 import { useRouter } from 'vue-router'
 import Highcharts from 'highcharts'
+import 'highcharts/modules/heatmap'
 import {
   getAllAttemptLogs,
   getAllCardProgress,
@@ -123,6 +142,9 @@ const timelineChartRef = ref<HTMLElement>()
 const challengingChartRef = ref<HTMLElement>()
 const learningCurveChartRef = ref<HTMLElement>()
 const compositionChartRef = ref<HTMLElement>()
+const studyHoursChartRef = ref<HTMLElement>()
+const studyDaysChartRef = ref<HTMLElement>()
+const studyHeatmapChartRef = ref<HTMLElement>()
 
 const availableDates = ref<string[]>([])
 const totalAttempts = ref(0)
@@ -239,6 +261,9 @@ const renderCharts = () => {
     renderChallengingChart,
     renderLearningCurveChart,
     renderCompositionChart,
+    renderStudyHoursChart,
+    renderStudyDaysChart,
+    renderStudyHeatmapChart,
   ]
   let i = 0
   const next = () => {
@@ -334,7 +359,13 @@ const renderTimelineChart = () => {
     series: [{ name: 'Daily Attempts', data: counts, color: '#2196F3', type: 'spline', lineWidth: 2, marker: { enabled: false } }],
     legend: { enabled: false },
     credits: { enabled: false },
-    tooltip: { pointFormat: '<b>{point.y}</b> attempts' }
+    tooltip: {
+      formatter: function(this: Highcharts.TooltipFormatterContextObject) {
+        const dateStr = dates[this.point.index]
+        const label = dateStr ? format(parseISO(dateStr), 'EEEE, MMM d') : this.x
+        return `<span style="font-size:11px">${label}</span><br/><b>${this.y}</b> attempts`
+      }
+    }
   } as any)
 }
 
@@ -490,6 +521,169 @@ const renderCompositionChart = () => {
   } as any)
 }
 
+const renderStudyHoursChart = () => {
+  if (!studyHoursChartRef.value) return
+  const cutoff = subDays(new Date(), 29)
+  const hourCounts = Array(24).fill(0)
+  filteredAttemptLogs.value.forEach(log => {
+    const date = parseISO(log.created_at)
+    if (date < cutoff) return
+    const hour = date.getHours()
+    hourCounts[hour]++
+  })
+  const peak = Math.max(...hourCounts)
+  const data = hourCounts.map((count, hour) => ({
+    y: count,
+    color: count === peak && peak > 0 ? '#2196F3' : '#90CAF9'
+  }))
+  const categories = Array.from({ length: 24 }, (_, h) => {
+    if (h === 0) return '12am'
+    if (h === 12) return '12pm'
+    return h < 12 ? `${h}am` : `${h - 12}pm`
+  })
+  if (chartInstances.studyHours) {
+    chartInstances.studyHours.series[0]?.setData(data, true, { duration: 300 })
+    return
+  }
+  chartInstances.studyHours = Highcharts.chart(studyHoursChartRef.value, {
+    chart: { type: 'column' },
+    title: { text: '' },
+    xAxis: { categories, title: { text: 'Hour of Day' } },
+    yAxis: { title: { text: 'Attempts' }, min: 0, gridLineWidth: 1, gridLineColor: 'rgba(0,0,0,0.08)' },
+    series: [{ name: 'Attempts', data, colorByPoint: true, type: 'column' }],
+    legend: { enabled: false },
+    credits: { enabled: false },
+    tooltip: {
+      formatter: function(this: Highcharts.TooltipFormatterContextObject) {
+        return `<b>${categories[this.point.index]}</b><br/><b>${this.y}</b> attempts`
+      }
+    }
+  } as any)
+}
+
+const renderStudyDaysChart = () => {
+  if (!studyDaysChartRef.value) return
+  const cutoff = subDays(new Date(), 29)
+  const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+  const dayCounts = Array(7).fill(0)
+  filteredAttemptLogs.value.forEach(log => {
+    const date = parseISO(log.created_at)
+    if (date < cutoff) return
+    const jsDay = date.getDay() // 0=Sun, 1=Mon, ..., 6=Sat
+    const monFirst = jsDay === 0 ? 6 : jsDay - 1
+    dayCounts[monFirst]++
+  })
+  const peak = Math.max(...dayCounts)
+  const data = dayCounts.map((count, i) => ({
+    y: count,
+    color: count === peak && peak > 0 ? '#4CAF50' : '#A5D6A7',
+    name: dayNames[i]
+  }))
+  if (chartInstances.studyDays) {
+    chartInstances.studyDays.series[0]?.setData(data, true, { duration: 300 })
+    return
+  }
+  chartInstances.studyDays = Highcharts.chart(studyDaysChartRef.value, {
+    chart: { type: 'column' },
+    title: { text: '' },
+    xAxis: { categories: dayNames, title: { text: 'Day of Week' } },
+    yAxis: { title: { text: 'Attempts' }, min: 0, gridLineWidth: 1, gridLineColor: 'rgba(0,0,0,0.08)' },
+    series: [{ name: 'Attempts', data, colorByPoint: true, type: 'column' }],
+    legend: { enabled: false },
+    credits: { enabled: false },
+    tooltip: { pointFormat: '<b>{point.y}</b> attempts' }
+  } as any)
+}
+
+const renderStudyHeatmapChart = () => {
+  if (!studyHeatmapChartRef.value) return
+  const cutoff = subDays(new Date(), 29)
+  const today = new Date()
+
+  const hourCategories = Array.from({ length: 24 }, (_, h) => {
+    if (h === 0) return '12am'
+    if (h === 12) return '12pm'
+    return h < 12 ? `${h}am` : `${h - 12}pm`
+  })
+
+  // days[0] = 30 days ago, days[29] = today — today renders at the right (last X index)
+  const days = Array.from({ length: 30 }, (_, i) => {
+    const d = subDays(today, 29 - i)
+    return { dateStr: format(d, 'yyyy-MM-dd'), dayOfMonth: d.getDate(), label: format(d, 'EEE, MMM d') }
+  })
+  const dayCategories = days.map(d => String(d.dayOfMonth))
+  const dayLabelMap = new Map(days.map(d => [d.dayOfMonth, d.label]))
+  const dayList = days.map(d => d.dayOfMonth)
+
+  const countMap = new Map<string, number>()
+  filteredAttemptLogs.value.forEach(log => {
+    const date = parseISO(log.created_at)
+    if (date < cutoff) return
+    const key = `${format(date, 'yyyy-MM-dd')}-${date.getHours()}`
+    countMap.set(key, (countMap.get(key) ?? 0) + 1)
+  })
+
+  const heatData: [number, number, number][] = []
+  days.forEach((day, dayIdx) => {
+    for (let h = 0; h < 24; h++) {
+      heatData.push([dayIdx, h, countMap.get(`${day.dateStr}-${h}`) ?? 0])
+    }
+  })
+
+  const maxVal = Math.max(...heatData.map(d => d[2]), 1)
+
+  if (chartInstances.studyHeatmap) {
+    chartInstances.studyHeatmap.addColorAxis[0]?.update({ max: maxVal }, false)
+    chartInstances.studyHeatmap.series[0]?.setData(heatData, true, { duration: 300 })
+    return
+  }
+
+  chartInstances.studyHeatmap = Highcharts.chart(studyHeatmapChartRef.value, {
+    chart: { type: 'heatmap', height: 24 * 16 + 100 },
+    title: { text: '' },
+    xAxis: {
+      categories: dayCategories,
+      title: { text: 'Day of Month' },
+      labels: {
+        useHTML: true,
+        formatter: function(this: any) {
+          return this.pos === 29
+            ? `<span style="color:#2196F3;font-weight:700">${this.value}</span>`
+            : `${this.value}`
+        }
+      }
+    },
+    yAxis: { categories: hourCategories, title: { text: 'Hour of Day' }, reversed: true },
+    colorAxis: {
+      min: 0,
+      max: maxVal,
+      stops: [
+        [0, '#FFFFFF'],
+        [0.01, '#BBDEFB'],
+        [0.4, '#42A5F5'],
+        [1, '#1565C0']
+      ]
+    },
+    series: [{
+      name: 'Attempts',
+      type: 'heatmap',
+      borderWidth: 1,
+      borderColor: 'rgba(0,0,0,0.05)',
+      data: heatData,
+      dataLabels: { enabled: false }
+    }],
+    legend: { align: 'right', layout: 'vertical', verticalAlign: 'middle' },
+    credits: { enabled: false },
+    tooltip: {
+      formatter: function(this: any) {
+        const day = dayList[this.point.x]
+        const fullDate = dayLabelMap.get(day) ?? `Day ${day}`
+        return `<b>${fullDate}, ${hourCategories[this.point.y]}</b><br/><b>${this.point.value}</b> attempts`
+      }
+    }
+  } as any)
+}
+
 const syncAndReload = async () => {
   syncing.value = true
   await syncAll()
@@ -624,6 +818,10 @@ onUnmounted(() => {
 
 .chart {
   min-height: 350px;
+}
+
+.chart-heatmap {
+  min-height: unset;
 }
 
 .chart-scroll-container {
