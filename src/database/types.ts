@@ -8,6 +8,7 @@ interface Syncable {
 export interface Collection extends Syncable {
   id?: string
   title: string
+  description?: string
   lastModified: string
   dateCreated: string
   numberOfItems: number
