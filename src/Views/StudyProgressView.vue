@@ -249,6 +249,14 @@ const computeStrengthBuckets = () => {
   return { critical, struggling, good, mastered }
 }
 
+// Cards never studied: no attempt log AND no card progress entry.
+const computeNewCardCount = () => {
+  const studiedIds = new Set<string>()
+  filteredCardProgress.value.forEach(p => studiedIds.add(p.learning_item_id))
+  filteredAttemptLogs.value.forEach(l => studiedIds.add(l.learning_item_id))
+  return filteredLearningItems.value.filter(i => !studiedIds.has(i.id!)).length
+}
+
 const renderCharts = () => {
   Highcharts.setOptions({
     xAxis: { lineColor: 'rgba(0,0,0,0.2)', tickColor: 'rgba(0,0,0,0.2)' },
@@ -276,17 +284,20 @@ const renderCharts = () => {
 const renderAccuracyChart = () => {
   if (!accuracyChartRef.value) return
   const { critical, struggling, good, mastered } = computeStrengthBuckets()
+  const newCards = computeNewCardCount()
   const weakCards = critical + struggling
   const strongCards = good + mastered
-  const total = filteredCardProgress.value.length
+  const total = filteredCardProgress.value.length + newCards
   const weakPct = total > 0 ? Math.round((weakCards / total) * 100) : 0
   const strongPct = total > 0 ? Math.round((strongCards / total) * 100) : 0
-  const subtitle = `${weakPct}% weak · ${strongPct}% strong`
+  const newPct = total > 0 ? Math.round((newCards / total) * 100) : 0
+  const subtitle = `${weakPct}% weak · ${strongPct}% strong · ${newPct}% new`
   const data = [
     { name: 'Critical', y: critical, color: '#F44336' },
     { name: 'Struggling', y: struggling, color: '#FF9800' },
     { name: 'Good', y: good, color: '#8BC34A' },
-    { name: 'Mastered', y: mastered, color: '#4CAF50' }
+    { name: 'Mastered', y: mastered, color: '#4CAF50' },
+    { name: 'New', y: newCards, color: '#BDBDBD' }
   ]
   if (chartInstances.accuracy) {
     chartInstances.accuracy.series[0]?.setData(data, true, { duration: 300 })
@@ -308,7 +319,8 @@ const renderAccuracyChart = () => {
 const renderStrengthChart = () => {
   if (!strengthChartRef.value) return
   const { critical, struggling, good, mastered } = computeStrengthBuckets()
-  const data = [critical, struggling, good, mastered]
+  const newCards = computeNewCardCount()
+  const data = [critical, struggling, good, mastered, newCards]
   if (chartInstances.strength) {
     chartInstances.strength.series[0]?.setData(data, true, { duration: 300 })
     return
@@ -316,9 +328,9 @@ const renderStrengthChart = () => {
   chartInstances.strength = Highcharts.chart(strengthChartRef.value, {
     chart: { type: 'column' },
     title: { text: '' },
-    xAxis: { categories: ['Critical', 'Struggling', 'Good', 'Mastered'], crosshair: true },
+    xAxis: { categories: ['Critical', 'Struggling', 'Good', 'Mastered', 'New'], crosshair: true },
     yAxis: { title: { text: 'Number of Cards' }, min: 0, gridLineWidth: 1, gridLineColor: 'rgba(0,0,0,0.08)' },
-    series: [{ name: 'Cards', data, colorByPoint: true, colors: ['#F44336', '#FF9800', '#8BC34A', '#4CAF50'], type: 'column' }],
+    series: [{ name: 'Cards', data, colorByPoint: true, colors: ['#F44336', '#FF9800', '#8BC34A', '#4CAF50', '#BDBDBD'], type: 'column' }],
     legend: { enabled: false },
     credits: { enabled: false },
     tooltip: { pointFormat: '<b>{point.y}</b> cards' }
