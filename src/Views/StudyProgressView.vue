@@ -97,6 +97,30 @@
       </div>
 
       <div class="chart-wrapper full-width">
+        <div class="chart-header-row">
+          <div>
+            <h3>Collection Overview</h3>
+            <p class="chart-subtitle">Strength, revisions, and card coverage per collection</p>
+          </div>
+          <v-btn-toggle
+            v-model="collectionOverviewSortBy"
+            mandatory
+            density="compact"
+            variant="outlined"
+            class="sort-toggle"
+            @update:model-value="renderCollectionOverviewChart"
+          >
+            <v-btn value="name" size="small">Name</v-btn>
+            <v-btn value="strength" size="small">Strength</v-btn>
+            <v-btn value="revisions" size="small">Revisions</v-btn>
+            <v-btn value="revised" size="small">Revised</v-btn>
+            <v-btn value="notRevised" size="small">Not Revised</v-btn>
+          </v-btn-toggle>
+        </div>
+        <div ref="collectionOverviewChartRef" class="chart"></div>
+      </div>
+
+      <div class="chart-wrapper full-width">
         <h3>Strength Composition Over Time</h3>
         <p class="chart-subtitle">How your card distribution shifted across strength tiers over time</p>
         <div ref="compositionChartRef" class="chart"></div>
@@ -138,6 +162,8 @@ const compositionChartRef = ref<HTMLElement>()
 const studyHoursChartRef = ref<HTMLElement>()
 const studyDaysChartRef = ref<HTMLElement>()
 const studyHeatmapChartRef = ref<HTMLElement>()
+const collectionOverviewChartRef = ref<HTMLElement>()
+const collectionOverviewSortBy = ref<'name' | 'strength' | 'revisions' | 'revised' | 'notRevised'>('name')
 
 const availableDates = ref<string[]>([])
 const totalAttempts = ref(0)
@@ -250,6 +276,113 @@ const computeNewCardCount = () => {
   return filteredLearningItems.value.filter(i => !studiedIds.has(i.id!)).length
 }
 
+const renderCollectionOverviewChart = () => {
+  if (!collectionOverviewChartRef.value) return
+
+  const baseCollections = isAllSelected.value
+    ? [...collections.value]
+    : collections.value.filter(c => selectedCollectionIds.value.includes(c.id!))
+
+  // Build metric maps first so we can sort by computed values
+  type CollectionMetrics = { strength: number; revisions: number; revised: number; notRevised: number }
+  const metricsMap = new Map<string, CollectionMetrics>()
+  for (const collection of baseCollections) {
+    const items = allLearningItems.value.filter(i => i.collectionId === collection.id)
+    const itemIds = new Set(items.map(i => i.id!))
+    const logs = allAttemptLogs.value.filter(l => itemIds.has(l.learning_item_id))
+    const progress = allCardProgress.value.filter(p => itemIds.has(p.learning_item_id))
+    const revisedIds = new Set(logs.map(l => l.learning_item_id))
+    const avgStrength = progress.length > 0
+      ? (progress.reduce((sum, p) => sum + p.strength_score, 0) / progress.length) * 100
+      : 0
+    metricsMap.set(collection.id!, {
+      strength: Math.round(avgStrength),
+      revisions: logs.length,
+      revised: revisedIds.size,
+      notRevised: Math.max(0, items.length - revisedIds.size)
+    })
+  }
+
+  const sortKey = collectionOverviewSortBy.value
+  const visibleCollections = baseCollections.sort((a, b) => {
+    if (sortKey === 'name') return a.title.localeCompare(b.title)
+    const ma = metricsMap.get(a.id!)!
+    const mb = metricsMap.get(b.id!)!
+    return mb[sortKey] - ma[sortKey]
+  })
+
+  if (visibleCollections.length === 0) return
+
+  const categories = visibleCollections.map(c =>
+    c.title.length > 20 ? c.title.substring(0, 20) + '…' : c.title
+  )
+
+  const strengthColor = (pct: number) => {
+    if (pct < 25) return '#F44336'
+    if (pct < 50) return '#FF9800'
+    if (pct < 75) return '#8BC34A'
+    return '#4CAF50'
+  }
+
+  const strengthData: { y: number; color: string }[] = []
+  const revisionsData: number[] = []
+  const revisedData: number[] = []
+  const notRevisedData: number[] = []
+
+  for (const collection of visibleCollections) {
+    const m = metricsMap.get(collection.id!)!
+    strengthData.push({ y: m.strength, color: strengthColor(m.strength) })
+    revisionsData.push(m.revisions)
+    revisedData.push(m.revised)
+    notRevisedData.push(m.notRevised)
+  }
+
+  if (chartInstances.collectionOverview) {
+    chartInstances.collectionOverview.destroy()
+    delete chartInstances.collectionOverview
+  }
+
+  chartInstances.collectionOverview = Highcharts.chart(collectionOverviewChartRef.value, {
+    chart: { type: 'column' },
+    title: { text: '' },
+    xAxis: { categories, crosshair: true },
+    yAxis: [
+      {
+        title: { text: 'Count' },
+        min: 0,
+        gridLineWidth: 1,
+        gridLineColor: 'rgba(0,0,0,0.08)'
+      },
+      {
+        title: { text: 'Avg Strength (%)' },
+        min: 0,
+        max: 100,
+        opposite: true,
+        gridLineWidth: 0
+      }
+    ],
+    series: [
+      { name: 'Avg Strength (%)', data: strengthData, colorByPoint: true, type: 'column', yAxis: 1 },
+      { name: 'Total Revisions', data: revisionsData, color: '#1565C0', type: 'column' },
+      { name: 'Cards Revised', data: revisedData, color: '#64B5F6', type: 'column' },
+      { name: 'Cards Not Revised', data: notRevisedData, color: '#BDBDBD', type: 'column' }
+    ],
+    legend: { enabled: true },
+    credits: { enabled: false },
+    tooltip: {
+      shared: true,
+      formatter: function(this: any) {
+        let s = `<b>${this.x}</b><br/>`
+        this.points.forEach((p: any) => {
+          const suffix = p.series.name === 'Avg Strength (%)' ? '%' : ''
+          s += `<span style="color:${p.color}">●</span> ${p.series.name}: <b>${p.y}${suffix}</b><br/>`
+        })
+        return s
+      }
+    }
+  } as any)
+}
+
 const renderCharts = () => {
   Highcharts.setOptions({
     xAxis: { lineColor: 'rgba(0,0,0,0.2)', tickColor: 'rgba(0,0,0,0.2)' },
@@ -264,6 +397,7 @@ const renderCharts = () => {
     renderStudyHoursChart,
     renderStudyDaysChart,
     renderStudyHeatmapChart,
+    renderCollectionOverviewChart,
   ]
   let i = 0
   const next = () => {
@@ -775,6 +909,19 @@ onUnmounted(() => {
 
 .chart-heatmap {
   min-height: unset;
+}
+
+.chart-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.sort-toggle {
+  flex-shrink: 0;
 }
 
 .chart-scroll-container {
