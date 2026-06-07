@@ -391,10 +391,10 @@ onBeforeUnmount(() => editor.destroy())
 
   // Inline code (`backticks`) — not inside a code block.
   code {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.07);
     border-radius: 0.35rem;
-    color: #e8a0a0;
+    color: rgba(0, 0, 0, 0.75);
     font-family: 'JetBrainsMono', monospace;
     font-size: 0.85em;
     font-weight: 400;

@@ -99,6 +99,10 @@ function injectContentDisplay() {
         </div>
         <div class="content-header-actions">
           <span class="content-side-indicator" id="side-indicator">Question</span>
+          <button class="content-theme-btn" id="content-theme-toggle" title="Toggle dark mode">
+            <svg class="theme-icon-moon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-4.4 2.26 5.4 5.4 0 0 1-5.4-5.4c0-1.81.89-3.41 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+            <svg class="theme-icon-sun" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-5a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1zm0 17a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1zM3 11h2a1 1 0 1 1 0 2H3a1 1 0 1 1 0-2zm16 0h2a1 1 0 1 1 0 2h-2a1 1 0 1 1 0-2zM5.64 5.64a1 1 0 0 1 1.42 0l1.41 1.41a1 1 0 0 1-1.41 1.42L5.64 7.05a1 1 0 0 1 0-1.41zm9.9 9.9a1 1 0 0 1 1.41 0l1.41 1.41a1 1 0 0 1-1.41 1.42l-1.41-1.42a1 1 0 0 1 0-1.41zm2.82-9.9a1 1 0 0 1 0 1.41l-1.41 1.42a1 1 0 1 1-1.42-1.42l1.42-1.41a1 1 0 0 1 1.41 0zm-9.9 9.9a1 1 0 0 1 0 1.41l-1.41 1.42a1 1 0 0 1-1.42-1.42l1.41-1.41a1 1 0 0 1 1.42 0z"/></svg>
+          </button>
           <button class="content-delete-btn" id="content-delete" title="Delete item">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
           </button>
@@ -285,6 +289,46 @@ function injectContentDisplay() {
 
     .content-delete-btn:hover {
       background: rgba(239, 68, 68, 0.1);
+    }
+
+    .content-theme-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: #6b7280;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      font-family: inherit;
+    }
+
+    .content-theme-btn:hover {
+      background: rgba(0, 0, 0, 0.06);
+    }
+
+    .content-theme-btn .theme-icon-sun {
+      display: none;
+    }
+
+    .learning-content-widget.dark .content-theme-btn {
+      color: #fbbf24;
+    }
+
+    .learning-content-widget.dark .content-theme-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .learning-content-widget.dark .content-theme-btn .theme-icon-moon {
+      display: none;
+    }
+
+    .learning-content-widget.dark .content-theme-btn .theme-icon-sun {
+      display: block;
     }
 
     .content-timer {
@@ -589,6 +633,88 @@ function injectContentDisplay() {
     .content-rating-btn:active {
       transform: scale(0.95);
     }
+
+    /* ---- Dark mode ---- */
+    .learning-content-widget.dark {
+      background: #1e1e2e;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+
+    .learning-content-widget.dark .content-header {
+      background: #181825;
+      border-bottom-color: #313244;
+    }
+
+    .learning-content-widget.dark .content-header h3 {
+      color: #f3f4f6;
+    }
+
+    .learning-content-widget.dark .content-counter {
+      color: #9ca3af;
+    }
+
+    .learning-content-widget.dark .content-side-indicator {
+      background: rgba(255, 255, 255, 0.08);
+      color: #9ca3af;
+    }
+
+    .learning-content-widget.dark .content-timer {
+      background: #181825;
+      border-bottom-color: #313244;
+    }
+
+    .learning-content-widget.dark .content-timer-bar-bg {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .learning-content-widget.dark .content-timer-label {
+      color: #9ca3af;
+    }
+
+    .learning-content-widget.dark .front-question {
+      color: #f3f4f6;
+    }
+
+    .learning-content-widget.dark .content-body p,
+    .learning-content-widget.dark .content-body div {
+      color: #d1d5db;
+    }
+
+    .learning-content-widget.dark .content-body h1,
+    .learning-content-widget.dark .content-body h2,
+    .learning-content-widget.dark .content-body h3,
+    .learning-content-widget.dark .content-body h4,
+    .learning-content-widget.dark .content-body h5,
+    .learning-content-widget.dark .content-body h6 {
+      color: #f3f4f6;
+    }
+
+    .learning-content-widget.dark .content-body code {
+      background: #313244;
+      color: #f3f4f6;
+    }
+
+    .learning-content-widget.dark .content-body pre {
+      background: #11111b;
+    }
+
+    .learning-content-widget.dark .content-body blockquote {
+      color: #9ca3af;
+    }
+
+    .learning-content-widget.dark .content-body table td,
+    .learning-content-widget.dark .content-body table th {
+      border-color: #313244;
+    }
+
+    .learning-content-widget.dark .content-body table th {
+      background: #313244;
+    }
+
+    .learning-content-widget.dark .content-footer {
+      background: #181825;
+      border-top-color: #313244;
+    }
   `;
 
   document.head.appendChild(style);
@@ -597,8 +723,27 @@ function injectContentDisplay() {
   const header = contentWidget.querySelector('.content-header');
   restorePanelPosition(widget);
   makeDraggable(widget, header);
+  restoreDarkMode(widget);
 
   return contentWidget;
+}
+
+const DARK_MODE_KEY = 'contentDarkMode';
+
+function restoreDarkMode(widget) {
+  if (!widget || typeof chrome === 'undefined' || !chrome.storage) return;
+  chrome.storage.local.get(DARK_MODE_KEY, (data) => {
+    widget.classList.toggle('dark', !!data?.[DARK_MODE_KEY]);
+  });
+}
+
+function toggleDarkMode() {
+  const widget = document.querySelector('.learning-content-widget');
+  if (!widget) return;
+  const enabled = widget.classList.toggle('dark');
+  if (typeof chrome !== 'undefined' && chrome.storage) {
+    chrome.storage.local.set({ [DARK_MODE_KEY]: enabled });
+  }
 }
 
 const PANEL_POSITION_KEY = 'contentPanelPosition';
@@ -890,6 +1035,12 @@ function handleKeydown(e) {
 
 // Click listeners
 document.addEventListener('click', (e) => {
+  // Toggle dark mode
+  if (e.target.closest('#content-theme-toggle')) {
+    e.stopPropagation();
+    toggleDarkMode();
+    return;
+  }
   // Delete current item
   if (e.target.closest('#content-delete')) {
     e.stopPropagation();
