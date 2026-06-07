@@ -97,12 +97,6 @@
       </div>
 
       <div class="chart-wrapper full-width">
-        <h3>Learning Curve</h3>
-        <p class="chart-subtitle">Your daily accuracy rate over time — where you started vs. where you are now</p>
-        <div ref="learningCurveChartRef" class="chart"></div>
-      </div>
-
-      <div class="chart-wrapper full-width">
         <h3>Strength Composition Over Time</h3>
         <p class="chart-subtitle">How your card distribution shifted across strength tiers over time</p>
         <div ref="compositionChartRef" class="chart"></div>
@@ -140,7 +134,6 @@ const accuracyChartRef = ref<HTMLElement>()
 const strengthChartRef = ref<HTMLElement>()
 const timelineChartRef = ref<HTMLElement>()
 const challengingChartRef = ref<HTMLElement>()
-const learningCurveChartRef = ref<HTMLElement>()
 const compositionChartRef = ref<HTMLElement>()
 const studyHoursChartRef = ref<HTMLElement>()
 const studyDaysChartRef = ref<HTMLElement>()
@@ -267,7 +260,6 @@ const renderCharts = () => {
     renderStrengthChart,
     renderTimelineChart,
     renderChallengingChart,
-    renderLearningCurveChart,
     renderCompositionChart,
     renderStudyHoursChart,
     renderStudyDaysChart,
@@ -414,57 +406,6 @@ const renderChallengingChart = () => {
   } as any)
 }
 
-const renderLearningCurveChart = () => {
-  if (!learningCurveChartRef.value) return
-  const sortedLogs = [...filteredAttemptLogs.value].sort(
-    (a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime()
-  )
-  const cardState = new Map<string, { total: number; weighted: number }>()
-  const dailyAvg = new Map<string, number>()
-  sortedLogs.forEach(log => {
-    const dateStr = format(parseISO(log.created_at), 'yyyy-MM-dd')
-    const s = cardState.get(log.learning_item_id) ?? { total: 0, weighted: 0 }
-    s.total += 1
-    s.weighted += log.ease_score
-    cardState.set(log.learning_item_id, s)
-    let learned = 0
-    cardState.forEach(v => { if (v.weighted / v.total >= 0.5) learned++ })
-    dailyAvg.set(dateStr, learned / cardState.size)
-  })
-  const sorted = Array.from(dailyAvg.entries()).sort(([a], [b]) => a.localeCompare(b))
-  const dates = sorted.map(([d]) => d)
-  const dateLabels = dates.map(d => format(parseISO(d), 'MMM d, yy'))
-  const mastery = sorted.map(([, v]) => Math.round(v * 100))
-  availableDates.value = dates
-  const cardCounts: number[] = []
-  const seen = new Set<string>()
-  let cursor = 0
-  dates.forEach(d => {
-    while (cursor < sortedLogs.length) {
-      const log = sortedLogs[cursor]
-      if (!log || format(parseISO(log.created_at), 'yyyy-MM-dd') > d) break
-      seen.add(log.learning_item_id)
-      cursor++
-    }
-    cardCounts.push(seen.size)
-  })
-  const seriesData = mastery.map((y, i) => ({ y, cards: cardCounts[i] }))
-  if (chartInstances.learningCurve) {
-    chartInstances.learningCurve.xAxis[0]?.setCategories(dateLabels, false)
-    chartInstances.learningCurve.series[0]?.setData(seriesData, true, { duration: 300 })
-    return
-  }
-  chartInstances.learningCurve = Highcharts.chart(learningCurveChartRef.value, {
-    chart: { type: 'areaspline' },
-    title: { text: '' },
-    xAxis: { categories: dateLabels, tickInterval: Math.max(1, Math.floor(dateLabels.length / 8)) },
-    yAxis: { title: { text: 'Cards Learned (%)' }, min: 0, max: 100, labels: { format: '{value}%' }, gridLineWidth: 1, gridLineColor: 'rgba(0,0,0,0.08)' },
-    series: [{ name: 'Cards Learned', data: seriesData, color: '#4CAF50', fillOpacity: 0.2, lineWidth: 2, type: 'areaspline', marker: { enabled: false } }],
-    legend: { enabled: false },
-    credits: { enabled: false },
-    tooltip: { pointFormat: '<b>{point.y}%</b> learned<br/>across {point.cards} cards seen' }
-  } as any)
-}
 
 const renderCompositionChart = () => {
   if (!compositionChartRef.value || filteredAttemptLogs.value.length === 0) return
