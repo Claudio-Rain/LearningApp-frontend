@@ -163,7 +163,7 @@ const studyHoursChartRef = ref<HTMLElement>()
 const studyDaysChartRef = ref<HTMLElement>()
 const studyHeatmapChartRef = ref<HTMLElement>()
 const collectionOverviewChartRef = ref<HTMLElement>()
-const collectionOverviewSortBy = ref<'name' | 'strength' | 'revisions' | 'revised' | 'notRevised'>('name')
+const collectionOverviewSortBy = ref<'name' | 'strength' | 'revisions' | 'revised' | 'notRevised'>('strength')
 
 const availableDates = ref<string[]>([])
 const totalAttempts = ref(0)
@@ -482,11 +482,17 @@ const renderTimelineChart = () => {
   
   const dates = Array.from(dateMap.keys())
   const counts = Array.from(dateMap.values())
-  
+
+  const movingAvg = counts.map((_, i) => {
+    const window = counts.slice(Math.max(0, i - 4), i + 1)
+    return Math.round((window.reduce((s, v) => s + v, 0) / window.length) * 10) / 10
+  })
+
   const dateLabels = dates.map(d => format(parseISO(d), 'MMM d, yy'))
   if (chartInstances.timeline) {
     chartInstances.timeline.xAxis[0]?.setCategories(dateLabels, false)
-    chartInstances.timeline.series[0]?.setData(counts, true, { duration: 300 })
+    chartInstances.timeline.series[0]?.setData(counts, false, { duration: 300 })
+    chartInstances.timeline.series[1]?.setData(movingAvg, true, { duration: 300 })
     return
   }
   chartInstances.timeline = Highcharts.chart(timelineChartRef.value, {
@@ -494,14 +500,22 @@ const renderTimelineChart = () => {
     title: { text: '' },
     xAxis: { categories: dateLabels, tickInterval: 5 },
     yAxis: { title: { text: 'Attempts' }, min: 0, gridLineWidth: 1, gridLineColor: 'rgba(0,0,0,0.08)' },
-    series: [{ name: 'Daily Attempts', data: counts, color: '#2196F3', type: 'spline', lineWidth: 2, marker: { enabled: false } }],
-    legend: { enabled: false },
+    series: [
+      { name: 'Daily Attempts', data: counts, color: '#2196F3', type: 'spline', lineWidth: 2, marker: { enabled: false } },
+      { name: '5-Day Avg', data: movingAvg, color: '#90CAF9', type: 'spline', lineWidth: 2.5, marker: { enabled: false }, dashStyle: 'ShortDash' }
+    ],
+    legend: { enabled: true },
     credits: { enabled: false },
     tooltip: {
+      shared: true,
       formatter: function(this: any) {
-        const dateStr = dates[this.point.index]
+        const dateStr = dates[this.points?.[0]?.point?.index ?? 0]
         const label = dateStr ? format(parseISO(dateStr), 'EEEE, MMM d') : this.x
-        return `<span style="font-size:11px">${label}</span><br/><b>${this.y}</b> attempts`
+        let s = `<span style="font-size:11px">${label}</span><br/>`
+        this.points?.forEach((p: any) => {
+          s += `<span style="color:${p.color}">●</span> ${p.series.name}: <b>${p.y}</b><br/>`
+        })
+        return s
       }
     }
   } as any)

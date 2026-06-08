@@ -107,7 +107,7 @@
       </p>
       <v-select
         v-model="exclusionCollectionId"
-        :items="collections"
+        :items="exclusionCollectionOptions"
         item-title="title"
         item-value="id"
         label="Collection to browse"
@@ -174,6 +174,18 @@ declare const chrome: any
 
 const collections = ref<{ id: string; title: string }[]>([])
 const loadingCollections = ref(false)
+const collectionItemIds = ref<Map<string, Set<string>>>(new Map())
+
+const exclusionCollectionOptions = computed(() => {
+  const excluded = excludedItemIds.value // always track as dependency
+  return collections.value.map(c => {
+    const ids = collectionItemIds.value.get(c.id)
+    if (!ids) return { id: c.id, title: c.title }
+    const excludedCount = [...ids].filter(id => excluded.has(id)).length
+    const label = excludedCount > 0 ? `${c.title} (${excludedCount} excluded)` : c.title
+    return { id: c.id, title: label }
+  })
+})
 
 const { studyViewCollectionId, setStudyViewCollectionId } = useStudyViewCollection()
 const { excludedItemIds, isExcluded, toggleExclusion } = useExcludedItems()
@@ -250,7 +262,17 @@ onMounted(async () => {
   loadingCollections.value = true
   try {
     const raw = await getCollections()
-    collections.value = raw.filter((c): c is typeof c & { id: string } => !!c.id)
+    collections.value = raw
+      .filter((c): c is typeof c & { id: string } => !!c.id)
+      .sort((a, b) => a.title.localeCompare(b.title))
+
+    const entries = await Promise.all(
+      collections.value.map(async c => {
+        const items = await getLearningItems(c.id)
+        return [c.id, new Set(items.map(i => i.id).filter(Boolean) as string[])] as const
+      })
+    )
+    collectionItemIds.value = new Map(entries)
   } finally {
     loadingCollections.value = false
   }

@@ -78,24 +78,31 @@
           </div>
         </div>
 
-        <!-- Rating Buttons (show when flipped) -->
-        <div v-if="isFlipped" class="rating-buttons">
-          <v-btn @click="recordAttempt(-0.15)" color="error" variant="tonal" size="large">
-            <v-icon start>mdi-close</v-icon>
-            Very Hard
-          </v-btn>
-          <v-btn @click="recordAttempt(-0.10)" color="warning" variant="tonal" size="large">
-            <v-icon start>mdi-minus</v-icon>
-            Hard
-          </v-btn>
-          <v-btn @click="recordAttempt(0.10)" color="info" variant="tonal" size="large">
-            <v-icon start>mdi-check</v-icon>
-            Good
-          </v-btn>
-          <v-btn @click="recordAttempt(0.15)" color="success" variant="tonal" size="large">
-            <v-icon start>mdi-star</v-icon>
-            Easy
-          </v-btn>
+        <!-- Nav Buttons (always visible) -->
+        <!-- Bottom Action Row -->
+        <div v-if="isFlipped" class="action-row">
+          <div class="nav-buttons">
+            <v-btn @click="moveToPrev" :disabled="currentIndex === 0" variant="tonal" size="large" icon="mdi-arrow-left" />
+            <v-btn @click="skipToNext" variant="tonal" size="large" icon="mdi-arrow-right" />
+          </div>
+          <div class="rating-buttons">
+            <v-btn @click="recordAttempt(-0.15)" color="error" variant="tonal" size="large">
+              <v-icon start>mdi-close</v-icon>
+              Very Hard
+            </v-btn>
+            <v-btn @click="recordAttempt(-0.10)" color="warning" variant="tonal" size="large">
+              <v-icon start>mdi-minus</v-icon>
+              Hard
+            </v-btn>
+            <v-btn @click="recordAttempt(0.10)" color="info" variant="tonal" size="large">
+              <v-icon start>mdi-check</v-icon>
+              Good
+            </v-btn>
+            <v-btn @click="recordAttempt(0.15)" color="success" variant="tonal" size="large">
+              <v-icon start>mdi-star</v-icon>
+              Easy
+            </v-btn>
+          </div>
         </div>
 
         <!-- Progress Bar -->
@@ -364,13 +371,26 @@ const recordAttempt = async (easeScore: number) => {
   moveToNext()
 }
 
-const moveToNext = () => {
+const moveToPrev = () => {
+  if (currentIndex.value > 0) {
+    currentIndex.value--
+    isFlipped.value = false
+  }
+}
+
+const skipToNext = async () => {
+  await moveToNext()
+}
+
+const moveToNext = async () => {
   if (currentIndex.value < studyQueue.value.length - 1) {
     currentIndex.value++
     isFlipped.value = false
   } else {
-    alert('Study session complete!')
-    goBack()
+    await loadData()
+    currentIndex.value = 0
+    isFlipped.value = false
+    startTimer()
   }
 }
 
@@ -609,11 +629,24 @@ onUnmounted(() => {
 }
 
 
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.nav-buttons {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .rating-buttons {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 8px;
-  width: 100%;
+  flex: 1;
 }
 
 @media (min-width: 700px) {
