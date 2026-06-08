@@ -165,7 +165,6 @@ const studyHeatmapChartRef = ref<HTMLElement>()
 const collectionOverviewChartRef = ref<HTMLElement>()
 const collectionOverviewSortBy = ref<'name' | 'strength' | 'revisions' | 'revised' | 'notRevised'>('strength')
 
-const availableDates = ref<string[]>([])
 const totalAttempts = ref(0)
 const cardsLearned = ref(0)
 const syncing = ref(false)
