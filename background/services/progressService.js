@@ -3,6 +3,7 @@ import {
   createAttemptLog,
   createCardProgress,
   updateCardProgress,
+  updateLocalCardProgress,
   syncCardProgress,
   syncAttemptLogs,
   getAllCardProgress
@@ -66,42 +67,38 @@ export async function recordAttempt(itemId, buttonIndex) {
   }
 }
 
+// Records a rating from the content widget. Only the *local* writes are awaited
+// so the widget can advance to the next card immediately; the Firebase push runs
+// in the background (the next-card lookup reads local data, not the remote).
 export async function recordContentRating(itemId, easeScore) {
   const now = formatISO(new Date());
 
   console.log('[background] recordContentRating: easeScore =', easeScore);
 
   try {
-    console.log('[background] recordContentRating: creating attempt log');
     await createAttemptLog({
       learning_item_id: itemId,
       ease_score: easeScore,
       is_correct: easeScore > 0.3,
       created_at: now
     });
-    console.log('[background] recordContentRating: attempt log created, syncing');
-    await syncAttemptLogs();
-    console.log('[background] recordContentRating: attempt logs synced');
 
     const allProgress = await getAllCardProgress();
-    console.log('[background] recordContentRating: allProgress count =', allProgress?.length ?? 0);
     const progress = allProgress.find(p => p.learning_item_id === itemId);
 
     if (progress) {
       const totalAttempts = progress.total_attempts + 1;
       const newStrength = Math.max(0, Math.min(1, progress.strength_score + easeScore));
-      console.log('[background] recordContentRating: updating card progress, newStrength =', newStrength);
-
-      await updateCardProgress({
+      // Local-only write (no inline remote round-trip) — kept fast for the UI.
+      await updateLocalCardProgress({
         ...progress,
         strength_score: newStrength,
         last_reviewed_at: now,
         total_attempts: totalAttempts,
-        weighted_attempts: progress.weighted_attempts + easeScore
+        weighted_attempts: progress.weighted_attempts + easeScore,
+        syncStatus: 'pending'
       });
-      console.log('[background] recordContentRating: card progress updated');
     } else {
-      console.log('[background] recordContentRating: no existing progress, creating new card progress');
       await createCardProgress({
         learning_item_id: itemId,
         strength_score: Math.max(0, easeScore),
@@ -109,12 +106,13 @@ export async function recordContentRating(itemId, easeScore) {
         total_attempts: 1,
         weighted_attempts: easeScore
       });
-      console.log('[background] recordContentRating: card progress created');
     }
 
-    console.log('[background] recordContentRating: syncing card progress');
-    await syncCardProgress();
-    console.log('[background] recordContentRating: card progress synced');
+    // Push to Firebase without blocking the next-card render.
+    syncCardProgress().catch(err =>
+      console.warn('[background] recordContentRating: background card progress sync failed:', err));
+    syncAttemptLogs().catch(err =>
+      console.warn('[background] recordContentRating: background attempt log sync failed:', err));
   } catch (error) {
     console.error('[background] recordContentRating: error recording rating:', error);
     throw error;

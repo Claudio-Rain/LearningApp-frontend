@@ -103,6 +103,9 @@ function injectContentDisplay() {
           </div>
         </div>
         <div class="content-header-actions">
+          <button class="content-notes-btn" id="content-notes-toggle" title="Scratchpad notes">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 4a2 2 0 0 1 2-2h9l6 6v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4zm10 0v5h5l-5-5zM7 13h10v2H7v-2zm0 4h7v2H7v-2z"/></svg>
+          </button>
           <button class="content-theme-btn" id="content-theme-toggle" title="Toggle dark mode">
             <svg class="theme-icon-moon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-4.4 2.26 5.4 5.4 0 0 1-5.4-5.4c0-1.81.89-3.41 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
             <svg class="theme-icon-sun" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-5a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1zm0 17a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1zM3 11h2a1 1 0 1 1 0 2H3a1 1 0 1 1 0-2zm16 0h2a1 1 0 1 1 0 2h-2a1 1 0 1 1 0-2zM5.64 5.64a1 1 0 0 1 1.42 0l1.41 1.41a1 1 0 0 1-1.41 1.42L5.64 7.05a1 1 0 0 1 0-1.41zm9.9 9.9a1 1 0 0 1 1.41 0l1.41 1.41a1 1 0 0 1-1.41 1.42l-1.41-1.42a1 1 0 0 1 0-1.41zm2.82-9.9a1 1 0 0 1 0 1.41l-1.41 1.42a1 1 0 1 1-1.42-1.42l1.42-1.41a1 1 0 0 1 1.41 0zm-9.9 9.9a1 1 0 0 1 0 1.41l-1.41 1.42a1 1 0 0 1-1.42-1.42l1.41-1.41a1 1 0 0 1 1.42 0z"/></svg>
@@ -140,6 +143,16 @@ function injectContentDisplay() {
   `;
 
   document.body.appendChild(contentWidget);
+
+  // Standalone scratchpad panel (ephemeral — nothing is persisted).
+  const notesPanel = document.createElement('div');
+  notesPanel.id = 'learning-notes-panel';
+  notesPanel.className = 'learning-notes-panel';
+  notesPanel.innerHTML = `
+    <div class="learning-notes-header">Notes</div>
+    <textarea class="learning-notes-textarea" placeholder="Jot something down…"></textarea>
+  `;
+  document.body.appendChild(notesPanel);
 
   const style = document.createElement('style');
   style.textContent = `
@@ -354,7 +367,7 @@ function injectContentDisplay() {
       background: rgba(239, 68, 68, 0.1);
     }
 
-    .content-theme-btn {
+    .content-theme-btn, .content-notes-btn {
       display: flex;
       align-items: center;
       justify-content: center;
@@ -370,8 +383,89 @@ function injectContentDisplay() {
       font-family: inherit;
     }
 
-    .content-theme-btn:hover {
+    .content-theme-btn:hover, .content-notes-btn:hover {
       background: rgba(0, 0, 0, 0.06);
+    }
+
+    .content-notes-btn.active {
+      background: rgba(59, 130, 246, 0.12);
+      color: #2563eb;
+    }
+
+    .learning-notes-panel {
+      position: fixed;
+      top: 20px;
+      right: 516px;
+      z-index: 999997;
+      display: none;
+      flex-direction: column;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .learning-notes-panel.open {
+      display: flex;
+    }
+
+    .learning-notes-header {
+      padding: 8px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #6b7280;
+      background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb;
+      user-select: none;
+    }
+
+    .learning-notes-textarea {
+      width: 240px;
+      height: 180px;
+      min-width: 160px;
+      min-height: 100px;
+      max-width: 70vw;
+      max-height: 70vh;
+      resize: both;
+      border: none;
+      outline: none;
+      padding: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #1f2937;
+      background: white;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      box-sizing: border-box;
+      display: block;
+    }
+
+    .learning-notes-textarea::placeholder {
+      color: #9ca3af;
+    }
+
+    .learning-notes-panel.dark {
+      background: #1e1e2e;
+      border-color: #313244;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+
+    .learning-notes-panel.dark .learning-notes-header {
+      background: #181825;
+      border-bottom-color: #313244;
+      color: #9ca3af;
+    }
+
+    .learning-notes-panel.dark .learning-notes-textarea {
+      background: #1e1e2e;
+      color: #d1d5db;
+    }
+
+    .learning-notes-panel.dark .learning-notes-textarea::placeholder {
+      color: #6b7280;
     }
 
     .content-theme-btn .theme-icon-sun {
@@ -1064,6 +1158,18 @@ function toggleFlip() {
   flashcard.classList.toggle('flipped');
 }
 
+function toggleNotesPanel() {
+  const panel = document.getElementById('learning-notes-panel');
+  const btn = document.getElementById('content-notes-toggle');
+  const widget = document.querySelector('.learning-content-widget');
+  if (!panel) return;
+  const open = panel.classList.toggle('open');
+  if (btn) btn.classList.toggle('active', open);
+  // Mirror the widget's theme so the panel matches light/dark.
+  panel.classList.toggle('dark', !!widget?.classList.contains('dark'));
+  if (open) panel.querySelector('.learning-notes-textarea')?.focus();
+}
+
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   try {
     if (request.action === 'updateContent') {
@@ -1128,6 +1234,12 @@ document.addEventListener('click', (e) => {
     e.stopPropagation();
     showLoadingState();
     sendMessageSafely({ action: 'navigateNext' });
+    return;
+  }
+  // Toggle scratchpad notes panel
+  if (e.target.closest('#content-notes-toggle')) {
+    e.stopPropagation();
+    toggleNotesPanel();
     return;
   }
   // Toggle dark mode
