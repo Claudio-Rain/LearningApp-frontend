@@ -149,8 +149,12 @@ function injectContentDisplay() {
   notesPanel.id = 'learning-notes-panel';
   notesPanel.className = 'learning-notes-panel';
   notesPanel.innerHTML = `
-    <div class="learning-notes-header">Notes</div>
+    <div class="learning-notes-header">
+      <span>Notes</span>
+      <button class="learning-notes-close" id="learning-notes-close" title="Close notes">&times;</button>
+    </div>
     <textarea class="learning-notes-textarea" placeholder="Jot something down…"></textarea>
+    <div class="learning-notes-footer"></div>
   `;
   document.body.appendChild(notesPanel);
 
@@ -412,6 +416,10 @@ function injectContentDisplay() {
     }
 
     .learning-notes-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
       padding: 8px 12px;
       font-size: 11px;
       font-weight: 600;
@@ -428,6 +436,35 @@ function injectContentDisplay() {
       cursor: grabbing;
     }
 
+    .learning-notes-close {
+      border: none;
+      background: transparent;
+      color: #9ca3af;
+      font-size: 18px;
+      line-height: 1;
+      padding: 0 2px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    .learning-notes-close:hover {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    .learning-notes-footer {
+      height: 14px;
+      flex-shrink: 0;
+      background: #f9fafb;
+      border-top: 1px solid #e5e7eb;
+      user-select: none;
+      cursor: grab;
+    }
+
+    .learning-notes-footer.dragging {
+      cursor: grabbing;
+    }
+
     .learning-notes-textarea {
       width: 240px;
       height: 180px;
@@ -439,7 +476,7 @@ function injectContentDisplay() {
       border: none;
       outline: none;
       padding: 12px;
-      font-size: 13px;
+      font-size: 15px;
       line-height: 1.5;
       color: #1f2937;
       background: white;
@@ -462,6 +499,11 @@ function injectContentDisplay() {
       background: #181825;
       border-bottom-color: #313244;
       color: #9ca3af;
+    }
+
+    .learning-notes-panel.dark .learning-notes-footer {
+      background: #181825;
+      border-top-color: #313244;
     }
 
     .learning-notes-panel.dark .learning-notes-textarea {
@@ -903,8 +945,9 @@ function injectContentDisplay() {
   });
   restoreDarkMode(widget);
 
-  // Scratchpad drags by its header; position is ephemeral (not persisted).
+  // Scratchpad drags by its header or footer bar; position is ephemeral (not persisted).
   makeDraggable(notesPanel, notesPanel.querySelector('.learning-notes-header'));
+  makeDraggable(notesPanel, notesPanel.querySelector('.learning-notes-footer'));
 
   return contentWidget;
 }
@@ -1257,6 +1300,12 @@ document.addEventListener('click', (e) => {
   }
   // Toggle scratchpad notes panel
   if (e.target.closest('#content-notes-toggle')) {
+    e.stopPropagation();
+    toggleNotesPanel();
+    return;
+  }
+  // Close scratchpad notes panel via its X button
+  if (e.target.closest('#learning-notes-close')) {
     e.stopPropagation();
     toggleNotesPanel();
     return;
