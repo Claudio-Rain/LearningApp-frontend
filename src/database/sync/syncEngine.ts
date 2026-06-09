@@ -5,10 +5,12 @@ import {
   pullLearningItems,
   pullCardProgress,
   pullAttemptLogs,
-  pullExcludedItems
+  pullExcludedItems,
+  pullContentWidget,
+  pushContentWidget
 } from '../operations'
 
-export { pullCollections, pullLearningItems, pullCardProgress, pullAttemptLogs, pullExcludedItems }
+export { pullCollections, pullLearningItems, pullCardProgress, pullAttemptLogs, pullExcludedItems, pullContentWidget, pushContentWidget }
 
 export async function pullAllLearningItems() {
   const collections = await local.getCollections()
@@ -94,11 +96,13 @@ export async function syncAll() {
   await pullCardProgress()
   await pullAttemptLogs()
   await pullExcludedItems()
+  await pullContentWidget()
   await syncCollections()
   await syncLearningItems()
   await syncCardProgress()
   await syncAttemptLogs()
   await syncExcludedItems()
+  await pushContentWidget()
 }
 
 export function startSyncEngine() {

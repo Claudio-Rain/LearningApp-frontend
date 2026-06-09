@@ -165,7 +165,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { getCollections, getLearningItems } from '../database'
+import { getCollections, getLearningItems, pullContentWidget, saveContentWidget } from '../database'
 import type { LearningItem } from '../database'
 import { useStudyViewCollection } from '../composables/useStudyViewCollection'
 import { useExcludedItems } from '../composables/useExcludedItems'
@@ -277,6 +277,10 @@ onMounted(async () => {
     loadingCollections.value = false
   }
 
+  // Hydrate contentCollectionIds from Firestore first so a fresh device picks up
+  // the remote selection before reading the local cache below.
+  await pullContentWidget()
+
   if (typeof chrome !== 'undefined' && chrome.storage) {
     const stored = await chrome.storage.local.get([
       'studyViewCollectionId',
@@ -306,13 +310,15 @@ async function saveNotificationSettings() {
     setStudyViewCollectionId(studyViewCollectionId.value)
     if (typeof chrome !== 'undefined' && chrome.storage) {
       await chrome.storage.local.set({
-        contentCollectionIds: [...contentCollectionIds.value],
         notificationCollectionId: notificationCollectionId.value,
         sessionStartHour: startHour.value,
         sessionEndHour: endHour.value,
         notificationIntervalSeconds: intervalSeconds.value,
       })
     }
+    // Content widget only → cache + remote (writes contentCollectionIds itself with
+    // lastModified/pending bookkeeping, so it's dropped from the bulk set() above).
+    await saveContentWidget([...contentCollectionIds.value])
     saved.value = true
   } finally {
     saving.value = false

@@ -1,4 +1,4 @@
-export type { Collection, LearningItem, CardProgress, AttemptLog, ExcludedItem } from './types'
+export type { Collection, LearningItem, CardProgress, AttemptLog, ExcludedItem, ContentWidgetSettings } from './types'
 export {
   startSyncEngine,
   syncAll,
@@ -28,7 +28,10 @@ export {
   updateAttemptLog,
   deleteAttemptLog,
   createExcludedItem,
-  removeExcludedItem
+  removeExcludedItem,
+  pullContentWidget,
+  saveContentWidget,
+  pushContentWidget
 } from './operations'
 export {
   getCollections,

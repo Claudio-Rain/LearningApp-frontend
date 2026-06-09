@@ -46,3 +46,8 @@ export interface ExcludedItem extends Syncable {
   dateCreated: string
   lastModified: string
 }
+
+export interface ContentWidgetSettings {
+  contentCollectionIds: string[]
+  lastModified: string   // ISO — drives lastModified-wins reconciliation
+}
