@@ -421,6 +421,11 @@ function injectContentDisplay() {
       background: #f9fafb;
       border-bottom: 1px solid #e5e7eb;
       user-select: none;
+      cursor: grab;
+    }
+
+    .learning-notes-header.dragging {
+      cursor: grabbing;
     }
 
     .learning-notes-textarea {
@@ -891,8 +896,15 @@ function injectContentDisplay() {
   const widget = contentWidget.querySelector('.learning-content-widget');
   const header = contentWidget.querySelector('.content-header');
   restorePanelPosition(widget);
-  makeDraggable(widget, header);
+  makeDraggable(widget, header, (pos) => {
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      chrome.storage.local.set({ [PANEL_POSITION_KEY]: pos });
+    }
+  });
   restoreDarkMode(widget);
+
+  // Scratchpad drags by its header; position is ephemeral (not persisted).
+  makeDraggable(notesPanel, notesPanel.querySelector('.learning-notes-header'));
 
   return contentWidget;
 }
@@ -937,7 +949,9 @@ function applyPanelPosition(widget, left, top) {
   widget.style.bottom = 'auto';
 }
 
-function makeDraggable(widget, handle) {
+// onDrop (optional): called with the final {left, top} so callers can persist
+// the position. Omit it for ephemeral panels that shouldn't be remembered.
+function makeDraggable(widget, handle, onDrop) {
   if (!widget || !handle) return;
 
   let startX = 0, startY = 0, originLeft = 0, originTop = 0, dragging = false;
@@ -953,11 +967,7 @@ function makeDraggable(widget, handle) {
     handle.classList.remove('dragging');
     document.removeEventListener('pointermove', onPointerMove);
     document.removeEventListener('pointerup', onPointerUp);
-    if (typeof chrome !== 'undefined' && chrome.storage) {
-      chrome.storage.local.set({
-        [PANEL_POSITION_KEY]: { left: widget.offsetLeft, top: widget.offsetTop }
-      });
-    }
+    onDrop?.({ left: widget.offsetLeft, top: widget.offsetTop });
   };
 
   handle.addEventListener('pointerdown', (e) => {
@@ -1096,6 +1106,10 @@ function sendMessageSafely(message) {
 function updateContentDisplay(item, meta) {
   currentItem = item;
   isFlipped = false;
+
+  // Fresh item — wipe the ephemeral scratchpad.
+  const notesTextarea = document.querySelector('.learning-notes-textarea');
+  if (notesTextarea) notesTextarea.value = '';
 
   updateMetaDisplay(meta);
   startContentTimer();
