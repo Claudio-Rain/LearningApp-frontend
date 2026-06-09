@@ -19,6 +19,7 @@
           <template v-else>
             <v-btn v-if="currentItem" class="header-edit-btn" icon="mdi-pencil-outline" variant="text" @click="editDialog = true" />
             <v-btn v-if="currentItem" class="header-edit-btn" icon="mdi-delete-outline" variant="text" color="error" @click="confirmDelete" />
+            <v-btn v-if="currentItem" class="header-edit-btn" icon="mdi-eye-off-outline" variant="text" color="warning" @click="excludeDialog = true" />
           </template>
         </div>
       </div>
@@ -31,11 +32,23 @@
         <div class="timer-label" :class="{ 'timer-label-low': timeLeft <= 30 }">
           {{ Math.floor(timeLeft / 60) }}:{{ String(timeLeft % 60).padStart(2, '0') }}
         </div>
-        <div v-if="timerExpired" class="timer-expired-banner">
-          ⏰ Move to the next question to avoid losing time!
-        </div>
       </div>
     </div>
+
+    <!-- Exclude Confirmation Dialog -->
+    <v-dialog v-model="excludeDialog" max-width="340">
+      <v-card>
+        <v-card-title>Exclude item?</v-card-title>
+        <v-card-text>
+          "<strong>{{ currentItem?.title }}</strong>" will be excluded from future study sessions.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="excludeDialog = false">Cancel</v-btn>
+          <v-btn color="warning" variant="tonal" @click="excludeCurrentItem">Exclude</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <!-- Delete Confirmation Dialog -->
     <v-dialog v-model="deleteDialog" max-width="340">
@@ -183,17 +196,18 @@ const collectionId = route.params.id!.toLocaleString()
 
 const collection = ref<Collection | null>(null)
 const learningItems = ref<LearningItem[]>([])
+const { excludedItemIds: _excludedItemIds, toggleExclusion } = useExcludedItems()
 const cardProgressMap = ref<Map<string, CardProgress>>(new Map())
 const studyQueue = ref<StudyItem[]>([])
 const currentIndex = ref(0)
 const isFlipped = ref(false)
 const deleteDialog = ref(false)
 const deleting = ref(false)
+const excludeDialog = ref(false)
 const editDialog = ref(false)
 const fabOpen = ref(false)
 
 const timeLeft = ref(180)
-const timerExpired = ref(false)
 let timerInterval: ReturnType<typeof setInterval> | null = null
 
 const editableItem = computed<LearningItem | null>(() => {
@@ -257,13 +271,12 @@ const isCurrentCardNew = computed(() => {
 const startTimer = () => {
   clearTimer()
   timeLeft.value = 180
-  timerExpired.value = false
   timerInterval = setInterval(() => {
     if (timeLeft.value > 0) {
       timeLeft.value--
     } else {
-      timerExpired.value = true
       clearTimer()
+      skipToNext()
     }
   }, 1000)
 }
@@ -382,6 +395,26 @@ const skipToNext = async () => {
   await moveToNext()
 }
 
+const excludeCurrentItem = async () => {
+  if (!currentItem.value?.id) return
+  const id = currentItem.value.id
+  excludeDialog.value = false
+  await toggleExclusion(id, true)
+  studyQueue.value.splice(currentIndex.value, 1)
+  learningItems.value = learningItems.value.filter(i => i.id !== id)
+  if (studyQueue.value.length === 0) {
+    await loadData()
+    currentIndex.value = 0
+    isFlipped.value = false
+    startTimer()
+    return
+  }
+  if (currentIndex.value >= studyQueue.value.length) {
+    currentIndex.value = Math.max(0, studyQueue.value.length - 1)
+  }
+  isFlipped.value = false
+}
+
 const moveToNext = async () => {
   if (currentIndex.value < studyQueue.value.length - 1) {
     currentIndex.value++
@@ -394,9 +427,6 @@ const moveToNext = async () => {
   }
 }
 
-const goBack = () => {
-  router.push({ name: 'collections' })
-}
 
 const confirmDelete = () => {
   deleteDialog.value = true
@@ -416,8 +446,10 @@ const deleteCurrentItem = async () => {
     deleteDialog.value = false
     await removeLearningItem(id)
     if (studyQueue.value.length === 0) {
-      alert('No more items to study!')
-      goBack()
+      await loadData()
+      currentIndex.value = 0
+      isFlipped.value = false
+      startTimer()
     }
   } catch (error) {
     console.error('Error deleting item:', error)

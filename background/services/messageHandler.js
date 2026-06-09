@@ -2,6 +2,8 @@ import {
   getNotificationLearningItemId,
   clearNotificationLearningItemId,
   getContentLearningItemId,
+  getContentSession,
+  setContentSession,
   removeFromContentSession
 } from '../utils/storage.js';
 import { recordAttempt, recordContentRating } from './progressService.js';
@@ -55,6 +57,18 @@ function handleContentScriptMessage(request, _sender, sendResponse) {
   } else if (request.action === 'deleteContentItem') {
     console.log('[background] received deleteContentItem from content script');
     handleDeleteContentItem();
+    sendResponse({ success: true });
+  } else if (request.action === 'navigatePrev') {
+    console.log('[background] received navigatePrev from content script');
+    handleNavigate(-1);
+    sendResponse({ success: true });
+  } else if (request.action === 'navigateNext') {
+    console.log('[background] received navigateNext from content script');
+    handleNavigate(1);
+    sendResponse({ success: true });
+  } else if (request.action === 'navigateTo') {
+    console.log('[background] received navigateTo from content script, index =', request.index);
+    handleNavigateTo(request.index);
     sendResponse({ success: true });
   }
 }
@@ -110,6 +124,22 @@ async function handleDeleteContentItem() {
   } catch (error) {
     console.error('[background] handleDeleteContentItem: error deleting item:', error);
   }
+}
+
+async function handleNavigate(delta) {
+  const session = await getContentSession();
+  if (!session?.ids?.length) return;
+  session.index = Math.max(0, Math.min(session.ids.length - 1, session.index + delta));
+  await setContentSession(session);
+  await fetchNextContentItem(false);
+}
+
+async function handleNavigateTo(targetIndex) {
+  const session = await getContentSession();
+  if (!session?.ids?.length) return;
+  session.index = Math.max(0, Math.min(session.ids.length - 1, targetIndex));
+  await setContentSession(session);
+  await fetchNextContentItem(false);
 }
 
 async function handleQuestionClosed() {

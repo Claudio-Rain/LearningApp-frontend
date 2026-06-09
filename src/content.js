@@ -89,16 +89,20 @@ function injectContentDisplay() {
     <div class="learning-content-widget">
       <div class="content-header">
         <div class="content-header-main">
-          <h3 id="content-title">Learning Item</h3>
           <div class="content-subtitle">
-            <span class="content-counter" id="content-counter">0 / 0</span>
+            <div class="content-counter-nav">
+              <button class="content-nav-btn" id="content-nav-prev" title="Previous card">&#8249;</button>
+              <input class="content-counter-input" id="content-counter-input" type="number" value="1" min="1" max="1">
+              <span class="content-counter-sep">/</span>
+              <span class="content-counter-total" id="content-counter-total">0</span>
+              <button class="content-nav-btn" id="content-nav-next" title="Next card">&#8250;</button>
+            </div>
             <span class="content-stat-badge content-new-badge" id="content-new-badge">New: 0</span>
             <span class="content-stat-badge content-revised-badge" id="content-revised-badge">Revised: 0</span>
             <span class="content-strength-badge" id="content-strength-badge" style="display: none;"></span>
           </div>
         </div>
         <div class="content-header-actions">
-          <span class="content-side-indicator" id="side-indicator">Question</span>
           <button class="content-theme-btn" id="content-theme-toggle" title="Toggle dark mode">
             <svg class="theme-icon-moon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-4.4 2.26 5.4 5.4 0 0 1-5.4-5.4c0-1.81.89-3.41 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
             <svg class="theme-icon-sun" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-5a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1zm0 17a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1zM3 11h2a1 1 0 1 1 0 2H3a1 1 0 1 1 0-2zm16 0h2a1 1 0 1 1 0 2h-2a1 1 0 1 1 0-2zM5.64 5.64a1 1 0 0 1 1.42 0l1.41 1.41a1 1 0 0 1-1.41 1.42L5.64 7.05a1 1 0 0 1 0-1.41zm9.9 9.9a1 1 0 0 1 1.41 0l1.41 1.41a1 1 0 0 1-1.41 1.42l-1.41-1.42a1 1 0 0 1 0-1.41zm2.82-9.9a1 1 0 0 1 0 1.41l-1.41 1.42a1 1 0 1 1-1.42-1.42l1.42-1.41a1 1 0 0 1 1.41 0zm-9.9 9.9a1 1 0 0 1 0 1.41l-1.41 1.42a1 1 0 0 1-1.42-1.42l1.41-1.41a1 1 0 0 1 1.42 0z"/></svg>
@@ -201,7 +205,66 @@ function injectContentDisplay() {
       margin-top: 4px;
     }
 
-    .content-counter {
+    .content-counter-nav {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .content-nav-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      padding: 0;
+      border: none;
+      border-radius: 4px;
+      background: transparent;
+      color: #6b7280;
+      cursor: pointer;
+      font-size: 17px;
+      font-weight: 300;
+      line-height: 1;
+      transition: background 0.2s, color 0.2s;
+      font-family: inherit;
+    }
+
+    .content-nav-btn:hover {
+      background: rgba(0, 0, 0, 0.06);
+      color: #374151;
+    }
+
+    .content-counter-input {
+      width: 32px;
+      border: 1px solid transparent;
+      border-radius: 4px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 600;
+      color: #6b7280;
+      font-variant-numeric: tabular-nums;
+      background: transparent;
+      padding: 1px 2px;
+      font-family: inherit;
+      -moz-appearance: textfield;
+    }
+
+    .content-counter-input::-webkit-outer-spin-button,
+    .content-counter-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .content-counter-input:hover,
+    .content-counter-input:focus {
+      border-color: #d1d5db;
+      outline: none;
+      background: white;
+    }
+
+    .content-counter-sep,
+    .content-counter-total {
       font-size: 11px;
       font-weight: 600;
       color: #6b7280;
@@ -649,13 +712,25 @@ function injectContentDisplay() {
       color: #f3f4f6;
     }
 
-    .learning-content-widget.dark .content-counter {
+    .learning-content-widget.dark .content-counter-input,
+    .learning-content-widget.dark .content-counter-sep,
+    .learning-content-widget.dark .content-counter-total {
       color: #9ca3af;
     }
 
-    .learning-content-widget.dark .content-side-indicator {
-      background: rgba(255, 255, 255, 0.08);
+    .learning-content-widget.dark .content-counter-input:hover,
+    .learning-content-widget.dark .content-counter-input:focus {
+      border-color: #4b5563;
+      background: #1e1e2e;
+    }
+
+    .learning-content-widget.dark .content-nav-btn {
       color: #9ca3af;
+    }
+
+    .learning-content-widget.dark .content-nav-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #d1d5db;
     }
 
     .learning-content-widget.dark .content-timer {
@@ -822,6 +897,7 @@ function extractPlainText(node, separator = '\n') {
 // State management
 let currentItem = null;
 let isFlipped = false;
+let sessionTotal = 0;
 
 // Timer (mirrors Study View: 3-minute countdown, resets on each new item)
 const TIMER_DURATION = 180;
@@ -872,12 +948,18 @@ function strengthInfo(score) {
 
 function updateMetaDisplay(meta) {
   if (!meta) return;
-  const counter = document.getElementById('content-counter');
+  const counterInput = document.getElementById('content-counter-input');
+  const counterTotal = document.getElementById('content-counter-total');
   const newBadge = document.getElementById('content-new-badge');
   const revisedBadge = document.getElementById('content-revised-badge');
   const strengthBadge = document.getElementById('content-strength-badge');
 
-  if (counter) counter.textContent = `${meta.sessionIndex + 1} / ${meta.sessionTotal}`;
+  sessionTotal = meta.sessionTotal || 0;
+  if (counterInput) {
+    counterInput.value = meta.sessionIndex + 1;
+    counterInput.max = meta.sessionTotal;
+  }
+  if (counterTotal) counterTotal.textContent = meta.sessionTotal;
   if (newBadge) {
     newBadge.textContent = `New: ${meta.newCards}`;
     newBadge.classList.toggle('glowing', !!meta.isNew);
@@ -924,17 +1006,14 @@ function updateContentDisplay(item, meta) {
   updateMetaDisplay(meta);
   startContentTimer();
 
-  const titleEl = document.getElementById('content-title');
   const frontQuestionEl = document.getElementById('front-question');
   const answerEl = document.getElementById('content-answer');
   const flashcard = document.getElementById('flashcard');
-  const sideIndicator = document.getElementById('side-indicator');
   const widget = document.querySelector('.learning-content-widget');
 
-  if (!titleEl || !frontQuestionEl || !answerEl || !flashcard || !widget) return;
+  if (!frontQuestionEl || !answerEl || !flashcard || !widget) return;
 
-  titleEl.textContent = item.title || 'Learning Item';
-  frontQuestionEl.textContent = item.title || 'Question';
+  frontQuestionEl.textContent = item.title || '';
 
   // Render answer with Tiptap support for rich content
   const plainText = extractPlainText(item.content);
@@ -955,7 +1034,6 @@ function updateContentDisplay(item, meta) {
 
   // Reset flip state
   flashcard.classList.remove('flipped');
-  sideIndicator.textContent = 'Question';
 
   // Animate transition, settling on the target opacity for this item
   widget.style.opacity = '0.7';
@@ -966,18 +1044,14 @@ function updateContentDisplay(item, meta) {
 
 function showLoadingState() {
   const flashcard = document.getElementById('flashcard');
-  const sideIndicator = document.getElementById('side-indicator');
   const frontQuestionEl = document.getElementById('front-question');
   const answerEl = document.getElementById('content-answer');
-  const titleEl = document.getElementById('content-title');
   const widget = document.querySelector('.learning-content-widget');
 
   if (!flashcard || !widget) return;
 
   isFlipped = false;
   flashcard.classList.remove('flipped');
-  if (sideIndicator) sideIndicator.textContent = 'Question';
-  if (titleEl) titleEl.textContent = '...';
   if (frontQuestionEl) frontQuestionEl.textContent = '';
   if (answerEl) answerEl.innerHTML = '';
   widget.style.opacity = '0.5';
@@ -985,13 +1059,9 @@ function showLoadingState() {
 
 function toggleFlip() {
   const flashcard = document.getElementById('flashcard');
-  const sideIndicator = document.getElementById('side-indicator');
-
   if (!flashcard) return;
-
   isFlipped = !isFlipped;
   flashcard.classList.toggle('flipped');
-  sideIndicator.textContent = isFlipped ? 'Answer' : 'Question';
 }
 
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
@@ -1017,7 +1087,7 @@ if (document.readyState === 'loading') {
 // Keyboard shortcuts
 function handleKeydown(e) {
   // Space or Enter to flip
-  if ((e.key === ' ' || e.key === 'Enter') && e.target.closest('#learning-app-content')) {
+  if ((e.key === ' ' || e.key === 'Enter') && e.target.closest('#learning-app-content') && e.target.tagName !== 'INPUT') {
     e.preventDefault();
     toggleFlip();
   }
@@ -1034,7 +1104,32 @@ function handleKeydown(e) {
 }
 
 // Click listeners
+document.addEventListener('change', (e) => {
+  if (e.target.id === 'content-counter-input') {
+    const total = parseInt(e.target.max) || 1;
+    let val = parseInt(e.target.value);
+    if (isNaN(val) || val < 1) val = 1;
+    if (val > total) val = total;
+    e.target.value = val;
+    showLoadingState();
+    sendMessageSafely({ action: 'navigateTo', index: val - 1 });
+  }
+});
+
 document.addEventListener('click', (e) => {
+  // Navigate prev/next
+  if (e.target.closest('#content-nav-prev')) {
+    e.stopPropagation();
+    showLoadingState();
+    sendMessageSafely({ action: 'navigatePrev' });
+    return;
+  }
+  if (e.target.closest('#content-nav-next')) {
+    e.stopPropagation();
+    showLoadingState();
+    sendMessageSafely({ action: 'navigateNext' });
+    return;
+  }
   // Toggle dark mode
   if (e.target.closest('#content-theme-toggle')) {
     e.stopPropagation();
