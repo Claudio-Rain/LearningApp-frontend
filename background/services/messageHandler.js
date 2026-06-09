@@ -70,6 +70,11 @@ function handleContentScriptMessage(request, _sender, sendResponse) {
     console.log('[background] received navigateTo from content script, index =', request.index);
     handleNavigateTo(request.index);
     sendResponse({ success: true });
+  } else if (request.action === 'requestContent') {
+    console.log('[background] received requestContent from content script');
+    // false = re-show the current session item; don't advance the cursor.
+    fetchNextContentItem(false);
+    sendResponse({ success: true });
   }
 }
 
