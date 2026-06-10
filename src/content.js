@@ -1186,11 +1186,7 @@ function updateContentDisplay(item, meta) {
   // Reset flip state
   flashcard.classList.remove('flipped');
 
-  // Animate transition, settling on the target opacity for this item
-  widget.style.opacity = '0.7';
-  setTimeout(() => {
-    widget.style.opacity = targetOpacity;
-  }, 100);
+  widget.style.opacity = targetOpacity;
 }
 
 function showLoadingState() {
@@ -1205,7 +1201,6 @@ function showLoadingState() {
   flashcard.classList.remove('flipped');
   if (frontQuestionEl) frontQuestionEl.textContent = '';
   if (answerEl) answerEl.innerHTML = '';
-  widget.style.opacity = '0.5';
 }
 
 function toggleFlip() {

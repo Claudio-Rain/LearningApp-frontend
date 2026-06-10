@@ -299,7 +299,7 @@ const updateStats = () => {
     const sorted = logs.slice().sort((a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime())
     let strength = 0
     for (let i = 0; i < sorted.length; i++) {
-      strength = Math.min(1, Math.max(0, strength + sorted[i].ease_score))
+      strength = Math.min(1, Math.max(0, strength + sorted[i]!.ease_score))
       if (strength >= 0.75) { masteredCounts.push(i + 1); break }
     }
   }
