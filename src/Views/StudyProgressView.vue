@@ -52,12 +52,29 @@
     <!-- Stats Cards -->
     <div class="stats-grid">
       <div class="stat-card">
+        <div class="stat-value">{{ avgRevisionsToMaster }}</div>
+        <div class="stat-label">Revisions to Master</div>
+      </div>
+      <div class="stat-card">
         <div class="stat-value">{{ totalAttempts }}</div>
         <div class="stat-label">Total Attempts</div>
+      </div>
+      <div class="stat-card projection-card projection-card--alt">
+        <div class="projection-icon">
+          <v-icon icon="mdi-cards-outline" size="28" />
+        </div>
+        <div class="projection-body">
+          <div class="projection-value">{{ projectedAttemptsToFinish.toLocaleString() }}</div>
+          <div class="projection-label">Estimated revisions to master all cards</div>
+        </div>
       </div>
       <div class="stat-card">
         <div class="stat-value">{{ cardsLearned }}</div>
         <div class="stat-label">Cards Learned</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{{ totalCards }}</div>
+        <div class="stat-label">Total Cards</div>
       </div>
     </div>
 
@@ -127,6 +144,23 @@
       </div>
 
       <div class="chart-wrapper full-width">
+        <div class="chart-header-row">
+          <div>
+            <h3>Strength vs Attempts</h3>
+            <p class="chart-subtitle">Each dot is one card after a revision — strength tends to climb the more you revise it</p>
+          </div>
+          <v-checkbox
+            v-model="showCardTitles"
+            label="Show card titles"
+            density="compact"
+            hide-details
+            class="flex-shrink-0"
+          />
+        </div>
+        <div ref="strengthScatterChartRef" class="chart"></div>
+      </div>
+
+      <div class="chart-wrapper full-width">
         <h3>Most Challenging Cards</h3>
         <div class="chart-scroll-container">
           <div ref="challengingChartRef" class="chart"></div>
@@ -142,6 +176,7 @@ import { parseISO, subDays, format } from 'date-fns'
 import { useRouter } from 'vue-router'
 import Highcharts from 'highcharts'
 import 'highcharts/modules/heatmap'
+import 'highcharts/highcharts-more'
 import {
   getAllAttemptLogs,
   getAllCardProgress,
@@ -159,6 +194,8 @@ const strengthChartRef = ref<HTMLElement>()
 const timelineChartRef = ref<HTMLElement>()
 const challengingChartRef = ref<HTMLElement>()
 const compositionChartRef = ref<HTMLElement>()
+const strengthScatterChartRef = ref<HTMLElement>()
+const showCardTitles = ref(false)
 const studyHoursChartRef = ref<HTMLElement>()
 const studyDaysChartRef = ref<HTMLElement>()
 const studyHeatmapChartRef = ref<HTMLElement>()
@@ -167,6 +204,9 @@ const collectionOverviewSortBy = ref<'name' | 'strength' | 'revisions' | 'revise
 
 const totalAttempts = ref(0)
 const cardsLearned = ref(0)
+const avgRevisionsToMaster = ref(0)
+const totalCards = ref(0)
+const projectedAttemptsToFinish = ref(0)
 const syncing = ref(false)
 
 const collections = ref<Collection[]>([])
@@ -246,12 +286,40 @@ const loadData = async () => {
 const updateStats = () => {
   totalAttempts.value = filteredAttemptLogs.value.length
   cardsLearned.value = filteredCardProgress.value.filter(p => p.strength_score >= 0.5).length
+
+  // Avg revisions to master: for each card, simulate cumulative strength from logs
+  // sorted by date and count how many attempts until it first reaches >= 0.75.
+  const logsByCard = new Map<string, AttemptLog[]>()
+  for (const log of filteredAttemptLogs.value) {
+    if (!logsByCard.has(log.learning_item_id)) logsByCard.set(log.learning_item_id, [])
+    logsByCard.get(log.learning_item_id)!.push(log)
+  }
+  const masteredCounts: number[] = []
+  for (const [, logs] of logsByCard) {
+    const sorted = logs.slice().sort((a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime())
+    let strength = 0
+    for (let i = 0; i < sorted.length; i++) {
+      strength = Math.min(1, Math.max(0, strength + sorted[i].ease_score))
+      if (strength >= 0.75) { masteredCounts.push(i + 1); break }
+    }
+  }
+  avgRevisionsToMaster.value = masteredCounts.length > 0
+    ? Math.round(masteredCounts.reduce((s, v) => s + v, 0) / masteredCounts.length * 10) / 10
+    : 0
+
+  // Projection: how much work remains to master every card.
+  totalCards.value = filteredLearningItems.value.length
+  const masteredCards = filteredCardProgress.value.filter(p => p.strength_score >= 0.75).length
+  const remainingCards = Math.max(0, totalCards.value - masteredCards)
+  projectedAttemptsToFinish.value = Math.round(remainingCards * avgRevisionsToMaster.value)
 }
 
 watch([filteredAttemptLogs, filteredCardProgress], () => {
   updateStats()
   renderCharts()
 })
+
+watch(showCardTitles, () => renderStrengthScatterChart())
 
 // ── chart helpers ──────────────────────────────────────────────────────────
 
@@ -393,6 +461,7 @@ const renderCharts = () => {
     renderTimelineChart,
     renderChallengingChart,
     renderCompositionChart,
+    renderStrengthScatterChart,
     renderStudyHoursChart,
     renderStudyDaysChart,
     renderStudyHeatmapChart,
@@ -618,6 +687,124 @@ const renderCompositionChart = () => {
     legend: { enabled: true },
     credits: { enabled: false },
     tooltip: { pointFormat: '<b>{point.percentage:.0f}%</b> {series.name}' }
+  } as any)
+}
+
+const renderStrengthScatterChart = () => {
+  if (!strengthScatterChartRef.value) return
+
+  // Replay each card's attempts in chronological order, accumulating strength.
+  // One dot per attempt: x = that card's attempt number (1,2,3…), y = strength %.
+  const logsByCard = new Map<string, AttemptLog[]>()
+  for (const log of filteredAttemptLogs.value) {
+    if (!logsByCard.has(log.learning_item_id)) logsByCard.set(log.learning_item_id, [])
+    logsByCard.get(log.learning_item_id)!.push(log)
+  }
+
+  const idToTitle = new Map(filteredLearningItems.value.map(i => [i.id!, i.title]))
+
+  // Raw points (one per attempt) feed the trend line; bubbles aggregate them
+  // by attempt # and a 10% strength band so overlapping cards merge into one
+  // sized circle (z = how many cards land there). We also collect the card
+  // titles per bucket so they can be shown as labels when the checkbox is on.
+  const rawPoints: [number, number][] = []
+  const bucketTitles = new Map<string, string[]>()
+  for (const [itemId, logs] of logsByCard) {
+    const sorted = logs.slice().sort(
+      (a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime()
+    )
+    let strength = 0
+    sorted.forEach((log, i) => {
+      strength = Math.min(1, Math.max(0, strength + log.ease_score))
+      const pct = Math.round(strength * 100)
+      rawPoints.push([i + 1, pct])
+      const band = Math.min(100, Math.round(pct / 10) * 10) // snap to 0,10,…,100
+      const key = `${i + 1}:${band}`
+      if (!bucketTitles.has(key)) bucketTitles.set(key, [])
+      bucketTitles.get(key)!.push(idToTitle.get(itemId) ?? 'Untitled')
+    })
+  }
+
+  // Full title list, one per line, no truncation.
+  const labelFor = (titles: string[]) => titles.join('<br/>')
+
+  const bubbles = Array.from(bucketTitles.entries()).map(([key, titles]) => {
+    const [x, y] = key.split(':').map(Number)
+    return { x, y, z: titles.length, titleLabel: labelFor(titles) }
+  })
+
+  // Trend = average strength at each attempt number, so the line follows the
+  // real learning curve (steep early, flattening later) instead of a single slope.
+  // Drop the noisy tail where too few cards reached that many attempts.
+  const sumByAttempt = new Map<number, { sum: number; count: number }>()
+  for (const [x, y] of rawPoints) {
+    const agg = sumByAttempt.get(x) ?? { sum: 0, count: 0 }
+    agg.sum += y
+    agg.count += 1
+    sumByAttempt.set(x, agg)
+  }
+  const MIN_SAMPLES = 3
+  const trend: [number, number][] = Array.from(sumByAttempt.entries())
+    .filter(([, agg]) => agg.count >= MIN_SAMPLES)
+    .sort((a, b) => a[0] - b[0])
+    .map(([x, agg]) => [x, Math.round((agg.sum / agg.count) * 10) / 10])
+
+  if (chartInstances.strengthScatter) {
+    chartInstances.strengthScatter.series[0]?.setData(bubbles, false, { duration: 300 })
+    chartInstances.strengthScatter.series[1]?.setData(trend, true, { duration: 300 })
+    return
+  }
+
+  chartInstances.strengthScatter = Highcharts.chart(strengthScatterChartRef.value, {
+    chart: { type: 'bubble', zooming: { type: 'xy' } },
+    title: { text: '' },
+    xAxis: { title: { text: 'Attempt number' }, min: 1, allowDecimals: false, gridLineWidth: 0 },
+    yAxis: {
+      title: { text: 'Strength (%)' },
+      min: 0,
+      max: 100,
+      gridLineWidth: 0,
+      tickPositions: [0, 25, 50, 75, 100],
+      plotLines: [
+        { value: 0, color: '#F44336', width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Critical', align: 'right', x: -6, y: 14, style: { color: '#F44336', fontSize: '11px', fontWeight: '600' } } },
+        { value: 25, color: '#FF9800', width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Struggling', align: 'right', x: -6, y: 14, style: { color: '#EF6C00', fontSize: '11px', fontWeight: '600' } } },
+        { value: 50, color: '#8BC34A', width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Good', align: 'right', x: -6, y: 14, style: { color: '#689F38', fontSize: '11px', fontWeight: '600' } } },
+        { value: 75, color: '#4CAF50', width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Mastered', align: 'right', x: -6, y: 14, style: { color: '#388E3C', fontSize: '11px', fontWeight: '600' } } }
+      ]
+    },
+    series: [
+      {
+        name: 'Cards',
+        type: 'bubble',
+        data: bubbles,
+        color: 'rgba(120,120,120,0.45)',
+        marker: { fillOpacity: 0.45, lineWidth: 0 },
+        minSize: 6,
+        maxSize: 48
+      },
+      {
+        name: 'Avg strength',
+        type: 'spline',
+        data: trend,
+        color: '#1565C0',
+        lineWidth: 3,
+        marker: { enabled: false },
+        enableMouseTracking: false,
+        states: { hover: { lineWidth: 3 } }
+      }
+    ],
+    legend: { enabled: false },
+    credits: { enabled: false },
+    tooltip: {
+      useHTML: true,
+      formatter: function(this: any) {
+        let s = `Attempt <b>${this.point.x}</b> · ~<b>${this.point.y}%</b> strength · <b>${this.point.z}</b> cards`
+        if (showCardTitles.value && this.point.titleLabel) {
+          s += `<br/><span style="color:#666">${this.point.titleLabel}</span>`
+        }
+        return s
+      }
+    }
   } as any)
 }
 
@@ -884,6 +1071,74 @@ onUnmounted(() => {
   color: rgba(0, 0, 0, 0.6);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+
+.projection-card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 20px;
+  border-radius: 16px;
+  color: white;
+  background: linear-gradient(135deg, #1565C0 0%, #42A5F5 100%);
+  box-shadow: 0 8px 24px rgba(21, 101, 192, 0.28);
+  position: relative;
+  overflow: hidden;
+  border: none;
+  text-align: left;
+}
+
+.projection-card--alt {
+  background: linear-gradient(135deg, #6A1B9A 0%, #AB47BC 100%);
+  box-shadow: 0 8px 24px rgba(106, 27, 154, 0.28);
+}
+
+.projection-card::after {
+  content: '';
+  position: absolute;
+  top: -40%;
+  right: -10%;
+  width: 160px;
+  height: 160px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 50%;
+}
+
+.projection-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.18);
+  flex-shrink: 0;
+  z-index: 1;
+}
+
+.projection-body {
+  z-index: 1;
+}
+
+.projection-value {
+  font-size: 2.2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.projection-unit {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-left: 2px;
+  opacity: 0.85;
+}
+
+.projection-label {
+  font-size: 0.85rem;
+  margin-top: 6px;
+  opacity: 0.9;
 }
 
 .charts-container {
