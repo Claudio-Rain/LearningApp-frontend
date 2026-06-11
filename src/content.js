@@ -137,11 +137,16 @@ function injectContentDisplay() {
         </div>
       </div>
       <div class="content-footer">
-        <div class="content-rating-buttons" id="rating-buttons">
-          <button class="content-rating-btn btn-very-hard" data-score="-0.15" title="Very Hard">✕</button>
-          <button class="content-rating-btn btn-hard" data-score="-0.10" title="Hard">−</button>
-          <button class="content-rating-btn btn-good" data-score="0.10" title="Good">✓</button>
-          <button class="content-rating-btn btn-easy" data-score="0.15" title="Easy">★</button>
+        <div class="content-footer-row">
+          <div class="content-rating-buttons" id="rating-buttons">
+            <button class="content-rating-btn btn-very-hard" data-score="-0.15" title="Very Hard">✕</button>
+            <button class="content-rating-btn btn-hard" data-score="-0.10" title="Hard">−</button>
+            <button class="content-rating-btn btn-good" data-score="0.10" title="Good">✓</button>
+            <button class="content-rating-btn btn-easy" data-score="0.15" title="Easy">★</button>
+          </div>
+          <button class="content-edit-btn" id="content-edit" title="Edit this item">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zm17.71-10.21a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+          </button>
         </div>
       </div>
     </div>
@@ -804,9 +809,16 @@ function injectContentDisplay() {
       border-top: 1px solid #e5e7eb;
       background: #fafbfc;
       border-radius: 0 0 12px 12px;
+    }
+
+    .content-footer-row {
       display: flex;
-      flex-direction: column;
-      gap: 8px;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .content-footer-row .content-rating-buttons {
+      flex: 1;
     }
 
     .content-rating-buttons {
@@ -868,6 +880,26 @@ function injectContentDisplay() {
 
     .content-rating-btn:active {
       transform: scale(0.95);
+    }
+
+    .content-edit-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: #6b7280;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      font-family: inherit;
+    }
+
+    .content-edit-btn:hover {
+      background: rgba(0, 0, 0, 0.06);
     }
 
     /* ---- Dark mode ---- */
@@ -962,6 +994,14 @@ function injectContentDisplay() {
     .learning-content-widget.dark .content-footer {
       background: #181825;
       border-top-color: #313244;
+    }
+
+    .learning-content-widget.dark .content-edit-btn {
+      color: #9ca3af;
+    }
+
+    .learning-content-widget.dark .content-edit-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
     }
   `;
 
@@ -1349,6 +1389,14 @@ document.addEventListener('click', (e) => {
     if (confirm('Exclude this item from future study sessions?')) {
       showLoadingState();
       sendMessageSafely({ action: 'excludeContentItem' });
+    }
+    return;
+  }
+  // Edit current item — ask background to open a new tab (content scripts lack chrome.tabs)
+  if (e.target.closest('#content-edit')) {
+    e.stopPropagation();
+    if (currentItem?.collectionId && currentItem?.id) {
+      sendMessageSafely({ action: 'openEditTab', collectionId: currentItem.collectionId, itemId: currentItem.id });
     }
     return;
   }

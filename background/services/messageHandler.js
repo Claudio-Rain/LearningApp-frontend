@@ -79,6 +79,10 @@ function handleContentScriptMessage(request, _sender, sendResponse) {
     // false = re-show the current session item; don't advance the cursor.
     fetchNextContentItem(false);
     sendResponse({ success: true });
+  } else if (request.action === 'openEditTab') {
+    const url = chrome.runtime.getURL(`index.html#/collections/${request.collectionId}/${request.itemId}`);
+    chrome.tabs.create({ url });
+    sendResponse({ success: true });
   }
 }
 
