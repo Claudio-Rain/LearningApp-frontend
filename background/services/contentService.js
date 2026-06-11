@@ -121,6 +121,14 @@ async function resolveSession(sortedItems, availableIds, advanceSession) {
     return { ids: sortedItems.map(i => i.id), index: 0 };
   }
 
+  // Rebuild if the available item set changed (exclusions, collection swap, etc.).
+  const freshIds = sortedItems.map(i => i.id);
+  const sessionSet = new Set(session.ids);
+  const setsMatch = freshIds.length === session.ids.length && freshIds.every(id => sessionSet.has(id));
+  if (!setsMatch) {
+    return { ids: freshIds, index: 0 };
+  }
+
   if (advanceSession) session.index += 1;
 
   // Skip past items that have been deleted/excluded since the snapshot.

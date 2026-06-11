@@ -8,7 +8,7 @@ import {
 } from '../utils/storage.js';
 import { recordAttempt, recordContentRating } from './progressService.js';
 import { fetchNextContentItem } from './contentService.js';
-import { removeLearningItem } from '../../src/database/index.ts';
+import { removeLearningItem, createExcludedItem } from '../../src/database/index.ts';
 
 export function setupMessageListeners() {
   chrome.notifications.onButtonClicked.addListener(handleNotificationButtonClick);
@@ -57,6 +57,10 @@ function handleContentScriptMessage(request, _sender, sendResponse) {
   } else if (request.action === 'deleteContentItem') {
     console.log('[background] received deleteContentItem from content script');
     handleDeleteContentItem();
+    sendResponse({ success: true });
+  } else if (request.action === 'excludeContentItem') {
+    console.log('[background] received excludeContentItem from content script');
+    handleExcludeContentItem();
     sendResponse({ success: true });
   } else if (request.action === 'navigatePrev') {
     console.log('[background] received navigatePrev from content script');
@@ -110,6 +114,23 @@ async function handleContentRating(score) {
     await fetchNextContentItem(true);
   } catch (error) {
     console.error('[background] handleContentRating: error recording rating:', error);
+  }
+}
+
+async function handleExcludeContentItem() {
+  const learningItemId = await getContentLearningItemId();
+  if (!learningItemId) {
+    console.warn('[background] handleExcludeContentItem: no content_learning_item_id');
+    return;
+  }
+
+  try {
+    console.log('[background] handleExcludeContentItem: excluding item', learningItemId);
+    await createExcludedItem(learningItemId);
+    await removeFromContentSession(learningItemId);
+    await fetchNextContentItem(false);
+  } catch (error) {
+    console.error('[background] handleExcludeContentItem: error excluding item:', error);
   }
 }
 

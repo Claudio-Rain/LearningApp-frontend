@@ -110,6 +110,9 @@ function injectContentDisplay() {
             <svg class="theme-icon-moon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-4.4 2.26 5.4 5.4 0 0 1-5.4-5.4c0-1.81.89-3.41 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
             <svg class="theme-icon-sun" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-5a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1zm0 17a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1zM3 11h2a1 1 0 1 1 0 2H3a1 1 0 1 1 0-2zm16 0h2a1 1 0 1 1 0 2h-2a1 1 0 1 1 0-2zM5.64 5.64a1 1 0 0 1 1.42 0l1.41 1.41a1 1 0 0 1-1.41 1.42L5.64 7.05a1 1 0 0 1 0-1.41zm9.9 9.9a1 1 0 0 1 1.41 0l1.41 1.41a1 1 0 0 1-1.41 1.42l-1.41-1.42a1 1 0 0 1 0-1.41zm2.82-9.9a1 1 0 0 1 0 1.41l-1.41 1.42a1 1 0 1 1-1.42-1.42l1.42-1.41a1 1 0 0 1 1.41 0zm-9.9 9.9a1 1 0 0 1 0 1.41l-1.41 1.42a1 1 0 0 1-1.42-1.42l1.41-1.41a1 1 0 0 1 1.42 0z"/></svg>
           </button>
+          <button class="content-exclude-btn" id="content-exclude" title="Exclude item">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M2 5.27 3.28 4 20 20.72 18.73 22l-3.08-3.08A10 10 0 0 1 12 20c-5 0-9.27-3.11-11-7.5a11.1 11.1 0 0 1 3.17-4.61L2 5.27zM12 4c5 0 9.27 3.11 11 7.5a11.2 11.2 0 0 1-2.34 3.81L15.5 10.16A4 4 0 0 0 9.83 4.5L7.97 2.64A9.9 9.9 0 0 1 12 4zm-4 7.5a4 4 0 0 0 4.45 3.97L8.6 11.06A4 4 0 0 0 8 11.5z"/></svg>
+          </button>
           <button class="content-delete-btn" id="content-delete" title="Delete item">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
           </button>
@@ -349,6 +352,26 @@ function injectContentDisplay() {
       align-items: center;
       gap: 6px;
       flex-shrink: 0;
+    }
+
+    .content-exclude-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: #f59e0b;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-family: inherit;
+    }
+
+    .content-exclude-btn:hover {
+      background: rgba(245, 158, 11, 0.1);
     }
 
     .content-delete-btn {
@@ -1309,6 +1332,15 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('#content-theme-toggle')) {
     e.stopPropagation();
     toggleDarkMode();
+    return;
+  }
+  // Exclude current item
+  if (e.target.closest('#content-exclude')) {
+    e.stopPropagation();
+    if (confirm('Exclude this item from future study sessions?')) {
+      showLoadingState();
+      sendMessageSafely({ action: 'excludeContentItem' });
+    }
     return;
   }
   // Delete current item
