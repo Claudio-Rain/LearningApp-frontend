@@ -39,7 +39,7 @@
         class="item-table"
         hover
         :row-props="({ item }: any) => ({ class: selectedItem?.id === item.id ? 'selected-row' : '' })"
-        @click:row="(_: any, { item }: any) => selectedItem = item"
+        @click:row="(_: any, { item }: any) => { selectedItem = item; router.replace({ name: 'collectionItemView', params: { id: collectionId, itemId: item.id } }) }"
       >
         <template #item.rowNumber="{ index }">
           <span style="font-size: 0.75rem; color: rgba(0, 0, 0, 0.5);">{{ index + 1 }}</span>
@@ -98,6 +98,7 @@ import type { Collection, LearningItem } from '../database/types'
 const route = useRoute()
 const router = useRouter()
 const collectionId = route.params.id!.toLocaleString()
+const itemId = route.params.itemId as string | undefined
 
 const collection = ref<Collection | null>(null)
 const learningItems = ref<LearningItem[]>([])
@@ -150,7 +151,8 @@ const loadData = async () => {
   learningItems.value = items
   if (learningItems.value.length > 0) {
     const stillExists = learningItems.value.find(i => i.id === selectedItem.value?.id) ?? null
-    selectedItem.value = stillExists ?? (learningItems.value[0] as LearningItem)
+    const fromUrl = itemId ? (learningItems.value.find(i => i.id === itemId) ?? null) : null
+    selectedItem.value = fromUrl ?? stillExists ?? (learningItems.value[0] as LearningItem)
   } else {
     selectedItem.value = null
   }

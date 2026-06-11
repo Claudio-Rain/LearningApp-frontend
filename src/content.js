@@ -126,7 +126,9 @@ function injectContentDisplay() {
       </div>
       <div class="flashcard-container" id="flashcard">
         <div class="card-side front">
-          <h2 id="front-question" class="front-question"></h2>
+          <div class="front-question-wrapper">
+            <h2 id="front-question" class="front-question"></h2>
+          </div>
         </div>
         <div class="card-side back">
           <div class="content-body">
@@ -637,8 +639,15 @@ function injectContentDisplay() {
     .card-side.front {
       opacity: 1;
       z-index: 2;
-      justify-content: center;
+      align-items: stretch;
+    }
+
+    .front-question-wrapper {
+      min-height: 100%;
+      display: flex;
       align-items: center;
+      justify-content: center;
+      width: 100%;
     }
 
     .card-side.back {

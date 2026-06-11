@@ -21,6 +21,12 @@ const routes = [
     props: true
   },
   {
+    path: '/collections/:id/:itemId',
+    name: 'collectionItemView',
+    component: CollectionItemView,
+    props: true
+  },
+  {
     path: '/study/:id',
     name: 'study',
     component: StudyView,
