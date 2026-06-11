@@ -417,6 +417,10 @@ function injectContentDisplay() {
       font-family: inherit;
     }
 
+    .content-notes-btn {
+      color: #7c3aed;
+    }
+
     .content-theme-btn:hover, .content-notes-btn:hover {
       background: rgba(0, 0, 0, 0.06);
     }
@@ -802,6 +806,13 @@ function injectContentDisplay() {
       border-radius: 6px;
       margin: 12px 0;
       display: block;
+    }
+
+    .content-body mark {
+      background-color: #fde68a !important;
+      color: #1a1a1a !important;
+      border-radius: 2px;
+      padding: 0 2px;
     }
 
     .content-footer {
