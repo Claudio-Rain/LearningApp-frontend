@@ -104,42 +104,108 @@
       </div>
       <p class="text-caption text-medium-emphasis mb-3">
         Items checked here are hidden from Study View, content widget, and notifications.
+        Click a row to toggle it; shift-click to toggle a range.
       </p>
       <v-select
-        v-model="exclusionCollectionId"
+        v-model="exclusionCollectionIds"
         :items="exclusionCollectionOptions"
         item-title="title"
         item-value="id"
-        label="Collection to browse"
+        label="Filter by collections"
         variant="outlined"
         density="comfortable"
+        multiple
+        chips
+        closable-chips
         :loading="loadingCollections"
         no-data-text="No collections found"
+      >
+        <template #prepend-item>
+          <v-list-item
+            title="Select all"
+            @click="exclusionCollectionIds = exclusionCollectionOptions.map(c => c.id)"
+          >
+            <template #prepend>
+              <v-checkbox-btn
+                :model-value="exclusionCollectionIds.length === exclusionCollectionOptions.length"
+                :indeterminate="exclusionCollectionIds.length > 0 && exclusionCollectionIds.length < exclusionCollectionOptions.length"
+                color="primary"
+                readonly
+              />
+            </template>
+          </v-list-item>
+          <v-divider />
+        </template>
+      </v-select>
+      <v-text-field
+        v-if="exclusionCollectionIds.length"
+        v-model="titleSearch"
+        label="Search by title (starts with)"
+        variant="outlined"
+        density="compact"
+        clearable
+        hide-details
+        prepend-inner-icon="mdi-magnify"
+        class="mb-2"
       />
       <div v-if="loadingExclusionItems" class="text-caption text-medium-emphasis py-2">
         Loading items…
       </div>
-      <div v-else-if="exclusionCollectionId && exclusionItems.length === 0" class="text-caption text-medium-emphasis py-2">
-        No items in this collection.
+      <div v-else-if="exclusionCollectionIds.length && exclusionItems.length === 0" class="text-caption text-medium-emphasis py-2">
+        No items in the selected collections.
       </div>
-      <div v-else-if="exclusionCollectionId" class="exclusion-list">
-        <div
-          v-for="(item, index) in exclusionItems"
-          :key="item.id"
-          class="exclusion-item-row"
-          @click.capture="(e) => handleItemCapture(item.id!, index, e)"
-        >
-          <v-checkbox
-            :model-value="isExcluded(item.id!)"
-            :label="item.title"
-            density="compact"
-            hide-details
-            color="error"
-            @update:model-value="(v) => handleSingleToggle(item.id!, !!v, index)"
-          />
-        </div>
-      </div>
-      <div v-if="exclusionCollectionId" class="text-caption text-medium-emphasis mt-2">
+      <v-data-table
+        v-else-if="exclusionCollectionIds.length"
+        v-model:sort-by="sortBy"
+        :headers="exclusionHeaders"
+        :items="sortedItems"
+        item-value="id"
+        density="compact"
+        class="exclusion-table"
+        :items-per-page="-1"
+        hide-default-footer
+        multi-sort
+      >
+        <template #item="{ item, index }">
+          <tr
+            class="exclusion-row"
+            :class="{ 'is-excluded': isExcluded(item.id!) }"
+            @click="(e) => handleRowClick(item, e)"
+          >
+            <td class="exclusion-check-col">
+              <v-checkbox
+                :model-value="isExcluded(item.id!)"
+                density="compact"
+                hide-details
+                color="error"
+                readonly
+                tabindex="-1"
+              />
+            </td>
+            <td class="text-caption text-medium-emphasis">{{ index + 1 }}</td>
+            <td>
+              <router-link
+                :to="{ name: 'collectionItemView', params: { id: item.collectionId, itemId: item.id } }"
+                class="item-link"
+                target="_blank"
+                @click.stop
+              >{{ item.title }}</router-link>
+            </td>
+            <td class="text-caption text-medium-emphasis">{{ item.collectionTitle }}</td>
+            <td>
+              <v-chip
+                size="small"
+                label
+                :color="strengthInfo(item.strengthScore).color"
+                variant="flat"
+              >
+                {{ strengthInfo(item.strengthScore).label }}
+              </v-chip>
+            </td>
+          </tr>
+        </template>
+      </v-data-table>
+      <div v-if="exclusionCollectionIds.length" class="text-caption text-medium-emphasis mt-2">
         {{ excludedInCurrentCollection }} excluded / {{ exclusionItems.length }} total
       </div>
     </div>
@@ -165,7 +231,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { getCollections, getLearningItems, pullContentWidget, saveContentWidget } from '../database'
+import { getCollections, getLearningItems, getAllCardProgress, pullContentWidget, saveContentWidget } from '../database'
 import type { LearningItem } from '../database'
 import { useStudyViewCollection } from '../composables/useStudyViewCollection'
 import { useExcludedItems } from '../composables/useExcludedItems'
@@ -189,52 +255,114 @@ const exclusionCollectionOptions = computed(() => {
 
 const { studyViewCollectionId, setStudyViewCollectionId } = useStudyViewCollection()
 const { excludedItemIds, isExcluded, toggleExclusion } = useExcludedItems()
-const exclusionCollectionId = ref<string | null>(null)
-const exclusionItems = ref<LearningItem[]>([])
+type ExclusionItem = LearningItem & { collectionTitle: string; strengthScore: number }
+// learning_item_id -> strength_score (0..1). Absent = no progress yet ("New").
+const strengthByItem = ref<Map<string, number>>(new Map())
+
+// Same tiers as the progress/study pages.
+function strengthInfo(score: number) {
+  if (score < 0) return { label: 'New', color: '#BDBDBD' }
+  if (score < 0.25) return { label: 'Critical', color: '#F44336' }
+  if (score < 0.5) return { label: 'Struggling', color: '#FF9800' }
+  if (score < 0.75) return { label: 'Good', color: '#8BC34A' }
+  return { label: 'Mastered', color: '#4CAF50' }
+}
+const exclusionCollectionIds = ref<string[]>([])
+const exclusionItems = ref<ExclusionItem[]>([])
 const loadingExclusionItems = ref(false)
 const anchorIndex = ref<number | null>(null)
+
+const exclusionHeaders = [
+  { title: '', key: 'excluded', sortable: false, width: 56 },
+  { title: '#', key: 'rowIndex', sortable: false, width: 48 },
+  { title: 'Item', key: 'title' },
+  { title: 'Collection', key: 'collectionTitle' },
+  { title: 'Strength', key: 'strengthScore' },
+] as const
+
+const sortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([{ key: 'title', order: 'asc' }])
+const titleSearch = ref('')
+
+// Prefix match on title (case-insensitive): typing "L1" shows titles starting with "L1".
+const filteredItems = computed(() => {
+  const q = titleSearch.value.trim().toLowerCase()
+  if (!q) return exclusionItems.value
+  return exclusionItems.value.filter(i => i.title.toLowerCase().startsWith(q))
+})
+
+// Mirror the data-table's display order so shift-click ranges follow what the
+// user actually sees after filtering and sorting.
+const sortedItems = computed(() => {
+  const sorts = sortBy.value
+  const arr = [...filteredItems.value]
+  if (!sorts.length) return arr
+  return arr.sort((a, b) => {
+    for (const sort of sorts) {
+      const av = (a as Record<string, unknown>)[sort.key]
+      const bv = (b as Record<string, unknown>)[sort.key]
+      const cmp = typeof av === 'number' && typeof bv === 'number'
+        ? av - bv
+        : String(av ?? '').localeCompare(String(bv ?? ''))
+      if (cmp !== 0) return cmp * (sort.order === 'desc' ? -1 : 1)
+    }
+    return 0
+  })
+})
 
 const excludedInCurrentCollection = computed(
   () => exclusionItems.value.filter(i => i.id && excludedItemIds.value.has(i.id)).length
 )
 
-watch(exclusionCollectionId, async (id) => {
+watch(exclusionCollectionIds, async (ids) => {
   anchorIndex.value = null
-  if (!id) {
+  if (!ids.length) {
     exclusionItems.value = []
     return
   }
   loadingExclusionItems.value = true
   try {
-    const items = await getLearningItems(id)
-    exclusionItems.value = items.sort((a, b) => a.title.localeCompare(b.title))
+    // Merge items across the selected collections, deduping by id. An item that
+    // lives in several selected collections lists them all in collectionTitle.
+    const merged = new Map<string, ExclusionItem>()
+    for (const id of ids) {
+      const title = collections.value.find(c => c.id === id)?.title ?? ''
+      const items = await getLearningItems(id)
+      for (const item of items) {
+        if (!item.id) continue
+        const existing = merged.get(item.id)
+        if (existing) {
+          existing.collectionTitle += `, ${title}`
+        } else {
+          merged.set(item.id, {
+            ...item,
+            collectionTitle: title,
+            strengthScore: strengthByItem.value.get(item.id) ?? -1,
+          })
+        }
+      }
+    }
+    exclusionItems.value = [...merged.values()].sort((a, b) => a.title.localeCompare(b.title))
   } finally {
     loadingExclusionItems.value = false
   }
 })
 
-function handleItemCapture(itemId: string, index: number, event: MouseEvent) {
-  if (!event.shiftKey) return
-  event.stopPropagation()
-
-  if (anchorIndex.value === null) {
+function handleRowClick(item: ExclusionItem, event: MouseEvent) {
+  const itemId = item.id!
+  // Index within the currently sorted/displayed order, so ranges match the view.
+  const index = sortedItems.value.findIndex(i => i.id === itemId)
+  if (event.shiftKey && anchorIndex.value !== null) {
+    const start = Math.min(anchorIndex.value, index)
+    const end = Math.max(anchorIndex.value, index)
+    const targetState = !isExcluded(itemId)
+    for (let i = start; i <= end; i++) {
+      const id = sortedItems.value[i]?.id
+      if (id) toggleExclusion(id, targetState)
+    }
+  } else {
     toggleExclusion(itemId, !isExcluded(itemId))
     anchorIndex.value = index
-    return
   }
-
-  const start = Math.min(anchorIndex.value, index)
-  const end = Math.max(anchorIndex.value, index)
-  const targetState = !isExcluded(itemId)
-  for (let i = start; i <= end; i++) {
-    const id = exclusionItems.value[i]?.id
-    if (id) toggleExclusion(id, targetState)
-  }
-}
-
-function handleSingleToggle(itemId: string, value: boolean, index: number) {
-  toggleExclusion(itemId, value)
-  anchorIndex.value = index
 }
 const contentCollectionIds = ref<string[]>([])
 const missingContentCollectionIds = ref<string[]>([])
@@ -273,6 +401,9 @@ onMounted(async () => {
       })
     )
     collectionItemIds.value = new Map(entries)
+
+    const progress = await getAllCardProgress()
+    strengthByItem.value = new Map(progress.map(p => [p.learning_item_id, p.strength_score]))
   } finally {
     loadingCollections.value = false
   }
@@ -301,7 +432,9 @@ onMounted(async () => {
     if (stored.notificationIntervalSeconds) intervalSeconds.value = stored.notificationIntervalSeconds
   }
 
-  exclusionCollectionId.value = studyViewCollectionId.value
+  if (studyViewCollectionId.value) {
+    exclusionCollectionIds.value = [studyViewCollectionId.value]
+  }
 })
 
 async function saveNotificationSettings() {
@@ -329,7 +462,7 @@ async function saveNotificationSettings() {
 <style scoped>
 .study-options {
   width: 100%;
-  max-width: 720px;
+  max-width: 1080px;
   margin: 0 auto;
   box-sizing: border-box;
 }
@@ -344,9 +477,37 @@ async function saveNotificationSettings() {
   gap: 12px;
 }
 
-.exclusion-item-row {
+.exclusion-table {
+  width: 100%;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 4px;
+}
+
+.exclusion-row {
   cursor: pointer;
   user-select: none;
+}
+
+.exclusion-row:hover {
+  background: rgba(var(--v-theme-on-surface), 0.04);
+}
+
+.exclusion-row.is-excluded {
+  background: rgba(var(--v-theme-error), 0.06);
+}
+
+.exclusion-check-col {
+  width: 56px;
+}
+
+.item-link {
+  color: inherit;
+  text-decoration: none;
+  font-size: 1rem;
+}
+
+.item-link:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 400px) {
