@@ -46,6 +46,7 @@ export {
   getAttemptLogs,
   getAllAttemptLogs,
   getAllExcludedItems,
+  getLocalContentWidget,
   // Local-only progress write (no inline remote round-trip); callers that want a
   // snappy UI write this and let a background syncCardProgress() push to Firebase.
   updateCardProgress as updateLocalCardProgress

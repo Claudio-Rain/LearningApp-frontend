@@ -5,7 +5,7 @@
     <div class="mb-4">
       <label class="text-caption font-weight-bold d-block mb-2">Study View Collection</label>
       <v-select
-        v-model="studyViewCollectionId"
+        v-model="studyViewSelection"
         :items="collections"
         item-title="title"
         item-value="id"
@@ -30,7 +30,8 @@
         multiple
         chips
         closable-chips
-        :loading="loadingCollections"
+        :loading="loadingContentWidget || loadingCollections"
+        :disabled="loadingContentWidget"
         no-data-text="No collections found"
       />
       <v-alert
@@ -231,7 +232,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { getCollections, getLearningItems, getAllCardProgress, syncContentWidget, syncExcludedItems, saveContentWidget } from '../database'
+import { getCollections, getLearningItems, getAllCardProgress, getLocalContentWidget, syncContentWidget, syncExcludedItems, saveContentWidget } from '../database'
 import type { LearningItem } from '../database'
 import { useStudyViewCollection } from '../composables/useStudyViewCollection'
 import { useExcludedItems } from '../composables/useExcludedItems'
@@ -239,7 +240,9 @@ import { useExcludedItems } from '../composables/useExcludedItems'
 declare const chrome: any
 
 const collections = ref<{ id: string; title: string }[]>([])
-const loadingCollections = ref(false)
+// Starts true so the first render (before onMounted's async load) already shows
+// the loading state instead of a selector with an unresolved value.
+const loadingCollections = ref(true)
 const collectionItemIds = ref<Map<string, Set<string>>>(new Map())
 
 const exclusionCollectionOptions = computed(() => {
@@ -254,6 +257,13 @@ const exclusionCollectionOptions = computed(() => {
 })
 
 const { studyViewCollectionId, setStudyViewCollectionId } = useStudyViewCollection()
+// The stored id is available synchronously (localStorage), but `collections` is
+// loaded async — so bind the selector to a proxy that withholds the value until
+// the items exist, otherwise Vuetify briefly renders the raw id as the title.
+const studyViewSelection = computed({
+  get: () => (loadingCollections.value ? null : studyViewCollectionId.value),
+  set: (id: string | null) => setStudyViewCollectionId(id),
+})
 const { excludedItemIds, isExcluded, toggleExclusion, load: loadExcludedItems } = useExcludedItems()
 type ExclusionItem = LearningItem & { collectionTitle: string; strengthScore: number }
 // learning_item_id -> strength_score (0..1). Absent = no progress yet ("New").
@@ -366,6 +376,9 @@ function handleRowClick(item: ExclusionItem, event: MouseEvent) {
 }
 const contentCollectionIds = ref<string[]>([])
 const missingContentCollectionIds = ref<string[]>([])
+// Freezes the content-widget selector (spinner + disabled) until its remote
+// value has been pulled and resolved against the loaded collections on mount.
+const loadingContentWidget = ref(true)
 const notificationCollectionId = ref<string | null>(null)
 const startHour = ref(9)
 const endHour = ref(10)
@@ -387,14 +400,10 @@ const intervalOptions = [
 ]
 
 onMounted(async () => {
-  // Pull a fresh set of the two study-options objects that live in both Firestore
-  // and the local DB (content widget + excluded items) before we read the local
-  // cache below. The heavier domain data (collections, items, progress) is left to
-  // the global sync engine. loadExcludedItems() re-hydrates the reactive set the
-  // composable populated at setup, now that the pull may have changed it.
-  await Promise.all([syncContentWidget(), syncExcludedItems()])
-  await loadExcludedItems()
-
+  // Load collections from the local cache first (fast) so the Study View selector
+  // can resolve its stored id to a title immediately, instead of briefly showing
+  // the raw id while the remote sync below runs. The heavier per-collection data
+  // (items, progress) is also local; the global sync engine keeps it fresh.
   loadingCollections.value = true
   try {
     const raw = await getCollections()
@@ -416,22 +425,33 @@ onMounted(async () => {
     loadingCollections.value = false
   }
 
-  // contentCollectionIds was already refreshed by syncContentWidget() at the top
-  // of onMounted, so the chrome.storage read below sees the up-to-date cache.
+  // Now pull a fresh set of the two study-options objects that live in both
+  // Firestore and the local DB (content widget + excluded items), then resolve
+  // the content widget against the collections loaded above. loadExcludedItems()
+  // re-hydrates the reactive set the composable populated at setup. The content
+  // widget selector stays frozen (spinner + disabled) until this finishes.
+  try {
+    await Promise.all([syncContentWidget(), syncExcludedItems()])
+    await loadExcludedItems()
+
+    const { contentCollectionIds: storedContentIds } = await getLocalContentWidget()
+    if (storedContentIds?.length) {
+      const existingIds = new Set(collections.value.map(c => c.id))
+      contentCollectionIds.value = storedContentIds.filter((id: string) => existingIds.has(id))
+      missingContentCollectionIds.value = storedContentIds.filter((id: string) => !existingIds.has(id))
+    }
+  } finally {
+    loadingContentWidget.value = false
+  }
+
+  // Notification settings are still chrome.storage-only (extension context).
   if (typeof chrome !== 'undefined' && chrome.storage) {
     const stored = await chrome.storage.local.get([
-      'studyViewCollectionId',
-      'contentCollectionIds',
       'notificationCollectionId',
       'sessionStartHour',
       'sessionEndHour',
       'notificationIntervalSeconds',
     ])
-    if (stored.contentCollectionIds?.length) {
-      const existingIds = new Set(collections.value.map(c => c.id))
-      contentCollectionIds.value = stored.contentCollectionIds.filter((id: string) => existingIds.has(id))
-      missingContentCollectionIds.value = stored.contentCollectionIds.filter((id: string) => !existingIds.has(id))
-    }
     if (stored.notificationCollectionId) notificationCollectionId.value = stored.notificationCollectionId
     if (stored.sessionStartHour != null) startHour.value = stored.sessionStartHour
     if (stored.sessionEndHour != null) endHour.value = stored.sessionEndHour
