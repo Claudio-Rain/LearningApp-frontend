@@ -6,8 +6,7 @@ export {
   syncCollections,
   syncLearningItems,
   syncCardProgress,
-  syncAttemptLogs,
-  syncExcludedItems
+  syncAttemptLogs
 } from './sync/syncEngine'
 export {
   pullCollections,
@@ -29,9 +28,12 @@ export {
   deleteAttemptLog,
   createExcludedItem,
   removeExcludedItem,
+  pushExcludedItems,
+  syncExcludedItems,
   pullContentWidget,
   saveContentWidget,
-  pushContentWidget
+  pushContentWidget,
+  syncContentWidget
 } from './operations'
 export {
   getCollections,

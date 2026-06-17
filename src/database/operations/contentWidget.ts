@@ -40,6 +40,15 @@ export async function saveContentWidget(contentCollectionIds: string[]) {
   }
 }
 
+// Full two-way sync of the content widget settings: pull remote → cache
+// (lastModified-wins, pushing instead if a local edit is pending), then flush
+// any still-pending local change. Cheap enough for a view to call on entry.
+export async function syncContentWidget() {
+  if (!navigator.onLine) return
+  await pullContentWidget()
+  await pushContentWidget()
+}
+
 // Retry path used by the sync engine.
 export async function pushContentWidget() {
   const localS = await local.getLocalContentWidget()

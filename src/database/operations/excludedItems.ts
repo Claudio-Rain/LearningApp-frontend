@@ -36,6 +36,31 @@ export async function pullExcludedItems() {
   }
 }
 
+// Push locally-pending/errored excluded items up to Firestore. Mirrors
+// pushContentWidget(); used by both syncAll() and the two-way syncExcludedItems().
+export async function pushExcludedItems() {
+  const items = await local.getAllExcludedItems()
+  const pending = items.filter(i => i.syncStatus === 'pending' || i.syncStatus === 'error')
+
+  for (const item of pending) {
+    try {
+      await remote.setExcludedItem(item)
+      await local.updateExcludedItem({ ...item, syncStatus: 'synced' })
+    } catch {
+      await local.updateExcludedItem({ ...item, syncStatus: 'error' })
+    }
+  }
+}
+
+// Full two-way sync of excluded items: pull remote → local (last-write-wins by
+// lastModified, never clobbering pending local edits), then push pending
+// local → remote. Cheap enough for a view to call on entry.
+export async function syncExcludedItems() {
+  if (!navigator.onLine) return
+  await pullExcludedItems()
+  await pushExcludedItems()
+}
+
 export async function createExcludedItem(learningItemId: string) {
   const now = formatISO(new Date())
   const id = await local.addExcludedItem({

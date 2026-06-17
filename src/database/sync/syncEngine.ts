@@ -6,6 +6,7 @@ import {
   pullCardProgress,
   pullAttemptLogs,
   pullExcludedItems,
+  pushExcludedItems,
   pullContentWidget,
   pushContentWidget
 } from '../operations'
@@ -75,20 +76,6 @@ export async function syncAttemptLogs() {
   }
 }
 
-export async function syncExcludedItems() {
-  const items = await local.getAllExcludedItems()
-  const pending = items.filter(i => i.syncStatus === 'pending')
-
-  for (const item of pending) {
-    try {
-      await remote.setExcludedItem(item)
-      await local.updateExcludedItem({ ...item, syncStatus: 'synced' })
-    } catch {
-      await local.updateExcludedItem({ ...item, syncStatus: 'error' })
-    }
-  }
-}
-
 export async function syncAll() {
   if (!navigator.onLine) return
   await pullCollections()
@@ -101,7 +88,7 @@ export async function syncAll() {
   await syncLearningItems()
   await syncCardProgress()
   await syncAttemptLogs()
-  await syncExcludedItems()
+  await pushExcludedItems()
   await pushContentWidget()
 }
 

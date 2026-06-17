@@ -231,7 +231,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { getCollections, getLearningItems, getAllCardProgress, pullContentWidget, saveContentWidget } from '../database'
+import { getCollections, getLearningItems, getAllCardProgress, syncContentWidget, syncExcludedItems, saveContentWidget } from '../database'
 import type { LearningItem } from '../database'
 import { useStudyViewCollection } from '../composables/useStudyViewCollection'
 import { useExcludedItems } from '../composables/useExcludedItems'
@@ -254,7 +254,7 @@ const exclusionCollectionOptions = computed(() => {
 })
 
 const { studyViewCollectionId, setStudyViewCollectionId } = useStudyViewCollection()
-const { excludedItemIds, isExcluded, toggleExclusion } = useExcludedItems()
+const { excludedItemIds, isExcluded, toggleExclusion, load: loadExcludedItems } = useExcludedItems()
 type ExclusionItem = LearningItem & { collectionTitle: string; strengthScore: number }
 // learning_item_id -> strength_score (0..1). Absent = no progress yet ("New").
 const strengthByItem = ref<Map<string, number>>(new Map())
@@ -387,6 +387,14 @@ const intervalOptions = [
 ]
 
 onMounted(async () => {
+  // Pull a fresh set of the two study-options objects that live in both Firestore
+  // and the local DB (content widget + excluded items) before we read the local
+  // cache below. The heavier domain data (collections, items, progress) is left to
+  // the global sync engine. loadExcludedItems() re-hydrates the reactive set the
+  // composable populated at setup, now that the pull may have changed it.
+  await Promise.all([syncContentWidget(), syncExcludedItems()])
+  await loadExcludedItems()
+
   loadingCollections.value = true
   try {
     const raw = await getCollections()
@@ -408,10 +416,8 @@ onMounted(async () => {
     loadingCollections.value = false
   }
 
-  // Hydrate contentCollectionIds from Firestore first so a fresh device picks up
-  // the remote selection before reading the local cache below.
-  await pullContentWidget()
-
+  // contentCollectionIds was already refreshed by syncContentWidget() at the top
+  // of onMounted, so the chrome.storage read below sees the up-to-date cache.
   if (typeof chrome !== 'undefined' && chrome.storage) {
     const stored = await chrome.storage.local.get([
       'studyViewCollectionId',
