@@ -26,6 +26,16 @@
           >
             Add
           </v-btn>
+          <v-btn
+            color="primary"
+            size="small"
+            variant="tonal"
+            prepend-icon="mdi-play-circle-outline"
+            @click="router.push({ name: 'study', params: { id: collectionId } })"
+            class="action-btn"
+          >
+            Study
+          </v-btn>
         </div>
       </div>
 
@@ -34,6 +44,7 @@
         :headers="headers"
         :items="learningItems"
         :items-per-page="-1"
+        hide-default-footer
         :sort-by="[{ key: 'title', order: 'asc' }]"
         density="comfortable"
         class="item-table"
@@ -108,7 +119,7 @@ const isPulling = ref(false)
 const headers = [
   { title: '#', key: 'rowNumber', sortable: false, align: 'center' as const, width: '50px' },
   { title: 'Title', key: 'title', sortable: true },
-  { title: '', key: 'actions', sortable: false, align: 'center' as const },
+  { title: '', key: 'actions', sortable: false, align: 'center' as const, width: '48px' },
 ]
 
 // Draggable splitter between the table and the editor
@@ -246,7 +257,7 @@ onMounted(async () => {
 <style scoped>
 .split-view {
   display: flex;
-  height: 100vh;
+  height: calc(100vh - 60px);
   overflow: hidden;
 }
 
@@ -314,8 +325,16 @@ onMounted(async () => {
 
 .item-table {
   flex: 1;
-  overflow-y: auto;
+  min-height: 0;
+  overflow: hidden;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+
+:deep(.item-table .v-table__wrapper) {
+  flex: 1;
+  overflow-y: auto;
 }
 
 :deep(tr.selected-row) {
@@ -341,12 +360,18 @@ onMounted(async () => {
   border: none !important;
 }
 
+:deep(.v-table table) {
+  table-layout: fixed;
+  width: 100%;
+}
+
+
 .item-title {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 500px;
-  display: inline-block;
+  display: block;
+  width: 100%;
   font-size: 1rem;
 }
 

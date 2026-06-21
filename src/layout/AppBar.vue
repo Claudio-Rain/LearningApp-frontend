@@ -4,7 +4,7 @@
     <v-app-bar flat class="app-bar-gradient" height="60">
       <v-app-bar-nav-icon @click="drawer = !drawer" />
       <v-app-bar-title>
-        <span class="toolbar-title">Learning App</span>
+        <span class="toolbar-title" style="cursor: pointer;" @click="router.push({ name: 'collections' })">Learning App</span>
       </v-app-bar-title>
     </v-app-bar>
 
