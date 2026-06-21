@@ -13,6 +13,7 @@
     "firebase:preview": "firebase hosting:channel:deploy preview"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.105.0",
     "@mdi/font": "^7.4.47",
     "@tiptap/extension-code-block-lowlight": "2.24.2",
     "@tiptap/extension-color": "2.24.2",
