@@ -29,10 +29,7 @@
     </div>
 
     <div class="filter-bar">
-      <div class="filter-label">
-        <span>Filter</span>
-      </div>
-      <v-chip-group v-model="selectedCategoryId" mandatory column>
+<v-chip-group v-model="selectedCategoryId" mandatory column>
         <v-chip
           v-for="opt in filterOptions"
           :key="opt.value"
@@ -54,6 +51,7 @@
       :sort-by="[{ key: 'title', order: 'asc' }]"
       class="rounded-lg resizable-table collections-table"
       hover
+      @click:row="(_: Event, { item }: { item: Collection }) => goToCollection(item.id!)"
     >
       <template v-for="col in resizableColumns" #[`header.${col}`]="{ column }" :key="col">
         <span>{{ column.title }}</span>
@@ -61,9 +59,7 @@
       </template>
 
       <template #item.title="{ item }">
-        <span class="cursor-pointer text-primary" @click="goToCollection(item.id!)">
-          {{ item.title }}
-        </span>
+        <span class="collection-title">{{ item.title }}</span>
       </template>
 
       <template #item.description="{ item }">
@@ -74,13 +70,14 @@
           placeholder="Add description..."
           hide-details
           class="description-field"
+          @click.stop
           @change="(e: Event) => handleDescriptionChange(item, (e.target as HTMLInputElement).value)"
           @keydown.enter.prevent="(e: KeyboardEvent) => (e.target as HTMLInputElement).blur()"
         />
       </template>
 
       <template #item.categoryId="{ item }">
-        <v-menu>
+        <v-menu @click.stop>
           <template #activator="{ props }">
             <v-chip
               v-if="categoryOf(item)"
@@ -89,6 +86,7 @@
               size="small"
               class="category-chip"
               v-bind="props"
+              @click.stop
             >
               <v-icon icon="mdi-circle" size="8" :color="categoryOf(item)!.color" class="mr-1" />
               {{ categoryOf(item)!.title }}
@@ -101,6 +99,7 @@
               class="category-chip add-category-chip"
               prepend-icon="mdi-plus"
               v-bind="props"
+              @click.stop
             >
               Category
             </v-chip>
@@ -130,25 +129,27 @@
       </template>
 
       <template #item.actions="{ item }">
-        <v-btn
-          icon="mdi-school"
-          variant="text"
-          size="small"
-          @click.stop="goToStudy(item.id!)"
-          title="Study"
-        />
-        <v-btn
-          icon="mdi-pencil"
-          variant="text"
-          size="small"
-          @click.stop="handleEdit(item)"
-        />
-        <v-btn
-          icon="mdi-delete"
-          variant="text"
-          size="small"
-          @click.stop="handleDelete(item.id!)"
-        />
+        <div class="action-cell" @click.stop>
+          <v-btn
+            icon="mdi-school"
+            variant="text"
+            size="small"
+            @click="goToStudy(item.id!)"
+            title="Study"
+          />
+          <v-btn
+            icon="mdi-pencil"
+            variant="text"
+            size="small"
+            @click="handleEdit(item)"
+          />
+          <v-btn
+            icon="mdi-delete"
+            variant="text"
+            size="small"
+            @click="handleDelete(item.id!)"
+          />
+        </div>
       </template>
     </v-data-table>
 
@@ -302,12 +303,14 @@ const columnWidths = ref<Record<string, number>>({
   actions: 120,
 })
 
+const ACTIONS_WIDTH = 124
+
 const headers = computed(() => [
   { title: 'Title', key: 'title', sortable: true, width: columnWidths.value.title },
   { title: 'Description', key: 'description', sortable: false, width: columnWidths.value.description },
   { title: 'Category', key: 'categoryId', sortable: false, width: columnWidths.value.categoryId },
   { title: 'Items', key: 'numberOfItems', sortable: true, align: 'center' as const, width: columnWidths.value.numberOfItems },
-  { title: 'Actions', key: 'actions', sortable: false, align: 'center' as const, width: columnWidths.value.actions },
+  { title: '', key: 'actions', sortable: false, align: 'center' as const, width: ACTIONS_WIDTH, minWidth: ACTIONS_WIDTH },
 ])
 
 const resizing = ref<{ key: string; startX: number; startWidth: number } | null>(null)
@@ -487,12 +490,22 @@ onMounted(async () => {
   margin: 0 auto;
 }
 
-.cursor-pointer {
+.collection-title {
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.82);
+}
+
+.collections-table :deep(tbody tr) {
   cursor: pointer;
 }
 
-.cursor-pointer:hover {
-  text-decoration: underline;
+.action-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  flex-wrap: nowrap;
+  gap: 0;
 }
 
 .page-header {
@@ -550,18 +563,6 @@ onMounted(async () => {
   align-items: center;
   gap: 12px;
   margin-bottom: 16px;
-}
-
-.filter-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: rgba(0, 0, 0, 0.5);
 }
 
 .filter-chip {
