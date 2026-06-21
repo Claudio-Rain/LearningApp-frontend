@@ -1,4 +1,5 @@
 export * from './collections'
+export * from './categories'
 export * from './learningItems'
 export * from './cardProgress'
 export * from './attemptLog'

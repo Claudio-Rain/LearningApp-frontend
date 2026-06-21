@@ -1,14 +1,19 @@
-export type { Collection, LearningItem, CardProgress, AttemptLog, ExcludedItem, ContentWidgetSettings } from './types'
+export type { Category, Collection, LearningItem, CardProgress, AttemptLog, ExcludedItem, ContentWidgetSettings } from './types'
 export {
   startSyncEngine,
   syncAll,
   pullAllLearningItems,
+  syncCategories,
   syncCollections,
   syncLearningItems,
   syncCardProgress,
   syncAttemptLogs
 } from './sync/syncEngine'
 export {
+  pullCategories,
+  createCategory,
+  editCategory,
+  removeCategory,
   pullCollections,
   pullLearningItems,
   pullCardProgress,
@@ -36,6 +41,8 @@ export {
   syncContentWidget
 } from './operations'
 export {
+  getCategories,
+  updateCategory,
   getCollections,
   getLearningItems,
   updateCollection,

@@ -1,0 +1,57 @@
+Short Name,Category
+Client-side storage,1. LANGUAGE - JAVASCRIPT
+Modules,1. LANGUAGE - JAVASCRIPT
+Async,1. LANGUAGE - JAVASCRIPT
+Concurrency,1. LANGUAGE - JAVASCRIPT
+Filesystem,1. LANGUAGE - JAVASCRIPT
+Date & time,1. LANGUAGE - JAVASCRIPT
+Data sending and retrieval,1. LANGUAGE - JAVASCRIPT
+Math,1. LANGUAGE - JAVASCRIPT
+Regex,1. LANGUAGE - JAVASCRIPT
+Security,2. FRAMEWORK - VUE JS
+Custom events,2. FRAMEWORK - VUE JS
+Internationalization,2. FRAMEWORK - VUE JS
+State management,2. FRAMEWORK - VUE JS
+Routing,2. FRAMEWORK - VUE JS
+Forms,2. FRAMEWORK - VUE JS
+Reusability,2. FRAMEWORK - VUE JS
+Debugging,2. FRAMEWORK - VUE JS
+Documentation,3. LIBRARIES - VUE JS
+Package versioning,3. LIBRARIES - VUE JS
+Localization,3. LIBRARIES - VUE JS
+File upload,3. LIBRARIES - VUE JS
+Image upload,3. LIBRARIES - VUE JS
+Scroll detection,3. LIBRARIES - VUE JS
+Utilities,3. LIBRARIES - VUE JS
+Browser support,3. LIBRARIES - VUE JS
+Network troubleshooting,3. LIBRARIES - VUE JS
+Framework Http Client,3. LIBRARIES - VUE JS
+Immutability,3. LIBRARIES - VUE JS
+Data validation,3. LIBRARIES - VUE JS
+Animations,4. MARKUP AND STYLING
+CSS methodologies,4. MARKUP AND STYLING
+Advanced layouts,4. MARKUP AND STYLING
+Responsive design,4. MARKUP AND STYLING
+Embedded content,4. MARKUP AND STYLING
+Preprocessors,4. MARKUP AND STYLING
+Transforms,4. MARKUP AND STYLING
+Async testing,5. CODE BASED TESTING - VUE JS
+Mocking,5. CODE BASED TESTING - VUE JS
+Integration testing,5. CODE BASED TESTING - VUE JS
+Accessibility testing,5. CODE BASED TESTING - VUE JS
+Requirements elicitation,6. DESIGN
+Refactoring,6. DESIGN
+Design patterns,6. DESIGN
+Requirement sources,6. DESIGN
+Environment setup,7. DEVELOPMENT ENVIRONMENTS
+Containerization,7. DEVELOPMENT ENVIRONMENTS
+Version control,7. DEVELOPMENT ENVIRONMENTS
+Code quality,7. DEVELOPMENT ENVIRONMENTS
+Dependency management,7. DEVELOPMENT ENVIRONMENTS
+Code security,7. DEVELOPMENT ENVIRONMENTS
+Cloud access,8. CLOUD ENVIRONMENTS
+Technical debt,10. TECHNICAL PROCESS
+AI integration,12. GENERATIVE AI
+Advanced prompting,12. GENERATIVE AI
+Prompt templates,12. GENERATIVE AI
+AI community engagement,12. GENERATIVE AI

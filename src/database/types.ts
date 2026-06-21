@@ -5,10 +5,22 @@ interface Syncable {
   remoteId?: string
 }
 
+export interface Category extends Syncable {
+  id?: string
+  title: string
+  // null = root category. Unused for now (every category is a root); kept on the
+  // schema so nested categories become pure UI/query work with no data migration.
+  parentId?: string | null
+  lastModified: string
+  dateCreated: string
+}
+
 export interface Collection extends Syncable {
   id?: string
   title: string
   description?: string
+  // null/undefined = uncategorized. A collection belongs to 0 or 1 category.
+  categoryId?: string | null
   lastModified: string
   dateCreated: string
   numberOfItems: number
