@@ -1,42 +1,22 @@
 <!-- LearningItemView.vue -->
 <template>
   <div class="content-panel">
-    <div class="title-row">
-      <v-textarea
-        v-model="title"
-        class="content-title-input"
-        variant="plain"
-        hide-details
-        auto-grow
-        rows="1"
-        @update:model-value="handleTitleInput"
-      />
-      <!-- Answer button hidden until API credits are set up -->
-      <!-- <v-btn
-        color="primary"
-        size="small"
-        variant="tonal"
-        prepend-icon="mdi-creation"
-        :loading="answering"
-        class="answer-btn"
-        @click="handleAnswer"
-      >
-        Answer
-      </v-btn> -->
-    </div>
-
-    <v-card v-if="answer || answering" class="answer-card" variant="tonal">
-      <div class="answer-header">
-        <span class="answer-label">Claude</span>
-        <v-btn icon="mdi-close" size="x-small" variant="text" @click="answer = ''" />
-      </div>
-      <div class="answer-text">{{ answer }}<span v-if="answering" class="cursor">▋</span></div>
-    </v-card>
+    <v-textarea
+      v-model="title"
+      class="content-title-input"
+      variant="plain"
+      hide-details
+      auto-grow
+      rows="1"
+      @update:model-value="handleTitleInput"
+    />
 
     <LearningItemEditor
       class="editor-fill"
       :value="content"
+      :answering="answering"
       @change="handleContentChange"
+      @answer="handleAnswer"
     />
   </div>
 </template>
@@ -45,10 +25,37 @@
 import { ref, watch, toRaw } from 'vue'
 import { formatISO } from 'date-fns'
 import type { JSONContent } from '@tiptap/vue-3'
+import { generateJSON } from '@tiptap/core'
+import StarterKit from '@tiptap/starter-kit'
+import Underline from '@tiptap/extension-underline'
+import Highlight from '@tiptap/extension-highlight'
+import TextStyle from '@tiptap/extension-text-style'
+import Color from '@tiptap/extension-color'
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
+import { all, createLowlight } from 'lowlight'
+import Table from '@tiptap/extension-table'
+import TableRow from '@tiptap/extension-table-row'
+import TableHeader from '@tiptap/extension-table-header'
+import TableCell from '@tiptap/extension-table-cell'
+import { marked } from 'marked'
 import { editLearningItem } from '../database'
 import type { LearningItem } from '../database/types'
 import LearningItemEditor from './LearningItemEditor.vue'
-import { streamAnswer, getApiKey, setApiKey } from '../utils/claude'
+import { streamAnswer, getApiKey, setApiKey, extractText } from '../utils/claude'
+
+const parseMarkdown = (markdown: string): JSONContent =>
+  generateJSON(marked(markdown) as string, [
+    StarterKit,
+    Underline,
+    Highlight,
+    TextStyle,
+    Color,
+    Table.configure({ resizable: true }),
+    TableRow,
+    TableHeader,
+    TableCell,
+    CodeBlockLowlight.configure({ lowlight: createLowlight(all) }),
+  ])
 
 const props = defineProps<{
   item: LearningItem
@@ -59,23 +66,48 @@ const emit = defineEmits<{
   (e: 'update:title', id: string, title: string, lastModified: string): void
 }>()
 
-const answer = ref('')
 const answering = ref(false)
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+// Reveal the finished markdown into the editor word-by-word as rich text,
+// trailing a bold caret so it reads like Claude is writing it live.
+const typeOut = async (markdown: string) => {
+  const tokens = markdown.match(/\s+|\S+/g) ?? []
+  let shown = ''
+  for (const token of tokens) {
+    shown += token
+    content.value = parseMarkdown(shown + ' ▋')
+    await sleep(45)
+  }
+  content.value = parseMarkdown(markdown)
+}
 
 const handleAnswer = async () => {
   if (answering.value) return
+  // Don't overwrite an item that already has an answer unless the user confirms.
+  if (extractText(content.value).trim()) {
+    if (!confirm('This item already has content. Replace it with a new answer?')) return
+  }
   if (!getApiKey()) {
     const key = prompt('Paste your Anthropic API key (stored only in this browser, used directly from it):')
     if (!key?.trim()) return
     setApiKey(key)
   }
-  answer.value = ''
   answering.value = true
+  let accumulated = ''
   try {
-    await streamAnswer(title.value, content.value, (chunk) => { answer.value += chunk })
+    // Collect the whole answer silently — no raw text shown to the user.
+    await streamAnswer(title.value, content.value, (chunk) => {
+      accumulated += chunk
+    })
+    // Then write it out as rich text with the typing caret.
+    await typeOut(accumulated)
+    const lastModified = formatISO(new Date())
+    await editLearningItem({ ...toRaw(props.item), content: content.value, lastModified })
+    emit('update:content', props.item.id!, content.value, lastModified)
   } catch (err) {
     console.error('Claude answer failed:', err)
-    answer.value = `Error: ${err instanceof Error ? err.message : 'request failed'}`
   } finally {
     answering.value = false
   }
@@ -148,50 +180,12 @@ const handleTitleInput = () => {
   min-height: 0;
 }
 
-.title-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
+/* Keep the title at its natural height so it doesn't stretch the column
+   and push the editor toolbar down. */
+.content-title-input {
+  flex: 0 0 auto;
 }
 
-.answer-btn {
-  margin-top: 6px;
-  border-radius: 8px !important;
-  text-transform: none !important;
-  font-weight: 500 !important;
-  flex-shrink: 0;
-}
-
-.answer-card {
-  margin: 8px 0 12px;
-  padding: 12px 14px;
-  border-radius: 10px;
-}
-
-.answer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-
-.answer-label {
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  opacity: 0.6;
-}
-
-.answer-text {
-  font-size: 0.95rem;
-  line-height: 1.6;
-  white-space: pre-wrap;
-}
-
-.cursor {
-  opacity: 0.5;
-}
 .content-title-input :deep(textarea) {
   font-size: 1.5rem;
   font-weight: 600;

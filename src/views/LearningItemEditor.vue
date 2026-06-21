@@ -80,6 +80,18 @@
             </v-btn>
           </div>
         </template>
+
+        <v-btn
+          color="primary"
+          size="small"
+          variant="tonal"
+          prepend-icon="mdi-creation"
+          :loading="answering"
+          class="answer-btn"
+          @click="emit('answer')"
+        >
+          Answer
+        </v-btn>
       </div>
 
       <editor-content :editor="editor" />
@@ -107,8 +119,11 @@ import TableCell from '@tiptap/extension-table-cell'
 
 const lowlight = createLowlight(all)
 
-const props = defineProps<{ value: JSONContent }>()
-const emit = defineEmits<{ (e: 'change', value: JSONContent): void }>()
+const props = defineProps<{ value: JSONContent; answering?: boolean }>()
+const emit = defineEmits<{
+  (e: 'change', value: JSONContent): void
+  (e: 'answer'): void
+}>()
 
 let skipNextUpdate = false
 
@@ -221,6 +236,11 @@ onBeforeUnmount(() => editor.destroy())
     align-self: stretch;
     margin: 2px 6px;
     background: rgba(0, 0, 0, 0.1);
+  }
+
+  .answer-btn {
+    text-transform: none;
+    font-weight: 500;
   }
 
   .v-btn {
