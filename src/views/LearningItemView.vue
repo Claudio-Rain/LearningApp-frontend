@@ -25,37 +25,11 @@
 import { ref, watch, toRaw } from 'vue'
 import { formatISO } from 'date-fns'
 import type { JSONContent } from '@tiptap/vue-3'
-import { generateJSON } from '@tiptap/core'
-import StarterKit from '@tiptap/starter-kit'
-import Underline from '@tiptap/extension-underline'
-import Highlight from '@tiptap/extension-highlight'
-import TextStyle from '@tiptap/extension-text-style'
-import Color from '@tiptap/extension-color'
-import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
-import { all, createLowlight } from 'lowlight'
-import Table from '@tiptap/extension-table'
-import TableRow from '@tiptap/extension-table-row'
-import TableHeader from '@tiptap/extension-table-header'
-import TableCell from '@tiptap/extension-table-cell'
-import { marked } from 'marked'
 import { editLearningItem } from '../database'
 import type { LearningItem } from '../database/types'
 import LearningItemEditor from './LearningItemEditor.vue'
 import { streamAnswer, getApiKey, setApiKey, extractText } from '../utils/claude'
-
-const parseMarkdown = (markdown: string): JSONContent =>
-  generateJSON(marked(markdown) as string, [
-    StarterKit,
-    Underline,
-    Highlight,
-    TextStyle,
-    Color,
-    Table.configure({ resizable: true }),
-    TableRow,
-    TableHeader,
-    TableCell,
-    CodeBlockLowlight.configure({ lowlight: createLowlight(all) }),
-  ])
+import { markdownToTiptap } from '../utils/markdown'
 
 const props = defineProps<{
   item: LearningItem
@@ -77,10 +51,10 @@ const typeOut = async (markdown: string) => {
   let shown = ''
   for (const token of tokens) {
     shown += token
-    content.value = parseMarkdown(shown + ' ▋')
+    content.value = markdownToTiptap(shown + ' ▋')
     await sleep(45)
   }
-  content.value = parseMarkdown(markdown)
+  content.value = markdownToTiptap(markdown)
 }
 
 const handleAnswer = async () => {
@@ -89,10 +63,10 @@ const handleAnswer = async () => {
   if (extractText(content.value).trim()) {
     if (!confirm('This item already has content. Replace it with a new answer?')) return
   }
-  if (!getApiKey()) {
+  if (!(await getApiKey())) {
     const key = prompt('Paste your Anthropic API key (stored only in this browser, used directly from it):')
     if (!key?.trim()) return
-    setApiKey(key)
+    await setApiKey(key)
   }
   answering.value = true
   let accumulated = ''

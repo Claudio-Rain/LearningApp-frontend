@@ -103,6 +103,9 @@ function injectContentDisplay() {
           </div>
         </div>
         <div class="content-header-actions">
+          <button class="content-add-btn" id="content-add" title="New learning item">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>
+          </button>
           <button class="content-notes-btn" id="content-notes-toggle" title="Scratchpad notes">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 4a2 2 0 0 1 2-2h9l6 6v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4zm10 0v5h5l-5-5zM7 13h10v2H7v-2zm0 4h7v2H7v-2z"/></svg>
           </button>
@@ -167,6 +170,33 @@ function injectContentDisplay() {
     <div class="learning-notes-footer"></div>
   `;
   document.body.appendChild(notesPanel);
+
+  // Modal for creating a new learning item (Name, Collection, auto-answer).
+  const addModal = document.createElement('div');
+  addModal.id = 'learning-add-modal';
+  addModal.className = 'learning-add-overlay';
+  addModal.innerHTML = `
+    <div class="learning-add-card">
+      <div class="learning-add-header">
+        <span>New learning item</span>
+        <button class="learning-add-close" id="learning-add-close" title="Close">&times;</button>
+      </div>
+      <label class="learning-add-label">Name</label>
+      <input class="learning-add-input" id="learning-add-name" type="text" placeholder="What do you want to learn?">
+      <label class="learning-add-label">Collection</label>
+      <select class="learning-add-input" id="learning-add-collection"></select>
+      <label class="learning-add-check">
+        <input type="checkbox" id="learning-add-autoanswer">
+        <span>Auto-answer with Claude in the background</span>
+      </label>
+      <div class="learning-add-error" id="learning-add-error"></div>
+      <div class="learning-add-actions">
+        <button class="learning-add-btn-cancel" id="learning-add-cancel">Cancel</button>
+        <button class="learning-add-btn-create" id="learning-add-create">Create</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(addModal);
 
   const style = document.createElement('style');
   style.textContent = `
@@ -1014,6 +1044,223 @@ function injectContentDisplay() {
     .learning-content-widget.dark .content-edit-btn:hover {
       background: rgba(255, 255, 255, 0.08);
     }
+
+    /* ---- New-item button + modal ---- */
+    .content-add-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: #10b981;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-family: inherit;
+    }
+
+    .content-add-btn:hover {
+      background: rgba(16, 185, 129, 0.1);
+    }
+
+    .learning-add-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 999999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.4);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .learning-add-overlay.open {
+      display: flex;
+    }
+
+    .learning-add-card {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
+      width: 380px;
+      max-width: 90vw;
+      padding: 20px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .learning-add-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 15px;
+      font-weight: 600;
+      color: #111827;
+      margin-bottom: 8px;
+    }
+
+    .learning-add-close {
+      border: none;
+      background: transparent;
+      color: #9ca3af;
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+      border-radius: 4px;
+      padding: 0 4px;
+    }
+
+    .learning-add-close:hover {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    .learning-add-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #6b7280;
+      margin-top: 8px;
+    }
+
+    .learning-add-input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 8px 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #1f2937;
+      background: white;
+      font-family: inherit;
+      outline: none;
+    }
+
+    .learning-add-input:focus {
+      border-color: #3b82f6;
+    }
+
+    .learning-add-check {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      font-size: 13px;
+      color: #374151;
+      cursor: pointer;
+    }
+
+    .learning-add-check input {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+
+    .learning-add-error {
+      color: #ef4444;
+      font-size: 12px;
+      min-height: 14px;
+    }
+
+    .learning-add-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .learning-add-btn-cancel,
+    .learning-add-btn-create {
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      font-family: inherit;
+    }
+
+    .learning-add-btn-cancel {
+      background: #f3f4f6;
+      color: #374151;
+    }
+
+    .learning-add-btn-cancel:hover {
+      background: #e5e7eb;
+    }
+
+    .learning-add-btn-create {
+      background: #10b981;
+      color: white;
+    }
+
+    .learning-add-btn-create:hover {
+      background: #059669;
+    }
+
+    .learning-add-btn-create:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    .learning-add-card.dark {
+      background: #1e1e2e;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+    }
+
+    .learning-add-card.dark .learning-add-header {
+      color: #f3f4f6;
+    }
+
+    .learning-add-card.dark .learning-add-input {
+      background: #181825;
+      border-color: #313244;
+      color: #d1d5db;
+    }
+
+    .learning-add-card.dark .learning-add-check {
+      color: #d1d5db;
+    }
+
+    .learning-add-card.dark .learning-add-btn-cancel {
+      background: #313244;
+      color: #d1d5db;
+    }
+
+    .learning-toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      z-index: 1000000;
+      max-width: 80vw;
+      padding: 12px 18px;
+      border-radius: 10px;
+      background: #111827;
+      color: white;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    .learning-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .learning-toast.error {
+      background: #b91c1c;
+    }
   `;
 
   document.head.appendChild(style);
@@ -1305,16 +1552,130 @@ function toggleNotesPanel() {
   if (open) panel.querySelector('.learning-notes-textarea')?.focus();
 }
 
+// Promise-based sender for messages that need a response back from background.
+function sendMessageForResponse(message) {
+  try {
+    return chrome.runtime.sendMessage(message);
+  } catch (error) {
+    return Promise.reject(error);
+  }
+}
+
+async function openAddModal() {
+  const overlay = document.getElementById('learning-add-modal');
+  const select = document.getElementById('learning-add-collection');
+  const nameInput = document.getElementById('learning-add-name');
+  const errorEl = document.getElementById('learning-add-error');
+  const widget = document.querySelector('.learning-content-widget');
+  if (!overlay || !select) return;
+
+  // Reset fields and mirror the widget theme.
+  if (nameInput) nameInput.value = '';
+  if (errorEl) errorEl.textContent = '';
+  document.getElementById('learning-add-autoanswer').checked = false;
+  overlay.querySelector('.learning-add-card')?.classList.toggle('dark', !!widget?.classList.contains('dark'));
+
+  // Prefill the collection of the item being studied, when known.
+  select.innerHTML = '<option value="">Loading…</option>';
+  overlay.classList.add('open');
+  nameInput?.focus();
+
+  try {
+    const res = await sendMessageForResponse({ action: 'getCollections' });
+    const collections = res?.collections || [];
+    if (!collections.length) {
+      select.innerHTML = '<option value="">No collections found</option>';
+      return;
+    }
+    select.innerHTML = collections
+      .map((c) => `<option value="${c.id}">${escapeHtml(c.title)}</option>`)
+      .join('');
+    if (currentItem?.collectionId) select.value = currentItem.collectionId;
+  } catch {
+    select.innerHTML = '<option value="">Failed to load</option>';
+  }
+}
+
+function closeAddModal() {
+  document.getElementById('learning-add-modal')?.classList.remove('open');
+}
+
+async function submitAddModal() {
+  const nameInput = document.getElementById('learning-add-name');
+  const select = document.getElementById('learning-add-collection');
+  const autoAnswer = document.getElementById('learning-add-autoanswer')?.checked;
+  const errorEl = document.getElementById('learning-add-error');
+  const createBtn = document.getElementById('learning-add-create');
+
+  const title = nameInput?.value.trim();
+  const collectionId = select?.value;
+  if (!title) { if (errorEl) errorEl.textContent = 'Please enter a name.'; return; }
+  if (!collectionId) { if (errorEl) errorEl.textContent = 'Please pick a collection.'; return; }
+
+  if (errorEl) errorEl.textContent = '';
+
+  // Auto-answer needs an Anthropic API key in the extension's own storage. The
+  // one from `npm run dev` lives in a different origin, so prompt for it here if
+  // it isn't set yet — it's saved into chrome.storage.local via the background.
+  let useAutoAnswer = autoAnswer;
+  if (useAutoAnswer) {
+    const keyRes = await sendMessageForResponse({ action: 'hasApiKey' });
+    if (!keyRes?.hasKey) {
+      const key = prompt('Paste your Anthropic API key (stored in this extension, used directly from your browser):');
+      if (key && key.trim()) {
+        await sendMessageForResponse({ action: 'setApiKey', key: key.trim() });
+      } else {
+        // No key provided — create the item but skip the answer.
+        useAutoAnswer = false;
+      }
+    }
+  }
+
+  if (createBtn) { createBtn.disabled = true; createBtn.textContent = 'Creating…'; }
+
+  try {
+    const res = await sendMessageForResponse({ action: 'createItem', title, collectionId, autoAnswer: useAutoAnswer });
+    if (res?.success) {
+      closeAddModal();
+    } else if (errorEl) {
+      errorEl.textContent = res?.error || 'Failed to create item.';
+    }
+  } catch {
+    if (errorEl) errorEl.textContent = 'Failed to create item.';
+  } finally {
+    if (createBtn) { createBtn.disabled = false; createBtn.textContent = 'Create'; }
+  }
+}
+
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
   try {
     if (request.action === 'updateContent') {
       updateContentDisplay(request.item, request.meta);
+      sendResponse({ success: true });
+    } else if (request.action === 'notify') {
+      showToast(request.message, request.isError);
       sendResponse({ success: true });
     }
   } catch (error) {
     sendResponse({ success: false, error: error.message });
   }
 });
+
+// Lightweight transient toast for background notifications (auto-answer result).
+function showToast(message, isError = false) {
+  let toast = document.getElementById('learning-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'learning-toast';
+    toast.className = 'learning-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = message;
+  toast.classList.toggle('error', !!isError);
+  toast.classList.add('show');
+  clearTimeout(showToast._timer);
+  showToast._timer = setTimeout(() => toast.classList.remove('show'), 4000);
+}
 
 // Inyectar content display al cargar la página, then ask the background for
 // the current item immediately instead of waiting up to 3 minutes for the next
@@ -1332,6 +1693,18 @@ if (document.readyState === 'loading') {
 
 // Keyboard shortcuts
 function handleKeydown(e) {
+  // New-item modal: Enter submits, Escape closes.
+  const addModal = document.getElementById('learning-add-modal');
+  if (addModal?.classList.contains('open')) {
+    if (e.key === 'Enter' && e.target.id !== 'learning-add-collection') {
+      e.preventDefault();
+      submitAddModal();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      closeAddModal();
+    }
+    return;
+  }
   // Space or Enter to flip
   if ((e.key === ' ' || e.key === 'Enter') && e.target.closest('#learning-app-content') && e.target.tagName !== 'INPUT') {
     e.preventDefault();
@@ -1363,6 +1736,25 @@ document.addEventListener('change', (e) => {
 });
 
 document.addEventListener('click', (e) => {
+  // Open the new-item modal
+  if (e.target.closest('#content-add')) {
+    e.stopPropagation();
+    openAddModal();
+    return;
+  }
+  // Close the new-item modal (X, Cancel, or clicking the dim backdrop)
+  if (e.target.closest('#learning-add-close') || e.target.closest('#learning-add-cancel') ||
+      e.target.id === 'learning-add-modal') {
+    e.stopPropagation();
+    closeAddModal();
+    return;
+  }
+  // Submit the new-item modal
+  if (e.target.closest('#learning-add-create')) {
+    e.stopPropagation();
+    submitAddModal();
+    return;
+  }
   // Navigate prev/next
   if (e.target.closest('#content-nav-prev')) {
     e.stopPropagation();

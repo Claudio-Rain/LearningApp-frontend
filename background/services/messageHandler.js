@@ -8,7 +8,19 @@ import {
 } from '../utils/storage.js';
 import { recordAttempt, recordContentRating } from './progressService.js';
 import { fetchNextContentItem } from './contentService.js';
-import { removeLearningItem, createExcludedItem } from '../../src/database/index.ts';
+import {
+  removeLearningItem,
+  createExcludedItem,
+  createLearningItem,
+  editLearningItem,
+  syncLearningItems,
+  getCollections,
+  editCollection,
+  syncCollections
+} from '../../src/database/index.ts';
+import { formatISO } from 'date-fns';
+import { generateAnswerMarkdown, hasApiKey, setApiKey } from '../../src/utils/claude.ts';
+import { markdownToTiptap } from '../../src/utils/markdown.ts';
 
 export function setupMessageListeners() {
   chrome.notifications.onButtonClicked.addListener(handleNotificationButtonClick);
@@ -83,7 +95,70 @@ function handleContentScriptMessage(request, _sender, sendResponse) {
     const url = chrome.runtime.getURL(`index.html#/collections/${request.collectionId}/${request.itemId}`);
     chrome.tabs.create({ url });
     sendResponse({ success: true });
+  } else if (request.action === 'getCollections') {
+    getCollections()
+      .then((cols) => sendResponse({
+        success: true,
+        collections: cols.map((c) => ({ id: c.id, title: c.title }))
+      }))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true; // async response
+  } else if (request.action === 'createItem') {
+    handleCreateItem(request, _sender)
+      .then((res) => sendResponse(res))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true; // async response
+  } else if (request.action === 'hasApiKey') {
+    hasApiKey()
+      .then((has) => sendResponse({ success: true, hasKey: has }))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true; // async response
+  } else if (request.action === 'setApiKey') {
+    setApiKey(request.key)
+      .then(() => sendResponse({ success: true }))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true; // async response
   }
+}
+
+// Send a toast back to the content script that initiated the request.
+function notifyTab(tabId, message, isError = false) {
+  if (typeof tabId !== 'number') return;
+  chrome.tabs.sendMessage(tabId, { action: 'notify', message, isError }).catch(() => {});
+}
+
+async function handleCreateItem({ title, collectionId, autoAnswer }, sender) {
+  const now = formatISO(new Date());
+  const id = String(await createLearningItem({ collectionId, title, dateCreated: now, lastModified: now }));
+
+  // Keep the collection's item count in step with the SPA's "Add" behavior.
+  const collection = (await getCollections()).find((c) => c.id === collectionId);
+  if (collection) {
+    await editCollection({ ...collection, numberOfItems: (collection.numberOfItems || 0) + 1, lastModified: now });
+    await syncCollections();
+  }
+  await syncLearningItems();
+
+  // The card already exists; let Claude fill the answer in the background so the
+  // UI doesn't block. It re-syncs once the content is ready, and reports back to
+  // the originating tab on success or failure.
+  if (autoAnswer) {
+    const tabId = sender?.tab?.id;
+    generateAutoAnswer(id, collectionId, title, now)
+      .then(() => notifyTab(tabId, `Claude answered "${title}"`))
+      .catch((error) => {
+        console.error('[background] auto-answer failed:', error);
+        notifyTab(tabId, `Auto-answer failed: ${error.message}`, true);
+      });
+  }
+  return { success: true, id };
+}
+
+async function generateAutoAnswer(id, collectionId, title, dateCreated) {
+  const markdown = await generateAnswerMarkdown(title);
+  const content = markdownToTiptap(markdown);
+  await editLearningItem({ id, collectionId, title, content, dateCreated, lastModified: formatISO(new Date()) });
+  await syncLearningItems();
 }
 
 async function handleButtonClickedFromNotification(buttonIndex) {

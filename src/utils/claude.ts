@@ -14,10 +14,43 @@ const KEY_STORAGE = 'claude_api_key'
 
 const MODEL = 'claude-sonnet-4-6'
 
-export const getApiKey = (): string | null => localStorage.getItem(KEY_STORAGE)
-export const setApiKey = (key: string): void => localStorage.setItem(KEY_STORAGE, key.trim())
-export const clearApiKey = (): void => localStorage.removeItem(KEY_STORAGE)
-export const hasApiKey = (): boolean => !!getApiKey()
+// The key lives in chrome.storage.local so both the SPA editor and the
+// extension's background service worker can read it (the worker has no
+// localStorage). Falls back to localStorage during `npm run dev`, where the
+// chrome APIs aren't present.
+const chromeStorage: any =
+  (globalThis as any).chrome?.storage?.local ?? null
+
+export const getApiKey = async (): Promise<string | null> => {
+  if (chromeStorage) {
+    const data = await chromeStorage.get(KEY_STORAGE)
+    let key = data?.[KEY_STORAGE] ?? null
+    // One-time migration: a key set before this store existed lives in the
+    // SPA's localStorage. Copy it into chrome.storage so the worker can read it.
+    if (!key && typeof localStorage !== 'undefined') {
+      const legacy = localStorage.getItem(KEY_STORAGE)
+      if (legacy) {
+        await chromeStorage.set({ [KEY_STORAGE]: legacy })
+        key = legacy
+      }
+    }
+    return key
+  }
+  return localStorage.getItem(KEY_STORAGE)
+}
+
+export const setApiKey = async (key: string): Promise<void> => {
+  const value = key.trim()
+  if (chromeStorage) await chromeStorage.set({ [KEY_STORAGE]: value })
+  else localStorage.setItem(KEY_STORAGE, value)
+}
+
+export const clearApiKey = async (): Promise<void> => {
+  if (chromeStorage) await chromeStorage.remove(KEY_STORAGE)
+  else localStorage.removeItem(KEY_STORAGE)
+}
+
+export const hasApiKey = async (): Promise<boolean> => !!(await getApiKey())
 
 /** Flatten TipTap JSONContent into plain text for the prompt. */
 export const extractText = (node?: JSONContent | string): string => {
@@ -39,7 +72,7 @@ export const streamAnswer = async (
   content: JSONContent | undefined,
   onToken: (chunk: string) => void
 ): Promise<void> => {
-  const apiKey = getApiKey()
+  const apiKey = await getApiKey()
   if (!apiKey) throw new Error('No API key set')
 
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true })
@@ -63,4 +96,17 @@ export const streamAnswer = async (
       onToken(event.delta.text)
     }
   }
+}
+
+/**
+ * Non-streaming variant used by the extension's background worker: returns the
+ * whole answer as markdown. Throws if no key is set or the request fails.
+ */
+export const generateAnswerMarkdown = async (
+  title: string,
+  content?: JSONContent
+): Promise<string> => {
+  let out = ''
+  await streamAnswer(title, content, (chunk) => { out += chunk })
+  return out
 }
