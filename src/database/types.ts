@@ -8,6 +8,8 @@ interface Syncable {
 export interface Category extends Syncable {
   id?: string
   title: string
+  // Hex color for the category chip, e.g. '#1976D2'.
+  color?: string
   // null = root category. Unused for now (every category is a root); kept on the
   // schema so nested categories become pure UI/query work with no data migration.
   parentId?: string | null
