@@ -114,7 +114,7 @@ const parsedItems = computed<ParsedItem[]>(() => {
   if (!rawInput.value.trim()) return []
 
   const blocks = rawInput.value
-    .split(/\n\s*\n/)
+    .split(/\n\s*\n/) // split on blank lines (one or more newlines with optional whitespace between)
     .map(b => b.trim())
     .filter(Boolean)
 
@@ -125,8 +125,8 @@ const parsedItems = computed<ParsedItem[]>(() => {
     let capturingAnswer = false
 
     for (const line of lines) {
-      const qMatch = line.match(/^question:\s*(.*)/i)
-      const aMatch = line.match(/^answer:\s*(.*)/i)
+      const qMatch = line.match(/^question:\s*(.*)/i) // "question:" at line start, capture rest, case-insensitive
+      const aMatch = line.match(/^answer:\s*(.*)/i)   // "answer:" at line start, capture rest, case-insensitive
 
       if (qMatch?.[1] !== undefined) {
         question = qMatch[1].trim()
