@@ -132,7 +132,6 @@ const normalizeContent = (content: JSONContent): JSONContent => {
 
   // Si es un objeto sin type, agregar type: 'doc'
   if (typeof content === 'object' && !content.type) {
-    console.warn('[LearningItemEditor] Content missing type field, normalizing', content)
     return { type: 'doc', content: content.content || [] }
   }
 
@@ -160,11 +159,9 @@ const editor = new Editor({
   ],
   content: normalizeContent(props.value),
   onUpdate: ({ editor }) => {
-    console.log('[LearningItemEditor] onUpdate fired', { contentLength: JSON.stringify(editor.getJSON()).length })
     skipNextUpdate = true
     emit('change', editor.getJSON())
     setTimeout(() => {
-      console.log('[LearningItemEditor] skipNextUpdate reset to false')
       skipNextUpdate = false
     }, 0)
   },
@@ -178,30 +175,10 @@ watch(
     const newContent = JSON.stringify(normalized)
     const isSame = currentContent === newContent
 
-    console.log('[LearningItemEditor] props.value changed', {
-      skipNextUpdate,
-      isFocused: editor.isFocused,
-      isSame,
-      newContentLength: newContent.length,
-      currentContentLength: currentContent.length
-    })
+    if (skipNextUpdate) return
+    if (editor.isFocused) return
+    if (isSame) return
 
-    if (skipNextUpdate) {
-      console.log('[LearningItemEditor] SKIP: skipNextUpdate is true')
-      return
-    }
-    if (editor.isFocused) {
-      console.log('[LearningItemEditor] SKIP: editor is focused')
-      return
-    }
-    if (isSame) {
-      console.log('[LearningItemEditor] SKIP: content is already the same')
-      return
-    }
-
-    console.log('[LearningItemEditor] CALLING setContent - content differs')
-    console.log('[LearningItemEditor] CURRENT editor content:', currentContent)
-    console.log('[LearningItemEditor] NEW content from props:', newContent)
     editor.commands.setContent(normalized, false)
   }
 )
