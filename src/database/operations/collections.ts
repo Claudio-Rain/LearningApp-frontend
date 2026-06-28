@@ -27,10 +27,22 @@ export async function pullCollections() {
 }
 
 export async function createCollection(data: Omit<Collection, 'id' | 'syncStatus'>) {
-  return local.addCollection({
+  const id = await local.addCollection({
     ...data,
     syncStatus: 'pending'
-  })
+  }) as string
+
+  if (navigator.onLine) {
+    const col: Collection = { ...data, id, syncStatus: 'synced' }
+    try {
+      await remote.setCollection(col)
+      await local.updateCollection(col)
+    } catch (err) {
+      console.error('Failed to push new collection to remote:', err)
+    }
+  }
+
+  return id
 }
 
 export async function editCollection(collection: Collection) {
