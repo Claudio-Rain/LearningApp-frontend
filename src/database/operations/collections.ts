@@ -17,6 +17,7 @@ export async function pullCollections() {
         continue
       }
 
+      // Last-write-wins: remote overwrites local only if it's newer (or local doesn't exist yet)
       if (!localCol || isAfter(parseISO(remoteCol.lastModified), parseISO(localCol.lastModified))) {
         await local.updateCollection({ ...remoteCol, id: remoteCol.remoteId || remoteCol.id })
       }
