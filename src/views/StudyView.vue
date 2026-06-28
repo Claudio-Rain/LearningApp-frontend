@@ -192,7 +192,8 @@ interface StudyItem extends LearningItem {
 
 const route = useRoute()
 const router = useRouter()
-const collectionId = route.params.id!.toLocaleString()
+const routeId = route.params.id ? route.params.id.toString() : null
+const collectionId = routeId ?? localStorage.getItem('studyViewCollectionId') ?? ''
 
 const collection = ref<Collection | null>(null)
 const learningItems = ref<LearningItem[]>([])
@@ -289,6 +290,11 @@ const clearTimer = () => {
 }
 
 const loadData = async () => {
+  if (!collectionId) {
+    router.push({ name: 'collections' })
+    return
+  }
+
   const allCollections = await getCollections()
   collection.value = allCollections.find(c => c.id === collectionId) ?? null
 
@@ -478,7 +484,7 @@ watch(currentIndex, () => {
 onMounted(async () => {
   startSyncEngine()
   window.addEventListener('keydown', handleKeydown)
-  if (navigator.onLine) {
+  if (navigator.onLine && collectionId) {
     await pullLearningItems(collectionId)
     await pullCardProgress()
   }

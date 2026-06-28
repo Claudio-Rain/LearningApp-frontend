@@ -113,16 +113,16 @@ function sortByWeakness(items, progressMap) {
 }
 
 async function resolveSession(sortedItems, availableIds, advanceSession) {
+  const freshIds = sortedItems.map(i => i.id);
   let session = await getContentSession();
 
   // Start a fresh session if there is none or none of its items still exist.
   const valid = session && Array.isArray(session.ids) && session.ids.some(id => availableIds.has(id));
   if (!valid) {
-    return { ids: sortedItems.map(i => i.id), index: 0 };
+    return { ids: freshIds, index: 0 };
   }
 
   // Rebuild if the available item set changed (exclusions, collection swap, etc.).
-  const freshIds = sortedItems.map(i => i.id);
   const sessionSet = new Set(session.ids);
   const setsMatch = freshIds.length === session.ids.length && freshIds.every(id => sessionSet.has(id));
   if (!setsMatch) {
@@ -138,10 +138,26 @@ async function resolveSession(sortedItems, availableIds, advanceSession) {
 
   // Session finished: rebuild with the current weakest-first ordering.
   if (session.index >= session.ids.length) {
-    return { ids: sortedItems.map(i => i.id), index: 0 };
+    return { ids: freshIds, index: 0 };
   }
 
+  // Keep already-seen items frozen (real history for back-navigation, and so a
+  // freshly-rated item isn't re-quizzed immediately), but re-sort the upcoming
+  // tail by the latest weakness. This is what makes ratings/hot-reload reshuffle
+  // the queue instead of leaving items pinned to a stale slot for the whole pass.
+  session.ids = reorderTail(session.ids, session.index, freshIds);
+
   return session;
+}
+
+// Returns a copy of `ids` with the [fromIndex, end) tail re-ordered to follow
+// `freshIds` (the current weakest-first order). The [0, fromIndex) prefix — the
+// items already shown this pass — is left untouched. Callers guarantee `ids` and
+// `freshIds` hold the same set, so length is preserved.
+function reorderTail(ids, fromIndex, freshIds) {
+  const tailSet = new Set(ids.slice(fromIndex));
+  const tail = freshIds.filter(id => tailSet.has(id));
+  return [...ids.slice(0, fromIndex), ...tail];
 }
 
 function buildMeta(itemToShow, items, progressMap, session) {

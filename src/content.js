@@ -171,22 +171,22 @@ function injectContentDisplay() {
   `;
   document.body.appendChild(notesPanel);
 
-  // Modal for creating a new learning item (Name, Collection, auto-answer).
-  const addModal = document.createElement('div');
-  addModal.id = 'learning-add-modal';
-  addModal.className = 'learning-add-overlay';
-  addModal.innerHTML = `
-    <div class="learning-add-card">
-      <div class="learning-add-header">
-        <span>New learning item</span>
-        <button class="learning-add-close" id="learning-add-close" title="Close">&times;</button>
-      </div>
+  // Floating panel for creating a new learning item (Name, Collection, auto-answer).
+  const addPanel = document.createElement('div');
+  addPanel.id = 'learning-add-panel';
+  addPanel.className = 'learning-add-panel';
+  addPanel.innerHTML = `
+    <div class="learning-add-panel-header">
+      <span>New learning item</span>
+      <button class="learning-add-close" id="learning-add-close" title="Close">&times;</button>
+    </div>
+    <div class="learning-add-panel-body">
       <label class="learning-add-label">Name</label>
-      <input class="learning-add-input" id="learning-add-name" type="text" placeholder="What do you want to learn?">
+      <input class="learning-add-input" id="learning-add-name" type="text" placeholder="What do you want to learn?" autocomplete="off">
       <label class="learning-add-label">Collection</label>
       <select class="learning-add-input" id="learning-add-collection"></select>
       <label class="learning-add-check">
-        <input type="checkbox" id="learning-add-autoanswer">
+        <input type="checkbox" id="learning-add-autoanswer" checked>
         <span>Auto-answer with Claude in the background</span>
       </label>
       <div class="learning-add-error" id="learning-add-error"></div>
@@ -196,7 +196,7 @@ function injectContentDisplay() {
       </div>
     </div>
   `;
-  document.body.appendChild(addModal);
+  document.body.appendChild(addPanel);
 
   const style = document.createElement('style');
   style.textContent = `
@@ -679,14 +679,18 @@ function injectContentDisplay() {
       opacity: 1;
       z-index: 2;
       align-items: stretch;
+      justify-content: flex-start;
     }
 
     .front-question-wrapper {
       min-height: 100%;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
       width: 100%;
+      padding: 24px 0;
+      box-sizing: border-box;
     }
 
     .card-side.back {
@@ -696,8 +700,8 @@ function injectContentDisplay() {
     }
 
     .front-question {
-      margin: 0;
-      font-size: clamp(1.5rem, 4vw, 2.5rem);
+      margin: auto 0;
+      font-size: 32px;
       font-weight: 700;
       color: #111827;
       text-align: center;
@@ -705,6 +709,8 @@ function injectContentDisplay() {
       user-select: none;
       word-wrap: break-word;
       overflow-wrap: break-word;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .flashcard-container.flipped .card-side.front {
@@ -1066,42 +1072,50 @@ function injectContentDisplay() {
       background: rgba(16, 185, 129, 0.1);
     }
 
-    .learning-add-overlay {
+    .learning-add-panel {
       position: fixed;
-      inset: 0;
+      top: 80px;
+      right: 516px;
       z-index: 999999;
       display: none;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0, 0, 0, 0.4);
+      flex-direction: column;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+      width: 300px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
-    .learning-add-overlay.open {
+    .learning-add-panel.open {
       display: flex;
     }
 
-    .learning-add-card {
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3);
-      width: 380px;
-      max-width: 90vw;
-      padding: 20px;
-      box-sizing: border-box;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .learning-add-header {
+    .learning-add-panel-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      font-size: 15px;
+      gap: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
       font-weight: 600;
       color: #111827;
-      margin-bottom: 8px;
+      background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb;
+      border-radius: 12px 12px 0 0;
+      user-select: none;
+      cursor: grab;
+    }
+
+    .learning-add-panel-header.dragging {
+      cursor: grabbing;
+    }
+
+    .learning-add-panel-body {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 14px;
     }
 
     .learning-add-close {
@@ -1209,26 +1223,29 @@ function injectContentDisplay() {
       cursor: default;
     }
 
-    .learning-add-card.dark {
+    .learning-add-panel.dark {
       background: #1e1e2e;
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+      border-color: #313244;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
     }
 
-    .learning-add-card.dark .learning-add-header {
+    .learning-add-panel.dark .learning-add-panel-header {
+      background: #181825;
+      border-bottom-color: #313244;
       color: #f3f4f6;
     }
 
-    .learning-add-card.dark .learning-add-input {
+    .learning-add-panel.dark .learning-add-input {
       background: #181825;
       border-color: #313244;
       color: #d1d5db;
     }
 
-    .learning-add-card.dark .learning-add-check {
+    .learning-add-panel.dark .learning-add-check {
       color: #d1d5db;
     }
 
-    .learning-add-card.dark .learning-add-btn-cancel {
+    .learning-add-panel.dark .learning-add-btn-cancel {
       background: #313244;
       color: #d1d5db;
     }
@@ -1278,6 +1295,8 @@ function injectContentDisplay() {
   // Scratchpad drags by its header or footer bar; position is ephemeral (not persisted).
   makeDraggable(notesPanel, notesPanel.querySelector('.learning-notes-header'));
   makeDraggable(notesPanel, notesPanel.querySelector('.learning-notes-footer'));
+
+  makeDraggable(addPanel, addPanel.querySelector('.learning-add-panel-header'));
 
   return contentWidget;
 }
@@ -1562,22 +1581,22 @@ function sendMessageForResponse(message) {
 }
 
 async function openAddModal() {
-  const overlay = document.getElementById('learning-add-modal');
+  const panel = document.getElementById('learning-add-panel');
   const select = document.getElementById('learning-add-collection');
   const nameInput = document.getElementById('learning-add-name');
   const errorEl = document.getElementById('learning-add-error');
   const widget = document.querySelector('.learning-content-widget');
-  if (!overlay || !select) return;
+  if (!panel || !select) return;
 
   // Reset fields and mirror the widget theme.
   if (nameInput) nameInput.value = '';
   if (errorEl) errorEl.textContent = '';
-  document.getElementById('learning-add-autoanswer').checked = false;
-  overlay.querySelector('.learning-add-card')?.classList.toggle('dark', !!widget?.classList.contains('dark'));
+  document.getElementById('learning-add-autoanswer').checked = true;
+  panel.classList.toggle('dark', !!widget?.classList.contains('dark'));
 
   // Prefill the collection of the item being studied, when known.
   select.innerHTML = '<option value="">Loading…</option>';
-  overlay.classList.add('open');
+  panel.classList.add('open');
   nameInput?.focus();
 
   try {
@@ -1597,7 +1616,7 @@ async function openAddModal() {
 }
 
 function closeAddModal() {
-  document.getElementById('learning-add-modal')?.classList.remove('open');
+  document.getElementById('learning-add-panel')?.classList.remove('open');
 }
 
 async function submitAddModal() {
@@ -1694,7 +1713,7 @@ if (document.readyState === 'loading') {
 // Keyboard shortcuts
 function handleKeydown(e) {
   // New-item modal: Enter submits, Escape closes.
-  const addModal = document.getElementById('learning-add-modal');
+  const addModal = document.getElementById('learning-add-panel');
   if (addModal?.classList.contains('open')) {
     if (e.key === 'Enter' && e.target.id !== 'learning-add-collection') {
       e.preventDefault();
@@ -1742,9 +1761,8 @@ document.addEventListener('click', (e) => {
     openAddModal();
     return;
   }
-  // Close the new-item modal (X, Cancel, or clicking the dim backdrop)
-  if (e.target.closest('#learning-add-close') || e.target.closest('#learning-add-cancel') ||
-      e.target.id === 'learning-add-modal') {
+  // Close the new-item panel (X button or Cancel)
+  if (e.target.closest('#learning-add-close') || e.target.closest('#learning-add-cancel')) {
     e.stopPropagation();
     closeAddModal();
     return;
