@@ -22,7 +22,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, toRaw } from 'vue'
+import { ref, watch, toRaw, reactive, computed } from 'vue'
 import { formatISO } from 'date-fns'
 import type { JSONContent } from '@tiptap/vue-3'
 import { editLearningItem } from '../database'
@@ -40,25 +40,40 @@ const emit = defineEmits<{
   (e: 'update:title', id: string, title: string, lastModified: string): void
 }>()
 
-const answering = ref(false)
+// Track which item ids are currently being answered, so each item's Answer
+// button locks independently. Switching to another item leaves its button
+// usable even while a previous item is still generating.
+const answeringIds = reactive(new Set<string>())
+const answering = computed(() => answeringIds.has(props.item.id!))
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 // Reveal the finished markdown into the editor word-by-word as rich text,
 // trailing a bold caret so it reads like Claude is writing it live.
-const typeOut = async (markdown: string) => {
+// Only animate into the live editor while the user is still viewing the item
+// the answer was generated for. If they've switched away, skip the typing so we
+// don't write item A's answer into item B's editor.
+const typeOut = async (markdown: string, itemId: string) => {
   const tokens = markdown.match(/\s+|\S+/g) ?? []
   let shown = ''
   for (const token of tokens) {
     shown += token
-    content.value = markdownToTiptap(shown + ' ▋')
+    if (props.item.id === itemId) {
+      content.value = markdownToTiptap(shown + ' ▋')
+    }
     await sleep(45)
   }
-  content.value = markdownToTiptap(markdown)
+  if (props.item.id === itemId) {
+    content.value = markdownToTiptap(markdown)
+  }
 }
 
 const handleAnswer = async () => {
-  if (answering.value) return
+  // Bind this whole operation to the item it started on, so switching items
+  // mid-answer doesn't move the lock or the result onto a different item.
+  const item = toRaw(props.item)
+  const itemId = item.id!
+  if (answeringIds.has(itemId)) return
   // Don't overwrite an item that already has an answer unless the user confirms.
   if (extractText(content.value).trim()) {
     if (!confirm('This item already has content. Replace it with a new answer?')) return
@@ -68,22 +83,28 @@ const handleAnswer = async () => {
     if (!key?.trim()) return
     await setApiKey(key)
   }
-  answering.value = true
+  // Capture the prompt inputs for this item now; the live refs may change if the
+  // user switches items while the answer is still generating.
+  const promptTitle = title.value
+  const promptContent = content.value
+  answeringIds.add(itemId)
   let accumulated = ''
   try {
     // Collect the whole answer silently — no raw text shown to the user.
-    await streamAnswer(title.value, content.value, (chunk) => {
+    await streamAnswer(promptTitle, promptContent, (chunk) => {
       accumulated += chunk
     })
     // Then write it out as rich text with the typing caret.
-    await typeOut(accumulated)
+    await typeOut(accumulated, itemId)
+    const answerContent = markdownToTiptap(accumulated)
     const lastModified = formatISO(new Date())
-    await editLearningItem({ ...toRaw(props.item), content: content.value, lastModified })
-    emit('update:content', props.item.id!, content.value, lastModified)
+    // Always save to the item this answer was generated for.
+    await editLearningItem({ ...item, content: answerContent, lastModified })
+    emit('update:content', itemId, answerContent, lastModified)
   } catch (err) {
     console.error('Claude answer failed:', err)
   } finally {
-    answering.value = false
+    answeringIds.delete(itemId)
   }
 }
 
