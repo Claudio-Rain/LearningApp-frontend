@@ -23,8 +23,18 @@
     <v-card class="mb-4 pa-4" variant="outlined">
       <div class="text-subtitle-2 mb-1">Learning Items</div>
       <div class="text-caption text-medium-emphasis mb-3">
-        Enter items line by line. Each item needs a <code>question:</code> and an <code>answer:</code>. Separate
-        multiple items with a blank line.
+        Enter items line by line. Each item needs a <code>question:</code>{{ answerWithAI ? '' : ' and an ' }}<code
+          v-if="!answerWithAI">answer:</code>. Separate multiple items with a blank line.
+        <template v-if="answerWithAI">
+          The <code>answer:</code> is optional — Claude will generate one for each question.
+        </template>
+      </div>
+
+      <v-checkbox v-model="answerWithAI" density="compact" hide-details class="mb-2"
+        label="Answer questions with AI (Claude)" prepend-icon="mdi-robot-happy-outline" />
+      <div v-if="answerWithAI" class="text-caption text-medium-emphasis mb-3">
+        After inserting, Claude answers each question one at a time and saves it to the item. This may take a while for
+        many items.
       </div>
 
       <v-textarea v-model="rawInput" variant="outlined" :placeholder="placeholder" rows="14" auto-grow
@@ -65,6 +75,10 @@
       </v-btn>
       <v-btn variant="text" @click="reset">Clear</v-btn>
       <v-spacer />
+      <span v-if="aiProgress" class="text-caption text-medium-emphasis">
+        <v-progress-circular indeterminate size="14" width="2" class="mr-1" />
+        {{ aiProgress }}
+      </span>
       <span v-if="lastResult" class="text-caption text-success">
         <v-icon size="small" color="success">mdi-check</v-icon>
         {{ lastResult }}
@@ -83,6 +97,8 @@ import {
   editCollection,
 } from '../database'
 import type { Collection } from '../database/types'
+import { generateAnswerMarkdown, getApiKey, setApiKey } from '../utils/claude'
+import { markdownToTiptap } from '../utils/markdown'
 
 // ── State ───────────────────────────────────────────────
 const collections = ref<Collection[]>([])
@@ -92,9 +108,20 @@ const newCollectionTitle = ref('')
 const rawInput = ref('')
 const inserting = ref(false)
 const lastResult = ref('')
+const answerWithAI = ref(false)
+const aiProgress = ref('')
 
 // ── Placeholder ─────────────────────────────────────────
-const placeholder = `question: What is a closure in JavaScript?
+// In AI mode the answer is optional, so show a question-only example; otherwise
+// show the full question/answer format.
+const placeholder = computed(() =>
+  answerWithAI.value
+    ? `question: What is a closure in JavaScript?
+
+question: What does async/await do?
+
+question: What is the event loop?`
+    : `question: What is a closure in JavaScript?
 answer: A closure is a function that retains access to its outer scope even after the outer function has returned.
 
 question: What does async/await do?
@@ -102,6 +129,7 @@ answer: It allows writing asynchronous code in a synchronous style, pausing exec
 
 question: What is the event loop?
 answer: A mechanism that processes the call stack and callback queue, enabling non-blocking I/O in JavaScript.`
+)
 
 // ── Parsing ─────────────────────────────────────────────
 interface ParsedItem {
@@ -142,7 +170,9 @@ const parsedItems = computed<ParsedItem[]>(() => {
     return {
       question,
       answer,
-      valid: question.length > 0 && answer.length > 0
+      // In AI mode the answer is optional — Claude fills it in — so only the
+      // question is required.
+      valid: question.length > 0 && (answerWithAI.value || answer.length > 0)
     }
   })
 })
@@ -163,8 +193,17 @@ onMounted(async () => {
 // ── Bulk Insert ──────────────────────────────────────────
 const handleBulkInsert = async () => {
   if (!canInsert.value) return
+
+  // If answering with AI, make sure we have an API key before inserting anything.
+  if (answerWithAI.value && !(await getApiKey())) {
+    const key = prompt('Paste your Anthropic API key (stored only in this browser, used directly from it):')
+    if (!key?.trim()) return
+    await setApiKey(key)
+  }
+
   inserting.value = true
   lastResult.value = ''
+  aiProgress.value = ''
 
   try {
     let collectionId: string
@@ -183,11 +222,21 @@ const handleBulkInsert = async () => {
     }
 
     const now = formatISO(new Date())
-    for (const item of validItems.value) {
-      await createLearningItem({
-        collectionId,
-        title: item.question,
-        content: {
+    const items = validItems.value
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+
+      // Build the item content. When AI answering is on and no answer was
+      // provided (or even when one was), ask Claude to answer the question and
+      // store the generated markdown as rich text. Items are answered one at a
+      // time so each is saved as it completes.
+      let content
+      if (answerWithAI.value) {
+        aiProgress.value = `Answering ${i + 1} of ${items.length}…`
+        const markdown = await generateAnswerMarkdown(item.question)
+        content = markdownToTiptap(markdown)
+      } else {
+        content = {
           type: 'doc',
           content: [
             {
@@ -195,11 +244,18 @@ const handleBulkInsert = async () => {
               content: [{ type: 'text', text: item.answer }]
             }
           ]
-        },
+        }
+      }
+
+      await createLearningItem({
+        collectionId,
+        title: item.question,
+        content,
         dateCreated: now,
-        lastModified: now
+        lastModified: formatISO(new Date())
       })
     }
+    aiProgress.value = ''
 
     // Update collection item count
     const col = collections.value.find(c => c.id === collectionId)
@@ -217,6 +273,7 @@ const handleBulkInsert = async () => {
     reset()
   } finally {
     inserting.value = false
+    aiProgress.value = ''
   }
 }
 
