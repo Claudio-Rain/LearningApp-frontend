@@ -20,7 +20,7 @@
 
         <v-list-item
           v-if="lastCollectionId"
-          :to="{ name: 'study', params: { id: lastCollectionId } }"
+          :to="studyViewCollectionIds.length ? { name: 'study' } : { name: 'study', params: { id: lastCollectionId } }"
           rounded="lg"
           class="nav-item my-1 study-btn"
           color="primary"
@@ -76,8 +76,8 @@ const route = useRoute()
 
 const permanent = computed(() => !mobile.value)
 const drawer = ref(true)
-const { studyViewCollectionId } = useStudyViewCollection()
-const lastCollectionId = computed(() => studyViewCollectionId.value ?? fallbackCollectionId.value)
+const { studyViewCollectionIds } = useStudyViewCollection()
+const lastCollectionId = computed(() => studyViewCollectionIds.value[0] ?? fallbackCollectionId.value)
 const fallbackCollectionId = ref<string | null>(null)
 
 const handleKeydown = (e: KeyboardEvent) => {
@@ -87,7 +87,13 @@ const handleKeydown = (e: KeyboardEvent) => {
   const tag = (e.target as HTMLElement).tagName
   const isEditable = (e.target as HTMLElement).isContentEditable
   if (tag === 'INPUT' || tag === 'TEXTAREA' || isEditable) return
-  router.push({ name: 'study', params: { id: lastCollectionId.value } })
+  // No param: StudyView reads the full stored multi-selection. Fall back to a
+  // single explicit id when nothing is stored.
+  if (studyViewCollectionIds.value.length) {
+    router.push({ name: 'study' })
+  } else {
+    router.push({ name: 'study', params: { id: lastCollectionId.value } })
+  }
 }
 
 onMounted(async () => {

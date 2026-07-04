@@ -4,7 +4,6 @@
     <div class="study-header">
       <div class="header-top">
         <div class="header-center">
-          <div class="study-title">{{ collection?.title }}</div>
           <div class="study-subtitle">
             {{ currentIndex + 1 }} / {{ studyQueue.length }}
             <span class="stat-badge new-badge" :class="{ glowing: isCurrentCardNew }">New: {{ newCards }}</span>
@@ -185,6 +184,7 @@ import {
 } from '../database'
 import type { Collection, LearningItem, CardProgress } from '../database/types'
 import { useExcludedItems } from '../composables/useExcludedItems'
+import { useStudyViewCollection } from '../composables/useStudyViewCollection'
 
 interface StudyItem extends LearningItem {
   progress?: CardProgress
@@ -192,10 +192,16 @@ interface StudyItem extends LearningItem {
 
 const route = useRoute()
 const router = useRouter()
-const routeId = route.params.id ? route.params.id.toString() : null
-const collectionId = routeId ?? localStorage.getItem('studyViewCollectionId') ?? ''
+const { studyViewCollectionIds } = useStudyViewCollection()
+// A route id (single or comma-separated) wins; otherwise fall back to the
+// selection stored by Study Options. Computed because Vue Router reuses this
+// component when only the :id param changes.
+const collectionIds = computed<string[]>(() => {
+  const routeId = route.params.id ? route.params.id.toString() : null
+  return routeId ? routeId.split(',').filter(Boolean) : studyViewCollectionIds.value
+})
 
-const collection = ref<Collection | null>(null)
+const collections = ref<Collection[]>([])
 const learningItems = ref<LearningItem[]>([])
 const { excludedItemIds: _excludedItemIds, toggleExclusion } = useExcludedItems()
 const cardProgressMap = ref<Map<string, CardProgress>>(new Map())
@@ -290,23 +296,29 @@ const clearTimer = () => {
 }
 
 const loadData = async () => {
-  if (!collectionId) {
+  if (!collectionIds.value.length) {
     router.push({ name: 'collections' })
     return
   }
 
   const allCollections = await getCollections()
-  collection.value = allCollections.find(c => c.id === collectionId) ?? null
+  collections.value = allCollections.filter(c => c.id && collectionIds.value.includes(c.id))
 
-  if (!collection.value) {
+  if (!collections.value.length) {
     alert('Collection not found')
     router.push({ name: 'collections' })
     return
   }
 
   const { excludedItemIds } = useExcludedItems()
-  const all = await getLearningItems(collectionId)
-  learningItems.value = all.filter(i => !i.id || !excludedItemIds.value.has(i.id))
+  const perCollection = await Promise.all(collectionIds.value.map(id => getLearningItems(id)))
+  // Merge across collections, deduping items that live in more than one.
+  const seen = new Set<string>()
+  learningItems.value = perCollection.flat().filter(i => {
+    if (i.id && (excludedItemIds.value.has(i.id) || seen.has(i.id))) return false
+    if (i.id) seen.add(i.id)
+    return true
+  })
 
   const allProgress = await getAllCardProgress()
   const progressMap = new Map<string, CardProgress>()
@@ -481,11 +493,22 @@ watch(currentIndex, () => {
   startTimer()
 })
 
+// Vue Router reuses this component when navigating between /study/:id and
+// /study, so rebuild the queue whenever the effective id set changes.
+watch(collectionIds, async (ids, oldIds) => {
+  if (route.name !== 'study') return
+  if (ids.length === oldIds.length && ids.every(id => oldIds.includes(id))) return
+  currentIndex.value = 0
+  isFlipped.value = false
+  await loadData()
+  startTimer()
+})
+
 onMounted(async () => {
   startSyncEngine()
   window.addEventListener('keydown', handleKeydown)
-  if (navigator.onLine && collectionId) {
-    await pullLearningItems(collectionId)
+  if (navigator.onLine && collectionIds.value.length) {
+    await Promise.all(collectionIds.value.map(id => pullLearningItems(id)))
     await pullCardProgress()
   }
   await loadData()

@@ -27,7 +27,7 @@ const routes = [
     props: true
   },
   {
-    path: '/study/:id',
+    path: '/study/:id?',
     name: 'study',
     component: StudyView,
     props: true

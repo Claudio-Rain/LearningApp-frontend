@@ -3,90 +3,26 @@
     <h2 class="text-h6 mb-4">Study Options</h2>
 
     <div class="mb-4">
-      <label class="text-caption font-weight-bold d-block mb-2">Study View Collection</label>
-      <v-select
+      <label class="text-caption font-weight-bold d-block mb-2">Study View Collections</label>
+      <CollectionMultiSelect
         v-model="studyViewSelection"
-        :items="collections"
-        item-title="title"
-        item-value="id"
-        label="Collection displayed in Study View"
-        variant="outlined"
-        density="comfortable"
+        :collections="collections"
+        :categories="categories"
+        label="Collections displayed in Study View"
         :loading="loadingCollections"
-        no-data-text="No collections found"
       />
     </div>
 
     <div class="mb-4">
       <label class="text-caption font-weight-bold d-block mb-2">Content Widget Collections</label>
-      <v-autocomplete
-        :model-value="contentCollectionIds"
-        :items="groupedContentItems"
-        item-title="title"
-        item-value="id"
+      <CollectionMultiSelect
+        v-model="contentCollectionIds"
+        :collections="collections"
+        :categories="categories"
         label="Collections for content widget"
-        variant="outlined"
-        density="comfortable"
-        multiple
-        chips
-        closable-chips
-        clearable
-        autocomplete="off"
-        :custom-filter="contentFilter"
         :loading="loadingContentWidget || loadingCollections"
         :disabled="loadingContentWidget"
-        no-data-text="No collections found"
-        @update:model-value="contentCollectionIds = $event.filter((id: string) => !id.startsWith(GROUP_HEADER_PREFIX))"
-      >
-        <template #prepend-item>
-          <v-list-item title="Select all" @click="toggleAllContentCollections">
-            <template #prepend>
-              <v-checkbox-btn
-                :model-value="contentCollectionIds.length === collections.length && collections.length > 0"
-                :indeterminate="contentCollectionIds.length > 0 && contentCollectionIds.length < collections.length"
-                color="primary"
-                readonly
-              />
-            </template>
-          </v-list-item>
-          <v-divider />
-        </template>
-        <template #item="{ item, props: itemProps }">
-          <template v-if="item.raw.header">
-            <v-list-item
-              class="content-group-header"
-              @click="toggleContentCategory(item.raw.groupKey!)"
-            >
-              <template #prepend>
-                <v-checkbox-btn
-                  :model-value="categorySelectionState(item.raw.groupKey!) === 'all'"
-                  :indeterminate="categorySelectionState(item.raw.groupKey!) === 'some'"
-                  color="primary"
-                  readonly
-                />
-              </template>
-              <v-list-item-title class="font-weight-bold text-body-2">
-                <v-icon
-                  v-if="item.raw.color"
-                  icon="mdi-circle"
-                  size="10"
-                  :color="item.raw.color"
-                  class="mr-1"
-                />
-                {{ item.raw.title }}
-                <span class="text-caption text-medium-emphasis">({{ item.raw.count }})</span>
-              </v-list-item-title>
-            </v-list-item>
-          </template>
-          <v-list-item v-else v-bind="itemProps" class="content-group-child" />
-        </template>
-        <template #chip="{ item, index, props: chipProps }">
-          <v-chip v-if="index < 4" v-bind="chipProps" :text="item.title" />
-          <span v-else-if="index === 4" class="text-caption text-medium-emphasis align-self-center">
-            +{{ contentCollectionIds.length - 4 }} more
-          </span>
-        </template>
-      </v-autocomplete>
+      />
       <v-alert
         v-if="missingContentCollectionIds.length"
         type="warning"
@@ -289,6 +225,7 @@ import { getCollections, getCategories, getLearningItems, getAllCardProgress, ge
 import type { LearningItem, Category } from '../database'
 import { useStudyViewCollection } from '../composables/useStudyViewCollection'
 import { useExcludedItems } from '../composables/useExcludedItems'
+import CollectionMultiSelect from '../shared/components/CollectionMultiSelect.vue'
 
 declare const chrome: any
 
@@ -310,13 +247,13 @@ const exclusionCollectionOptions = computed(() => {
   })
 })
 
-const { studyViewCollectionId, setStudyViewCollectionId } = useStudyViewCollection()
-// The stored id is available synchronously (localStorage), but `collections` is
+const { studyViewCollectionIds, setStudyViewCollectionIds } = useStudyViewCollection()
+// The stored ids are available synchronously (localStorage), but `collections` is
 // loaded async — so bind the selector to a proxy that withholds the value until
-// the items exist, otherwise Vuetify briefly renders the raw id as the title.
+// the items exist, otherwise Vuetify briefly renders the raw ids as titles.
 const studyViewSelection = computed({
-  get: () => (loadingCollections.value ? null : studyViewCollectionId.value),
-  set: (id: string | null) => setStudyViewCollectionId(id),
+  get: () => (loadingCollections.value ? [] : studyViewCollectionIds.value),
+  set: (ids: string[]) => setStudyViewCollectionIds(ids),
 })
 const { excludedItemIds, isExcluded, toggleExclusion, load: loadExcludedItems } = useExcludedItems()
 type ExclusionItem = LearningItem & { collectionTitle: string; strengthScore: number }
@@ -431,83 +368,6 @@ function handleRowClick(item: ExclusionItem, event: MouseEvent) {
 const contentCollectionIds = ref<string[]>([])
 const missingContentCollectionIds = ref<string[]>([])
 
-// --- Content widget selector: collections grouped by category ---
-// Header rows are injected into the autocomplete's items with a sentinel id so
-// Vuetify never confuses them with real values; the model-value handler strips
-// them in case one gets selected via keyboard.
-const GROUP_HEADER_PREFIX = '__group:'
-const UNCATEGORIZED_KEY = '__uncategorized'
-
-type ContentGroup = { key: string; title: string; color?: string; items: { id: string; title: string }[] }
-
-const contentGroups = computed<ContentGroup[]>(() => {
-  const byKey = new Map<string, ContentGroup>()
-  for (const col of collections.value) {
-    const key = col.categoryId ?? UNCATEGORIZED_KEY
-    let group = byKey.get(key)
-    if (!group) {
-      const cat = key === UNCATEGORIZED_KEY ? undefined : categories.value.find(c => c.id === key)
-      group = { key, title: cat?.title ?? 'Uncategorized', color: cat?.color, items: [] }
-      byKey.set(key, group)
-    }
-    group.items.push({ id: col.id, title: col.title })
-  }
-  // Categories alphabetically, uncategorized last. Items keep the collections'
-  // global alphabetical order.
-  return [...byKey.values()].sort((a, b) => {
-    if (a.key === UNCATEGORIZED_KEY) return 1
-    if (b.key === UNCATEGORIZED_KEY) return -1
-    return a.title.localeCompare(b.title)
-  })
-})
-
-type ContentItem = { id: string; title: string; header?: boolean; groupKey?: string; color?: string; count?: number }
-
-const groupedContentItems = computed<ContentItem[]>(() => {
-  // With a single group (or no categories at all) headers are pure noise.
-  if (contentGroups.value.length <= 1) return contentGroups.value[0]?.items ?? []
-  return contentGroups.value.flatMap(g => [
-    { id: `${GROUP_HEADER_PREFIX}${g.key}`, title: g.title, header: true, groupKey: g.key, color: g.color, count: g.items.length },
-    ...g.items,
-  ])
-})
-
-// Keep a group header visible while any of its collections still matches the query.
-function contentFilter(value: string, query: string, item?: { raw?: ContentItem }) {
-  const q = query.toLowerCase()
-  const raw = item?.raw
-  if (raw?.header) {
-    const group = contentGroups.value.find(g => g.key === raw.groupKey)
-    return raw.title.toLowerCase().includes(q) || !!group?.items.some(i => i.title.toLowerCase().includes(q))
-  }
-  return String(value).toLowerCase().includes(q)
-}
-
-function categorySelectionState(groupKey: string): 'all' | 'some' | 'none' {
-  const group = contentGroups.value.find(g => g.key === groupKey)
-  if (!group || !group.items.length) return 'none'
-  const selected = new Set(contentCollectionIds.value)
-  const count = group.items.filter(i => selected.has(i.id)).length
-  return count === group.items.length ? 'all' : count > 0 ? 'some' : 'none'
-}
-
-function toggleContentCategory(groupKey: string) {
-  const group = contentGroups.value.find(g => g.key === groupKey)
-  if (!group) return
-  const selected = new Set(contentCollectionIds.value)
-  if (categorySelectionState(groupKey) === 'all') {
-    group.items.forEach(i => selected.delete(i.id))
-  } else {
-    group.items.forEach(i => selected.add(i.id))
-  }
-  contentCollectionIds.value = [...selected]
-}
-
-function toggleAllContentCollections() {
-  contentCollectionIds.value = contentCollectionIds.value.length === collections.value.length
-    ? []
-    : collections.value.map(c => c.id)
-}
 // Freezes the content-widget selector (spinner + disabled) until its remote
 // value has been pulled and resolved against the loaded collections on mount.
 const loadingContentWidget = ref(true)
@@ -591,15 +451,15 @@ onMounted(async () => {
     if (stored.notificationIntervalSeconds) intervalSeconds.value = stored.notificationIntervalSeconds
   }
 
-  if (studyViewCollectionId.value) {
-    exclusionCollectionIds.value = [studyViewCollectionId.value]
+  if (studyViewCollectionIds.value.length) {
+    exclusionCollectionIds.value = [...studyViewCollectionIds.value]
   }
 })
 
 async function saveNotificationSettings() {
   saving.value = true
   try {
-    setStudyViewCollectionId(studyViewCollectionId.value)
+    setStudyViewCollectionIds(studyViewCollectionIds.value)
     if (typeof chrome !== 'undefined' && chrome.storage) {
       await chrome.storage.local.set({
         notificationCollectionId: notificationCollectionId.value,
@@ -634,14 +494,6 @@ async function saveNotificationSettings() {
 
 .gap-3 {
   gap: 12px;
-}
-
-.content-group-header {
-  min-height: 36px;
-}
-
-.content-group-child {
-  padding-inline-start: 32px !important;
 }
 
 .exclusion-table {

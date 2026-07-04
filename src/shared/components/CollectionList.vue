@@ -224,6 +224,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { formatISO } from 'date-fns'
 import { useRouter } from 'vue-router'
+import { useStudyViewCollection } from '../../composables/useStudyViewCollection'
 import {
   getCollections,
   createCollection,
@@ -244,6 +245,7 @@ import type {
 } from '../../database'
 
 const router = useRouter()
+const { setStudyViewCollectionIds } = useStudyViewCollection()
 const collections = ref<Collection[]>([])
 const categories = ref<Category[]>([])
 const isSyncing = ref(false)
@@ -456,7 +458,7 @@ const goToCollection = (id: string) => {
 }
 
 const goToStudy = (id: string) => {
-  localStorage.setItem('studyViewCollectionId', id)
+  setStudyViewCollectionIds([id])
   router.push({ name: 'study', params: { id } })
 }
 
