@@ -20,33 +20,17 @@
 
     <!-- Collection Filter -->
     <div class="collection-filter-bar">
-      <v-autocomplete
+      <CollectionMultiSelect
         v-model="selectedCollectionIds"
-        :items="collections"
-        item-title="title"
-        item-value="id"
+        :collections="selectableCollections"
+        :categories="categories"
         label="Collections"
-        multiple
-        clearable
-        chips
-        closable-chips
-        hide-details
         density="compact"
-        variant="outlined"
+        hide-details
         class="collection-select"
-        autocomplete="off"
         name="collection-filter-no-autocomplete"
         @update:model-value="saveSelection"
-      >
-        <template #prepend-item>
-          <v-list-item title="All collections" @click="toggleAll">
-            <template #prepend>
-              <v-checkbox-btn :model-value="isAllSelected" />
-            </template>
-          </v-list-item>
-          <v-divider class="mt-1" />
-        </template>
-      </v-autocomplete>
+      />
     </div>
 
     <!-- Stats Cards -->
@@ -182,9 +166,11 @@ import {
   getAllCardProgress,
   getLearningItems,
   getCollections,
+  getCategories,
   syncAll
 } from '../database'
-import type { AttemptLog, CardProgress, LearningItem, Collection } from '../database/types'
+import type { AttemptLog, CardProgress, LearningItem, Collection, Category } from '../database/types'
+import CollectionMultiSelect from '../shared/components/CollectionMultiSelect.vue'
 
 const STORAGE_KEY = 'studyProgress_selectedCollections'
 
@@ -210,7 +196,13 @@ const projectedAttemptsToFinish = ref(0)
 const syncing = ref(false)
 
 const collections = ref<Collection[]>([])
+const categories = ref<Category[]>([])
 const selectedCollectionIds = ref<string[]>([])
+
+// CollectionMultiSelect requires a resolved id on every entry.
+const selectableCollections = computed(() =>
+  collections.value.filter((c): c is Collection & { id: string } => !!c.id)
+)
 
 const allAttemptLogs = ref<AttemptLog[]>([])
 const allCardProgress = ref<CardProgress[]>([])
@@ -247,12 +239,6 @@ const isAllSelected = computed(
 
 // ── collection selection ───────────────────────────────────────────────────
 
-const toggleAll = () => {
-  selectedCollectionIds.value = []
-  saveSelection()
-}
-
-
 const saveSelection = () => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(selectedCollectionIds.value))
 }
@@ -268,6 +254,7 @@ const loadData = async () => {
   allAttemptLogs.value = await getAllAttemptLogs()
   allCardProgress.value = await getAllCardProgress()
   collections.value = await getCollections()
+  categories.value = await getCategories()
 
   const itemsPerCollection = await Promise.all(
     collections.value.filter(c => c.id).map(c => getLearningItems(c.id!))

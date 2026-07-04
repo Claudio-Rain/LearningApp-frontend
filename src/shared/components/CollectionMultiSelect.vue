@@ -6,7 +6,7 @@
     item-value="id"
     :label="label"
     variant="outlined"
-    density="comfortable"
+    :density="density"
     multiple
     chips
     closable-chips
@@ -80,9 +80,11 @@ const props = withDefaults(defineProps<{
   label: string
   loading?: boolean
   disabled?: boolean
+  density?: 'default' | 'comfortable' | 'compact'
 }>(), {
   loading: false,
   disabled: false,
+  density: 'comfortable',
 })
 
 const emit = defineEmits<{
