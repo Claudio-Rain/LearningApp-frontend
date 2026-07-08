@@ -18,7 +18,7 @@ import { parseISO } from 'date-fns';
 // before selecting the item to show. The content alarm leaves it false so it
 // re-displays the current session item instead of skipping ahead.
 export async function fetchNextContentItem(advanceSession = false) {
-  const { contentCollectionIds } = await getStudySettings();
+  const { contentCollectionIds, contentAutoAdvanceSeconds } = await getStudySettings();
   const collectionIds = contentCollectionIds || [];
 
   // Validate the saved selection against the collections that actually exist.
@@ -82,13 +82,13 @@ export async function fetchNextContentItem(advanceSession = false) {
   console.log('[background] fetchNextContentItem: selected item', itemToShow.title, '| has content:', !!itemToShow.content);
 
   const dailyCount = countAttemptsToday(attemptLogs);
-  const meta = buildMeta(itemToShow, items, progressMap, session, dailyCount);
+  const meta = buildMeta(itemToShow, items, progressMap, session, dailyCount, contentAutoAdvanceSeconds);
   await notifyAllTabs(itemToShow, meta);
 
-  // Restart the 3-minute auto-advance clock from this moment so a rating or
-  // navigation doesn't get interrupted by a phantom advance still counting down
-  // from the previous item. Keeps the alarm in sync with the widget's ring timer.
-  resetContentAlarm();
+  // Restart the auto-advance clock from this moment so a rating or navigation
+  // doesn't get interrupted by a phantom advance still counting down from the
+  // previous item. Keeps the alarm in sync with the widget's ring timer.
+  await resetContentAlarm();
 }
 
 function sortByWeakness(items, progressMap) {
@@ -179,7 +179,7 @@ function countAttemptsToday(attemptLogs) {
   ).length;
 }
 
-function buildMeta(itemToShow, items, progressMap, session, dailyCount = 0) {
+function buildMeta(itemToShow, items, progressMap, session, dailyCount = 0, autoAdvanceSeconds) {
   let newCards = 0;
   let revisedCards = 0;
   for (const item of items) {
@@ -199,7 +199,8 @@ function buildMeta(itemToShow, items, progressMap, session, dailyCount = 0) {
     isNew,
     strengthScore: isNew ? null : (progress?.strength_score ?? null),
     dailyCount,
-    dailyGoal: 100
+    dailyGoal: 100,
+    autoAdvanceSeconds
   };
 }
 

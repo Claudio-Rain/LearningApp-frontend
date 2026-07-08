@@ -3,13 +3,15 @@ import {
   DEFAULT_CONTENT_COLLECTION_ID,
   DEFAULT_SESSION_START_HOUR,
   DEFAULT_SESSION_END_HOUR,
-  DEFAULT_NOTIFICATION_INTERVAL_SECONDS
+  DEFAULT_NOTIFICATION_INTERVAL_SECONDS,
+  DEFAULT_CONTENT_AUTO_ADVANCE_SECONDS
 } from '../constants.js';
 
 export async function getStudySettings() {
   const stored = await chrome.storage.local.get([
     'notificationCollectionId',
     'contentCollectionIds',
+    'contentAutoAdvanceSeconds',
     'sessionStartHour',
     'sessionEndHour',
     'notificationIntervalSeconds',
@@ -21,6 +23,7 @@ export async function getStudySettings() {
       : DEFAULT_CONTENT_COLLECTION_ID
         ? [DEFAULT_CONTENT_COLLECTION_ID]
         : [],
+    contentAutoAdvanceSeconds: stored.contentAutoAdvanceSeconds ?? DEFAULT_CONTENT_AUTO_ADVANCE_SECONDS,
     startHour: stored.sessionStartHour ?? DEFAULT_SESSION_START_HOUR,
     endHour: stored.sessionEndHour ?? DEFAULT_SESSION_END_HOUR,
     intervalSeconds: stored.notificationIntervalSeconds ?? DEFAULT_NOTIFICATION_INTERVAL_SECONDS,

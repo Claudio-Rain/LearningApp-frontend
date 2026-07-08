@@ -11,6 +11,8 @@ export const DEFAULT_SESSION_START_HOUR = 9;
 export const DEFAULT_SESSION_END_HOUR = 23;
 export const DEFAULT_NOTIFICATION_COLLECTION_ID = "8366d809-1495-4b6c-a184-330158ad1da0";
 export const DEFAULT_CONTENT_COLLECTION_ID = null;
+// How long the content widget shows an item before auto-advancing (seconds).
+export const DEFAULT_CONTENT_AUTO_ADVANCE_SECONDS = 180;
 
 // Button labels and ease scores
 export const BUTTON_LABELS = ["Review Later", "Answered Correctly"];

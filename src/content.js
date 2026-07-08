@@ -1458,19 +1458,25 @@ let currentItem = null;
 let isFlipped = false;
 let sessionTotal = 0;
 
-// Timer (mirrors Study View: 3-minute countdown, resets on each new item)
+// Timer (mirrors Study View: countdown resets on each new item). The duration
+// is configurable in Study Options and arrives with each item's meta; this is
+// the fallback until the first item is shown.
 const TIMER_DURATION = 180;
 // Circumference of the ring (r = 16 in the SVG viewBox).
 const RING_CIRCUMFERENCE = 2 * Math.PI * 16;
+let contentTimerDuration = TIMER_DURATION;
 let contentTimeLeft = TIMER_DURATION;
 let contentTimerInterval = null;
 
 function updateTimerDisplay() {
   const ringFill = document.getElementById('content-timer-ring-fill');
   const label = document.getElementById('content-timer-label');
-  const low = contentTimeLeft <= 30;
+  // "Low" is the final sixth of the interval, not a fixed 30s — otherwise a
+  // short total (e.g. 30s) would read as red the entire time. Matches the old
+  // behavior at the 3-minute default (last 30s of 180s).
+  const low = contentTimeLeft <= contentTimerDuration / 6;
   if (ringFill) {
-    const frac = contentTimeLeft / TIMER_DURATION;
+    const frac = contentTimeLeft / contentTimerDuration;
     ringFill.style.strokeDasharray = RING_CIRCUMFERENCE;
     ringFill.style.strokeDashoffset = RING_CIRCUMFERENCE * (1 - frac);
     ringFill.classList.toggle('timer-low', low);
@@ -1502,7 +1508,7 @@ function clearContentTimer() {
 
 function startContentTimer() {
   clearContentTimer();
-  contentTimeLeft = TIMER_DURATION;
+  contentTimeLeft = contentTimerDuration;
   updateTimerDisplay();
   contentTimerInterval = setInterval(() => {
     if (contentTimeLeft > 0) {
@@ -1530,6 +1536,9 @@ function updateMetaDisplay(meta) {
   const strengthBadge = document.getElementById('content-strength-badge');
 
   sessionTotal = meta.sessionTotal || 0;
+  if (typeof meta.autoAdvanceSeconds === 'number' && meta.autoAdvanceSeconds > 0) {
+    contentTimerDuration = meta.autoAdvanceSeconds;
+  }
   if (typeof meta.dailyCount === 'number') {
     updateDailyProgress(meta.dailyCount, meta.dailyGoal || DAILY_GOAL);
   }

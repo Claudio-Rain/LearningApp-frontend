@@ -24,9 +24,10 @@ export async function pullContentWidget() {
 }
 
 // Persist a user change: write cache immediately, push to remote if online (else stays pending).
-export async function saveContentWidget(contentCollectionIds: string[]) {
+export async function saveContentWidget(contentCollectionIds: string[], autoAdvanceSeconds?: number) {
   const settings: ContentWidgetSettings = {
     contentCollectionIds,
+    ...(autoAdvanceSeconds != null ? { autoAdvanceSeconds } : {}),
     lastModified: formatISO(new Date()),
   }
   await local.setLocalContentWidget(settings, { pending: true })
@@ -55,6 +56,7 @@ export async function pushContentWidget() {
   if (!localS.pending || !localS.lastModified || !localS.contentCollectionIds) return
   await remote.setContentWidgetSettings({
     contentCollectionIds: localS.contentCollectionIds,
+    ...(localS.autoAdvanceSeconds != null ? { autoAdvanceSeconds: localS.autoAdvanceSeconds } : {}),
     lastModified: localS.lastModified,
   })
   await local.markContentWidgetSynced()

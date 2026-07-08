@@ -63,5 +63,8 @@ export interface ExcludedItem extends Syncable {
 
 export interface ContentWidgetSettings {
   contentCollectionIds: string[]
+  // Seconds the widget shows an item before auto-advancing. Optional for
+  // backward-compat with settings saved before this field existed.
+  autoAdvanceSeconds?: number
   lastModified: string   // ISO — drives lastModified-wins reconciliation
 }

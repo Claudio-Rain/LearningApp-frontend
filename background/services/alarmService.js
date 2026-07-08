@@ -13,7 +13,7 @@ export function setSessionActive(active) {
 }
 
 export async function createAlarms() {
-  const { intervalSeconds } = await getStudySettings();
+  const { intervalSeconds, contentAutoAdvanceSeconds } = await getStudySettings();
   const intervalMinutes = intervalSeconds / 60;
 
   console.log('[background] createAlarms: creating sessionAlarm every', SESSION_CHECK_INTERVAL_MINUTES, 'min');
@@ -26,19 +26,22 @@ export async function createAlarms() {
     periodInMinutes: intervalMinutes,
   });
 
-  console.log('[background] createAlarms: creating contentAlarm every 3 min');
+  const contentMinutes = contentAutoAdvanceSeconds / 60;
+  console.log('[background] createAlarms: creating contentAlarm every', contentMinutes, 'min');
   chrome.alarms.create("contentAlarm", {
-    periodInMinutes: 3,
+    periodInMinutes: contentMinutes,
   });
 }
 
-// Re-arm the auto-advance alarm so its 3-minute clock restarts from now. Called
-// whenever a new content item is shown (rating, navigation, or the tick itself)
-// so the background never pushes a fresh item while the user is mid-read — it
-// keeps the alarm in sync with the widget's visible per-item countdown.
-export function resetContentAlarm() {
+// Re-arm the auto-advance alarm so its clock restarts from now, using the
+// currently-configured interval. Called whenever a new content item is shown
+// (rating, navigation, or the tick itself) so the background never pushes a
+// fresh item while the user is mid-read — it keeps the alarm in sync with the
+// widget's visible per-item countdown.
+export async function resetContentAlarm() {
+  const { contentAutoAdvanceSeconds } = await getStudySettings();
   chrome.alarms.create("contentAlarm", {
-    periodInMinutes: 3,
+    periodInMinutes: contentAutoAdvanceSeconds / 60,
   });
 }
 

@@ -31,6 +31,37 @@
       >
         {{ missingContentCollectionIds.length }} previously selected collection(s) no longer exist and were ignored. Please re-select and save.
       </v-alert>
+      <label class="text-caption font-weight-bold d-block mt-3 mb-2">Auto-advance interval</label>
+      <div class="d-flex gap-3 auto-advance-row">
+        <v-text-field
+          v-model.number="autoAdvanceMinutes"
+          type="number"
+          min="0"
+          label="Minutes"
+          suffix="min"
+          variant="outlined"
+          density="comfortable"
+          :loading="loadingContentWidget"
+          :disabled="loadingContentWidget"
+          hide-details
+        />
+        <v-text-field
+          v-model.number="autoAdvanceSecondsPart"
+          type="number"
+          min="0"
+          max="59"
+          label="Seconds"
+          suffix="sec"
+          variant="outlined"
+          density="comfortable"
+          :loading="loadingContentWidget"
+          :disabled="loadingContentWidget"
+          hide-details
+        />
+      </div>
+      <p class="text-caption text-medium-emphasis mt-1">
+        The widget shows each item for this long before auto-advancing. Minimum 30 seconds — saving as {{ totalAutoAdvanceSeconds }}s.
+      </p>
     </div>
 
     <div class="mb-4">
@@ -367,6 +398,19 @@ function handleRowClick(item: ExclusionItem, event: MouseEvent) {
 }
 const contentCollectionIds = ref<string[]>([])
 const missingContentCollectionIds = ref<string[]>([])
+// Auto-advance interval, edited as separate minutes + seconds fields.
+const autoAdvanceMinutes = ref(3)
+const autoAdvanceSecondsPart = ref(0)
+
+// Chrome clamps alarm periods below ~30s, so that's the effective floor.
+const MIN_AUTO_ADVANCE_SECONDS = 30
+
+const totalAutoAdvanceSeconds = computed(() =>
+  Math.max(
+    MIN_AUTO_ADVANCE_SECONDS,
+    (Number(autoAdvanceMinutes.value) || 0) * 60 + (Number(autoAdvanceSecondsPart.value) || 0)
+  )
+)
 
 // Freezes the content-widget selector (spinner + disabled) until its remote
 // value has been pulled and resolved against the loaded collections on mount.
@@ -427,11 +471,15 @@ onMounted(async () => {
     await Promise.all([syncContentWidget(), syncExcludedItems()])
     await loadExcludedItems()
 
-    const { contentCollectionIds: storedContentIds } = await getLocalContentWidget()
+    const { contentCollectionIds: storedContentIds, autoAdvanceSeconds } = await getLocalContentWidget()
     if (storedContentIds?.length) {
       const existingIds = new Set(collections.value.map(c => c.id))
       contentCollectionIds.value = storedContentIds.filter((id: string) => existingIds.has(id))
       missingContentCollectionIds.value = storedContentIds.filter((id: string) => !existingIds.has(id))
+    }
+    if (autoAdvanceSeconds != null) {
+      autoAdvanceMinutes.value = Math.floor(autoAdvanceSeconds / 60)
+      autoAdvanceSecondsPart.value = autoAdvanceSeconds % 60
     }
   } finally {
     loadingContentWidget.value = false
@@ -470,7 +518,7 @@ async function saveNotificationSettings() {
     }
     // Content widget only → cache + remote (writes contentCollectionIds itself with
     // lastModified/pending bookkeeping, so it's dropped from the bulk set() above).
-    await saveContentWidget([...contentCollectionIds.value])
+    await saveContentWidget([...contentCollectionIds.value], totalAutoAdvanceSeconds.value)
     saved.value = true
   } finally {
     saving.value = false
@@ -530,7 +578,8 @@ async function saveNotificationSettings() {
 }
 
 @media (max-width: 400px) {
-  .time-row {
+  .time-row,
+  .auto-advance-row {
     flex-direction: column !important;
     gap: 0 !important;
   }

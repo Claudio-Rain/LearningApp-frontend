@@ -32,15 +32,17 @@ async function writeKeys(values: Record<string, unknown>): Promise<void> {
 }
 
 export async function getLocalContentWidget(): Promise<{
-  contentCollectionIds?: string[]; lastModified?: string; pending?: boolean
+  contentCollectionIds?: string[]; autoAdvanceSeconds?: number; lastModified?: string; pending?: boolean
 }> {
   const stored = await readKeys([
     'contentCollectionIds',
+    'contentAutoAdvanceSeconds',
     'contentWidgetLastModified',
     'contentWidgetPending',
   ])
   return {
     contentCollectionIds: stored.contentCollectionIds,
+    autoAdvanceSeconds: stored.contentAutoAdvanceSeconds,
     lastModified: stored.contentWidgetLastModified,
     pending: stored.contentWidgetPending,
   }
@@ -51,6 +53,7 @@ export async function setLocalContentWidget(
 ): Promise<void> {
   await writeKeys({
     contentCollectionIds: settings.contentCollectionIds,
+    contentAutoAdvanceSeconds: settings.autoAdvanceSeconds,
     contentWidgetLastModified: settings.lastModified,
     contentWidgetPending: opts?.pending ?? false,
   })
