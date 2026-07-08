@@ -11,6 +11,7 @@ import {
   getContentSession,
   setContentSession
 } from '../utils/storage.js';
+import { resetContentAlarm } from './alarmService.js';
 import { parseISO } from 'date-fns';
 
 // advanceSession: when true (after a rating), move the session cursor forward
@@ -83,6 +84,11 @@ export async function fetchNextContentItem(advanceSession = false) {
   const dailyCount = countAttemptsToday(attemptLogs);
   const meta = buildMeta(itemToShow, items, progressMap, session, dailyCount);
   await notifyAllTabs(itemToShow, meta);
+
+  // Restart the 3-minute auto-advance clock from this moment so a rating or
+  // navigation doesn't get interrupted by a phantom advance still counting down
+  // from the previous item. Keeps the alarm in sync with the widget's ring timer.
+  resetContentAlarm();
 }
 
 function sortByWeakness(items, progressMap) {

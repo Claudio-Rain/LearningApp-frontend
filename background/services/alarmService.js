@@ -32,6 +32,16 @@ export async function createAlarms() {
   });
 }
 
+// Re-arm the auto-advance alarm so its 3-minute clock restarts from now. Called
+// whenever a new content item is shown (rating, navigation, or the tick itself)
+// so the background never pushes a fresh item while the user is mid-read — it
+// keeps the alarm in sync with the widget's visible per-item countdown.
+export function resetContentAlarm() {
+  chrome.alarms.create("contentAlarm", {
+    periodInMinutes: 3,
+  });
+}
+
 export async function checkSessionTime() {
   const { startHour, endHour } = await getStudySettings();
   const hour = getHours(new Date());
