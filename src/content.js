@@ -122,10 +122,19 @@ function injectContentDisplay() {
         </div>
       </div>
       <div class="content-timer" id="content-timer">
-        <div class="content-timer-bar-bg">
-          <div class="content-timer-bar-fill" id="content-timer-fill"></div>
+        <div class="content-timer-ring">
+          <svg viewBox="0 0 40 40">
+            <circle class="ring-track" cx="20" cy="20" r="16"></circle>
+            <circle class="ring-fill" id="content-timer-ring-fill" cx="20" cy="20" r="16"></circle>
+          </svg>
+          <span class="content-timer-label" id="content-timer-label">3:00</span>
         </div>
-        <div class="content-timer-label" id="content-timer-label">3:00</div>
+        <div class="content-daily">
+          <div class="content-daily-bar-bg">
+            <div class="content-daily-bar-fill" id="content-daily-fill"></div>
+          </div>
+          <div class="content-daily-label" id="content-daily-label">0 / 100</div>
+        </div>
       </div>
       <div class="flashcard-container" id="flashcard">
         <div class="card-side front">
@@ -608,7 +617,65 @@ function injectContentDisplay() {
       background: #fafbfc;
     }
 
-    .content-timer-bar-bg {
+    .content-timer-ring {
+      position: relative;
+      width: 40px;
+      height: 40px;
+      flex-shrink: 0;
+    }
+
+    .content-timer-ring svg {
+      width: 40px;
+      height: 40px;
+      /* Start the countdown from the top of the ring */
+      transform: rotate(-90deg);
+    }
+
+    .content-timer-ring .ring-track {
+      fill: none;
+      stroke: rgba(0, 0, 0, 0.1);
+      stroke-width: 4;
+    }
+
+    .content-timer-ring .ring-fill {
+      fill: none;
+      stroke: #4caf50;
+      stroke-width: 4;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 1s linear, stroke 0.5s;
+    }
+
+    .content-timer-ring .ring-fill.timer-low {
+      stroke: #f44336;
+    }
+
+    .content-timer-label {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      color: #6b7280;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      transition: color 0.5s;
+    }
+
+    .content-timer-label.timer-label-low {
+      color: #f44336;
+      font-weight: 700;
+    }
+
+    .content-daily {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .content-daily-bar-bg {
       flex: 1;
       height: 6px;
       background: rgba(0, 0, 0, 0.1);
@@ -616,29 +683,20 @@ function injectContentDisplay() {
       overflow: hidden;
     }
 
-    .content-timer-bar-fill {
+    .content-daily-bar-fill {
       height: 100%;
-      width: 100%;
-      background: #4caf50;
+      width: 0%;
+      background: linear-gradient(90deg, #6366f1, #8b5cf6);
       border-radius: 3px;
-      transition: width 1s linear, background 0.5s;
+      transition: width 0.4s ease;
     }
 
-    .content-timer-bar-fill.timer-low {
-      background: #f44336;
-    }
-
-    .content-timer-label {
+    .content-daily-label {
       font-size: 12px;
       color: #6b7280;
       font-variant-numeric: tabular-nums;
-      font-weight: 500;
-      transition: color 0.5s;
-    }
-
-    .content-timer-label.timer-label-low {
-      color: #f44336;
-      font-weight: 700;
+      font-weight: 600;
+      white-space: nowrap;
     }
 
     .content-side-indicator {
@@ -990,11 +1048,16 @@ function injectContentDisplay() {
       border-bottom-color: #313244;
     }
 
-    .learning-content-widget.dark .content-timer-bar-bg {
+    .learning-content-widget.dark .content-timer-ring .ring-track {
+      stroke: rgba(255, 255, 255, 0.12);
+    }
+
+    .learning-content-widget.dark .content-daily-bar-bg {
       background: rgba(255, 255, 255, 0.1);
     }
 
-    .learning-content-widget.dark .content-timer-label {
+    .learning-content-widget.dark .content-timer-label,
+    .learning-content-widget.dark .content-daily-label {
       color: #9ca3af;
     }
 
@@ -1397,21 +1460,37 @@ let sessionTotal = 0;
 
 // Timer (mirrors Study View: 3-minute countdown, resets on each new item)
 const TIMER_DURATION = 180;
+// Circumference of the ring (r = 16 in the SVG viewBox).
+const RING_CIRCUMFERENCE = 2 * Math.PI * 16;
 let contentTimeLeft = TIMER_DURATION;
 let contentTimerInterval = null;
 
 function updateTimerDisplay() {
-  const fill = document.getElementById('content-timer-fill');
+  const ringFill = document.getElementById('content-timer-ring-fill');
   const label = document.getElementById('content-timer-label');
   const low = contentTimeLeft <= 30;
-  if (fill) {
-    fill.style.width = (contentTimeLeft / TIMER_DURATION * 100) + '%';
-    fill.classList.toggle('timer-low', low);
+  if (ringFill) {
+    const frac = contentTimeLeft / TIMER_DURATION;
+    ringFill.style.strokeDasharray = RING_CIRCUMFERENCE;
+    ringFill.style.strokeDashoffset = RING_CIRCUMFERENCE * (1 - frac);
+    ringFill.classList.toggle('timer-low', low);
   }
   if (label) {
     label.textContent = `${Math.floor(contentTimeLeft / 60)}:${String(contentTimeLeft % 60).padStart(2, '0')}`;
     label.classList.toggle('timer-label-low', low);
   }
+}
+
+// Daily-goal bar (X / goal) — driven by the calendar-day attempt count in meta.
+const DAILY_GOAL = 100;
+
+function updateDailyProgress(count, goal = DAILY_GOAL) {
+  const fill = document.getElementById('content-daily-fill');
+  const label = document.getElementById('content-daily-label');
+  const done = count || 0;
+  const pct = goal > 0 ? Math.min(100, (done / goal) * 100) : 0;
+  if (fill) fill.style.width = pct + '%';
+  if (label) label.textContent = `${done} / ${goal}`;
 }
 
 function clearContentTimer() {
@@ -1451,6 +1530,9 @@ function updateMetaDisplay(meta) {
   const strengthBadge = document.getElementById('content-strength-badge');
 
   sessionTotal = meta.sessionTotal || 0;
+  if (typeof meta.dailyCount === 'number') {
+    updateDailyProgress(meta.dailyCount, meta.dailyGoal || DAILY_GOAL);
+  }
   if (counterInput) {
     counterInput.value = meta.sessionIndex + 1;
     counterInput.max = meta.sessionTotal;

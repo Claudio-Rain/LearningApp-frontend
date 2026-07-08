@@ -2,7 +2,8 @@ import {
   getLearningItems,
   getAllCardProgress,
   getCollections,
-  getAllExcludedItems
+  getAllExcludedItems,
+  getAllAttemptLogs
 } from '../../src/database/index.ts';
 import {
   getStudySettings,
@@ -46,10 +47,11 @@ export async function fetchNextContentItem(advanceSession = false) {
 
   console.log('[background] fetchNextContentItem: fetching items for collections', validIds);
 
-  const [itemArrays, allProgress, excluded] = await Promise.all([
+  const [itemArrays, allProgress, excluded, attemptLogs] = await Promise.all([
     Promise.all(validIds.map(id => getLearningItems(id))),
     getAllCardProgress(),
-    getAllExcludedItems()
+    getAllExcludedItems(),
+    getAllAttemptLogs()
   ]);
 
   const rawItems = itemArrays.flat();
@@ -78,7 +80,8 @@ export async function fetchNextContentItem(advanceSession = false) {
 
   console.log('[background] fetchNextContentItem: selected item', itemToShow.title, '| has content:', !!itemToShow.content);
 
-  const meta = buildMeta(itemToShow, items, progressMap, session);
+  const dailyCount = countAttemptsToday(attemptLogs);
+  const meta = buildMeta(itemToShow, items, progressMap, session, dailyCount);
   await notifyAllTabs(itemToShow, meta);
 }
 
@@ -160,7 +163,17 @@ function reorderTail(ids, fromIndex, freshIds) {
   return [...ids.slice(0, fromIndex), ...tail];
 }
 
-function buildMeta(itemToShow, items, progressMap, session) {
+// Count attempts logged since local midnight — drives the widget's daily-goal
+// bar. Resets automatically each calendar day, persists across reloads/devices.
+function countAttemptsToday(attemptLogs) {
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  return (attemptLogs || []).filter(a =>
+    a.created_at && parseISO(a.created_at) >= startOfToday
+  ).length;
+}
+
+function buildMeta(itemToShow, items, progressMap, session, dailyCount = 0) {
   let newCards = 0;
   let revisedCards = 0;
   for (const item of items) {
@@ -178,7 +191,9 @@ function buildMeta(itemToShow, items, progressMap, session) {
     newCards,
     revisedCards,
     isNew,
-    strengthScore: isNew ? null : (progress?.strength_score ?? null)
+    strengthScore: isNew ? null : (progress?.strength_score ?? null),
+    dailyCount,
+    dailyGoal: 100
   };
 }
 
