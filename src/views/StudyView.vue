@@ -514,6 +514,12 @@ const handleKeydown = (e: KeyboardEvent) => {
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault()
     isFlipped.value = !isFlipped.value
+  } else if (e.key === 'ArrowLeft') {
+    e.preventDefault()
+    moveToPrev()
+  } else if (e.key === 'ArrowRight') {
+    e.preventDefault()
+    skipToNext()
   } else if (isFlipped.value) {
     if (e.key === '1') recordAttempt(-0.15)
     else if (e.key === '2') recordAttempt(-0.10)
