@@ -30,6 +30,7 @@
             <v-btn variant="tonal" color="primary" size="small" @click="editDialog = false">Done</v-btn>
           </template>
           <template v-else>
+            <v-btn class="header-edit-btn" icon="mdi-plus" variant="text" title="Add question" @click="openAddDialog" />
             <v-btn v-if="currentItem" class="header-edit-btn" icon="mdi-pencil-outline" variant="text" @click="editDialog = true" />
             <v-btn v-if="currentItem" class="header-edit-btn" icon="mdi-delete-outline" variant="text" color="error" @click="confirmDelete" />
             <v-btn v-if="currentItem" class="header-edit-btn" icon="mdi-eye-off-outline" variant="text" color="warning" @click="excludeDialog = true" />
@@ -47,6 +48,75 @@
         </div>
       </div>
     </div>
+
+    <!-- Add Question Dialog -->
+    <v-dialog v-model="addDialog" max-width="400">
+      <v-card>
+        <v-card-title>New questions</v-card-title>
+        <v-card-text>
+          <div v-for="(_, i) in addTitleList" :key="i" class="add-question-row">
+            <v-text-field
+              :ref="el => setQuestionFieldRef(el, i)"
+              v-model="addTitleList[i]"
+              :label="addTitleList.length > 1 ? `Question ${i + 1}` : 'What do you want to learn?'"
+              variant="outlined"
+              density="compact"
+              :autofocus="i === 0"
+              hide-details
+              @keydown.enter.prevent="addQuestionField(i)"
+            />
+            <v-btn
+              v-if="addTitleList.length > 1"
+              icon="mdi-close"
+              variant="text"
+              size="x-small"
+              title="Remove question"
+              @click="removeQuestionField(i)"
+            />
+          </div>
+          <v-btn
+            variant="text"
+            color="primary"
+            size="small"
+            prepend-icon="mdi-plus"
+            class="mb-2"
+            @click="addQuestionField(addTitleList.length - 1)"
+          >
+            Add another question
+          </v-btn>
+          <v-select
+            v-model="addCollectionId"
+            :items="addCollections"
+            item-title="title"
+            item-value="id"
+            label="Collection"
+            variant="outlined"
+            density="compact"
+            hide-details="auto"
+            class="mb-3"
+          />
+          <v-checkbox
+            v-model="addAutoAnswer"
+            label="Auto-answer with Claude in the background"
+            density="compact"
+            hide-details
+          />
+          <div v-if="addError" class="add-error">{{ addError }}</div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="addDialog = false">Cancel</v-btn>
+          <v-btn color="primary" variant="tonal" :loading="addCreating" @click="submitAddDialog">
+            {{ addTitles.length > 1 ? `Create ${addTitles.length}` : 'Create' }}
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Toast for background auto-answer results -->
+    <v-snackbar v-model="toast.show" :color="toast.error ? 'error' : 'success'" timeout="4000">
+      {{ toast.message }}
+    </v-snackbar>
 
     <!-- Exclude Confirmation Dialog -->
     <v-dialog v-model="excludeDialog" max-width="340">
@@ -143,6 +213,14 @@
       <div v-if="fabOpen" class="fab-actions">
         <v-btn
           class="fab-action-btn"
+          icon="mdi-plus"
+          color="success"
+          size="small"
+          elevation="2"
+          @click="fabOpen = false; openAddDialog()"
+        />
+        <v-btn
+          class="fab-action-btn"
           icon="mdi-pencil-outline"
           color="primary"
           size="small"
@@ -171,7 +249,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { formatISO, parseISO } from 'date-fns'
 import type { JSONContent } from '@tiptap/vue-3'
 import { useRoute, useRouter } from 'vue-router'
@@ -189,8 +267,15 @@ import {
   startSyncEngine,
   pullLearningItems,
   pullCardProgress,
-  removeLearningItem
+  removeLearningItem,
+  createLearningItem,
+  editLearningItem,
+  editCollection,
+  syncLearningItems,
+  syncCollections
 } from '../database'
+import { getApiKey, setApiKey, generateAnswerMarkdown } from '../utils/claude'
+import { markdownToTiptap } from '../utils/markdown'
 import type { Collection, LearningItem, CardProgress } from '../database/types'
 import { useExcludedItems } from '../composables/useExcludedItems'
 import { useStudyViewCollection } from '../composables/useStudyViewCollection'
@@ -223,6 +308,46 @@ const deleting = ref(false)
 const excludeDialog = ref(false)
 const editDialog = ref(false)
 const fabOpen = ref(false)
+
+// "New question" dialog — mirrors the content widget's add panel: create the
+// item right away, let Claude fill in the answer in the background.
+const addDialog = ref(false)
+const addTitleList = ref<string[]>([''])
+const addCollectionId = ref<string | null>(null)
+const addAutoAnswer = ref(true)
+const addError = ref('')
+const addCreating = ref(false)
+const addCollections = ref<Collection[]>([])
+const toast = ref({ show: false, message: '', error: false })
+
+// One question per non-empty box.
+const addTitles = computed(() =>
+  addTitleList.value.map(t => t.trim()).filter(Boolean)
+)
+
+// Track the field components so a newly added box can be focused.
+const questionFieldRefs = ref<any[]>([])
+const setQuestionFieldRef = (el: any, i: number) => {
+  questionFieldRefs.value[i] = el
+}
+
+// Insert a new box after index `i` and focus it (Enter key / "Add another").
+const addQuestionField = async (i: number) => {
+  addTitleList.value.splice(i + 1, 0, '')
+  await nextTick()
+  questionFieldRefs.value[i + 1]?.focus?.()
+}
+
+const removeQuestionField = (i: number) => {
+  addTitleList.value.splice(i, 1)
+  questionFieldRefs.value.splice(i, 1)
+}
+
+// Freeze the study timer while adding a question; resume where it left off.
+watch(addDialog, open => {
+  if (open) clearTimer()
+  else resumeTimer()
+})
 
 const { studyTimerSeconds } = useStudyTimer()
 const timeLeft = ref(studyTimerSeconds.value)
@@ -287,8 +412,14 @@ const isCurrentCardNew = computed(() => {
 })
 
 const startTimer = () => {
-  clearTimer()
   timeLeft.value = studyTimerSeconds.value
+  resumeTimer()
+}
+
+// Restart the countdown from wherever timeLeft currently is (used to resume
+// after a pause without giving the card a fresh timer).
+const resumeTimer = () => {
+  clearTimer()
   timerInterval = setInterval(() => {
     if (timeLeft.value > 0) {
       timeLeft.value--
@@ -482,6 +613,109 @@ const confirmDelete = () => {
   deleteDialog.value = true
 }
 
+const showToast = (message: string, error = false) => {
+  toast.value = { show: true, message, error }
+}
+
+const openAddDialog = async () => {
+  addTitleList.value = ['']
+  questionFieldRefs.value = []
+  addError.value = ''
+  addAutoAnswer.value = true
+  addDialog.value = true
+  addCollections.value = (await getCollections()).filter(c => c.id)
+  // Prefill the collection of the card being studied, when known.
+  const preferred = currentItem.value?.collectionId ?? collectionIds.value[0] ?? null
+  addCollectionId.value = addCollections.value.some(c => c.id === preferred)
+    ? preferred
+    : addCollections.value[0]?.id ?? null
+}
+
+const submitAddDialog = async () => {
+  const titles = addTitles.value
+  const collectionId = addCollectionId.value
+  if (!titles.length) { addError.value = 'Please enter at least one question.'; return }
+  if (!collectionId) { addError.value = 'Please pick a collection.'; return }
+  addError.value = ''
+
+  // Auto-answer needs an Anthropic API key; prompt for it here if it isn't set
+  // yet. Declining just skips the answers, the items are still created.
+  let useAutoAnswer = addAutoAnswer.value
+  if (useAutoAnswer && !(await getApiKey())) {
+    const key = prompt('Paste your Anthropic API key (stored only in this browser, used directly from it):')
+    if (key?.trim()) await setApiKey(key)
+    else useAutoAnswer = false
+  }
+
+  addCreating.value = true
+  try {
+    const now = formatISO(new Date())
+    const created: StudyItem[] = []
+    for (const title of titles) {
+      const id = String(await createLearningItem({ collectionId, title, dateCreated: now, lastModified: now }))
+      created.push({ id, collectionId, title, dateCreated: now, lastModified: now })
+    }
+
+    // Keep the collection's item count in step with the SPA's "Add" behavior.
+    const collection = addCollections.value.find(c => c.id === collectionId)
+    if (collection) {
+      await editCollection({ ...collection, numberOfItems: (collection.numberOfItems || 0) + created.length, lastModified: now })
+      syncCollections().catch(() => {})
+    }
+    syncLearningItems().catch(() => {})
+
+    // If the new cards belong to a collection being studied, put them at the
+    // end of the current queue so they come up this session.
+    if (collectionIds.value.includes(collectionId)) {
+      learningItems.value.push(...created)
+      studyQueue.value.push(...created)
+    }
+
+    addDialog.value = false
+
+    // The cards already exist; let Claude fill the answers in the background so
+    // the UI doesn't block, then report back with one toast for the batch.
+    // Sequential on purpose: one in-flight request instead of a burst.
+    if (useAutoAnswer) {
+      ;(async () => {
+        let failed = 0
+        for (const item of created) {
+          try {
+            await generateAutoAnswer(item.id!, collectionId, item.title, now)
+          } catch (error) {
+            failed++
+            console.error(`Auto-answer failed for "${item.title}":`, error)
+          }
+        }
+        if (failed === 0) {
+          showToast(created.length === 1
+            ? `Claude answered "${created[0]!.title}"`
+            : `Claude answered ${created.length} questions`)
+        } else {
+          showToast(`Auto-answer failed for ${failed} of ${created.length} question${created.length > 1 ? 's' : ''}`, true)
+        }
+      })()
+    }
+  } catch (error) {
+    console.error('Error creating items:', error)
+    addError.value = 'Failed to create items.'
+  } finally {
+    addCreating.value = false
+  }
+}
+
+const generateAutoAnswer = async (id: string, collectionId: string, title: string, dateCreated: string) => {
+  const markdown = await generateAnswerMarkdown(title)
+  const content = markdownToTiptap(markdown)
+  await editLearningItem({ id, collectionId, title, content, dateCreated, lastModified: formatISO(new Date()) })
+  syncLearningItems().catch(() => {})
+  // Fill the answer into the in-memory queue so flipping the card shows it.
+  const queued = studyQueue.value.find(i => i.id === id)
+  if (queued) queued.content = content
+  const item = learningItems.value.find(i => i.id === id)
+  if (item) item.content = content
+}
+
 const deleteCurrentItem = async () => {
   if (!currentItem.value?.id) return
   deleting.value = true
@@ -509,7 +743,7 @@ const deleteCurrentItem = async () => {
 }
 
 const handleKeydown = (e: KeyboardEvent) => {
-  if (editDialog.value || deleteDialog.value) return
+  if (editDialog.value || deleteDialog.value || addDialog.value) return
   if ((e.target as HTMLElement)?.tagName === 'INPUT') return
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault()
@@ -601,6 +835,24 @@ onUnmounted(() => {
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+}
+
+.add-question-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.add-question-row .v-text-field {
+  flex: 1;
+}
+
+.add-error {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: #d32f2f;
+  min-height: 1em;
 }
 
 .edit-mode {

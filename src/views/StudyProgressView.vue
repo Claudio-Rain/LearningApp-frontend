@@ -87,7 +87,32 @@
       </div>
 
       <div class="chart-wrapper">
-        <h3>Study History (Last 30 Days)</h3>
+        <div class="chart-header-row">
+          <div>
+            <h3>Study History</h3>
+            <p class="chart-subtitle">Drag across the chart to zoom into a range</p>
+          </div>
+          <div class="date-range-filter">
+            <v-text-field
+              v-model="timelineStartDate"
+              type="date"
+              label="From"
+              density="compact"
+              variant="outlined"
+              hide-details
+              :max="timelineEndDate"
+            />
+            <v-text-field
+              v-model="timelineEndDate"
+              type="date"
+              label="To"
+              density="compact"
+              variant="outlined"
+              hide-details
+              :min="timelineStartDate"
+            />
+          </div>
+        </div>
         <div ref="timelineChartRef" class="chart"></div>
       </div>
 
@@ -156,7 +181,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { parseISO, subDays, format } from 'date-fns'
+import { parseISO, subDays, format, eachDayOfInterval } from 'date-fns'
 import { useRouter } from 'vue-router'
 import Highcharts from 'highcharts'
 import 'highcharts/modules/heatmap'
@@ -187,6 +212,8 @@ const studyDaysChartRef = ref<HTMLElement>()
 const studyHeatmapChartRef = ref<HTMLElement>()
 const collectionOverviewChartRef = ref<HTMLElement>()
 const collectionOverviewSortBy = ref<'name' | 'strength' | 'revisions' | 'revised' | 'notRevised'>('strength')
+const timelineStartDate = ref(format(subDays(new Date(), 29), 'yyyy-MM-dd'))
+const timelineEndDate = ref(format(new Date(), 'yyyy-MM-dd'))
 
 const totalAttempts = ref(0)
 const cardsLearned = ref(0)
@@ -209,6 +236,9 @@ const allCardProgress = ref<CardProgress[]>([])
 const allLearningItems = ref<LearningItem[]>([])
 
 let chartInstances: Record<string, Highcharts.Chart> = {}
+// Dates behind the timeline chart's categories; refreshed on each render so
+// the tooltip formatter (bound once at chart creation) stays accurate.
+let timelineDates: string[] = []
 
 // ── derived filtered data ──────────────────────────────────────────────────
 
@@ -307,6 +337,7 @@ watch([filteredAttemptLogs, filteredCardProgress], () => {
 })
 
 watch(showCardTitles, () => renderStrengthScatterChart())
+watch([timelineStartDate, timelineEndDate], () => renderTimelineChart())
 
 // ── chart helpers ──────────────────────────────────────────────────────────
 
@@ -520,21 +551,20 @@ const renderStrengthChart = () => {
 
 const renderTimelineChart = () => {
   if (!timelineChartRef.value) return
-  
-  const dateMap = new Map<string, number>()
-  
-  const today = new Date()
-  
-  for (let i = 29; i >= 0; i--) dateMap.set(format(subDays(today, i), 
-  'yyyy-MM-dd'), 0)
 
-  console.log(filteredAttemptLogs)
+  const start = parseISO(timelineStartDate.value)
+  const end = parseISO(timelineEndDate.value)
+  if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) return
+
+  const dateMap = new Map<string, number>()
+  eachDayOfInterval({ start, end }).forEach(d => dateMap.set(format(d, 'yyyy-MM-dd'), 0))
 
   filteredAttemptLogs.value.forEach(log => {
     const d = format(parseISO(log.created_at), 'yyyy-MM-dd')
-    dateMap.set(d, (dateMap.get(d) ?? 0) + 1)
+    if (!dateMap.has(d)) return // outside the selected range
+    dateMap.set(d, dateMap.get(d)! + 1)
   })
-  
+
   const dates = Array.from(dateMap.keys())
   const counts = Array.from(dateMap.values())
 
@@ -543,17 +573,20 @@ const renderTimelineChart = () => {
     return Math.round((window.reduce((s, v) => s + v, 0) / window.length) * 10) / 10
   })
 
+  timelineDates = dates
   const dateLabels = dates.map(d => format(parseISO(d), 'MMM d, yy'))
+  const tickInterval = Math.max(1, Math.round(dates.length / 6))
   if (chartInstances.timeline) {
-    chartInstances.timeline.xAxis[0]?.setCategories(dateLabels, false)
+    chartInstances.timeline.zoomOut()
+    chartInstances.timeline.xAxis[0]?.update({ categories: dateLabels, tickInterval }, false)
     chartInstances.timeline.series[0]?.setData(counts, false, { duration: 300 })
     chartInstances.timeline.series[1]?.setData(movingAvg, true, { duration: 300 })
     return
   }
   chartInstances.timeline = Highcharts.chart(timelineChartRef.value, {
-    chart: { type: 'spline' },
+    chart: { type: 'spline', zooming: { type: 'x' } },
     title: { text: '' },
-    xAxis: { categories: dateLabels, tickInterval: 5 },
+    xAxis: { categories: dateLabels, tickInterval },
     yAxis: { title: { text: 'Attempts' }, min: 0, gridLineWidth: 1, gridLineColor: 'rgba(0,0,0,0.08)' },
     series: [
       { name: 'Daily Attempts', data: counts, color: '#2196F3', type: 'spline', lineWidth: 2, marker: { enabled: false } },
@@ -564,7 +597,7 @@ const renderTimelineChart = () => {
     tooltip: {
       shared: true,
       formatter: function(this: any) {
-        const dateStr = dates[this.points?.[0]?.point?.index ?? 0]
+        const dateStr = timelineDates[this.points?.[0]?.point?.index ?? 0]
         const label = dateStr ? format(parseISO(dateStr), 'EEEE, MMM d') : this.x
         let s = `<span style="font-size:11px">${label}</span><br/>`
         this.points?.forEach((p: any) => {
@@ -615,11 +648,6 @@ const renderCompositionChart = () => {
   const sortedLogs = [...filteredAttemptLogs.value].sort(
     (a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime()
   )
-  console.log("Card Progress: "+ filteredCardProgress.value.length)
-  console.log(filteredCardProgress)
-  console.log("Attempt Logs: " + filteredAttemptLogs.value.length)
-  console.log(filteredAttemptLogs)
-
   const runningStrength = new Map<string, number>()
   const compositionSnapshots: Array<{ Critical: number; Struggling: number; Good: number; Mastered: number }> = []
   const labels: string[] = []
@@ -1177,6 +1205,16 @@ onUnmounted(() => {
 
 .sort-toggle {
   flex-shrink: 0;
+}
+
+.date-range-filter {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.date-range-filter :deep(.v-text-field) {
+  width: 150px;
 }
 
 .chart-scroll-container {
