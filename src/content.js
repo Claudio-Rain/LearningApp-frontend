@@ -109,6 +109,9 @@ function injectContentDisplay() {
           <button class="content-notes-btn" id="content-notes-toggle" title="Scratchpad notes">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M3 4a2 2 0 0 1 2-2h9l6 6v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4zm10 0v5h5l-5-5zM7 13h10v2H7v-2zm0 4h7v2H7v-2z"/></svg>
           </button>
+          <button class="content-chat-btn" id="content-chat-toggle" title="Ask AI about this card">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M4 2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8l-4 4v-4H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm8 3a3.5 3.5 0 0 0-3.5 3.5h2A1.5 1.5 0 1 1 12 10c-.55 0-1 .45-1 1v1.5h2v-.8a3.5 3.5 0 0 0-1-6.7zm-1 9h2v2h-2v-2z"/></svg>
+          </button>
           <button class="content-theme-btn" id="content-theme-toggle" title="Toggle dark mode">
             <svg class="theme-icon-moon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.39 5.39 0 0 1-4.4 2.26 5.4 5.4 0 0 1-5.4-5.4c0-1.81.89-3.41 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
             <svg class="theme-icon-sun" viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-5a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0V3a1 1 0 0 1 1-1zm0 17a1 1 0 0 1 1 1v2a1 1 0 1 1-2 0v-2a1 1 0 0 1 1-1zM3 11h2a1 1 0 1 1 0 2H3a1 1 0 1 1 0-2zm16 0h2a1 1 0 1 1 0 2h-2a1 1 0 1 1 0-2zM5.64 5.64a1 1 0 0 1 1.42 0l1.41 1.41a1 1 0 0 1-1.41 1.42L5.64 7.05a1 1 0 0 1 0-1.41zm9.9 9.9a1 1 0 0 1 1.41 0l1.41 1.41a1 1 0 0 1-1.41 1.42l-1.41-1.42a1 1 0 0 1 0-1.41zm2.82-9.9a1 1 0 0 1 0 1.41l-1.41 1.42a1 1 0 1 1-1.42-1.42l1.42-1.41a1 1 0 0 1 1.41 0zm-9.9 9.9a1 1 0 0 1 0 1.41l-1.41 1.42a1 1 0 0 1-1.42-1.42l1.41-1.41a1 1 0 0 1 1.42 0z"/></svg>
@@ -179,6 +182,28 @@ function injectContentDisplay() {
     <div class="learning-notes-footer"></div>
   `;
   document.body.appendChild(notesPanel);
+
+  // AI chat panel: ask Claude about the card currently on screen. The thread is
+  // ephemeral — it is wiped whenever a new card is shown (rating/nav/timer).
+  const chatPanel = document.createElement('div');
+  chatPanel.id = 'learning-chat-panel';
+  chatPanel.className = 'learning-chat-panel';
+  chatPanel.innerHTML = `
+    <div class="learning-chat-header">
+      <span>Ask about this card</span>
+      <button class="learning-chat-close" id="learning-chat-close" title="Close chat">&times;</button>
+    </div>
+    <div class="learning-chat-messages" id="learning-chat-messages">
+      <div class="learning-chat-empty">Ask anything about the current card</div>
+    </div>
+    <div class="learning-chat-input-row">
+      <textarea class="learning-chat-input" id="learning-chat-input" rows="1" placeholder="Ask a question…"></textarea>
+      <button class="learning-chat-send" id="learning-chat-send" title="Send">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/></svg>
+      </button>
+    </div>
+  `;
+  document.body.appendChild(chatPanel);
 
   // Floating panel for creating a new learning item (Name, Collection, auto-answer).
   const addPanel = document.createElement('div');
@@ -585,6 +610,256 @@ function injectContentDisplay() {
     }
 
     .learning-notes-panel.dark .learning-notes-textarea::placeholder {
+      color: #6b7280;
+    }
+
+    .content-chat-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: #059669;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .content-chat-btn:hover {
+      background: rgba(0, 0, 0, 0.06);
+    }
+
+    .content-chat-btn.active {
+      background: rgba(5, 150, 105, 0.12);
+      color: #047857;
+    }
+
+    .learning-chat-panel {
+      position: fixed;
+      top: 20px;
+      right: 516px;
+      z-index: 999997;
+      display: none;
+      flex-direction: column;
+      width: 320px;
+      height: 420px;
+      max-width: 80vw;
+      max-height: 75vh;
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .learning-chat-panel.open {
+      display: flex;
+    }
+
+    .learning-chat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #6b7280;
+      background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb;
+      user-select: none;
+      flex-shrink: 0;
+    }
+
+    .learning-chat-close {
+      border: none;
+      background: transparent;
+      color: #9ca3af;
+      font-size: 18px;
+      line-height: 1;
+      padding: 0 2px;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    .learning-chat-close:hover {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+    }
+
+    .learning-chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .learning-chat-empty {
+      margin: auto;
+      color: #9ca3af;
+      font-size: 13px;
+      text-align: center;
+      padding: 0 16px;
+    }
+
+    .learning-chat-bubble {
+      max-width: 88%;
+      border-radius: 12px;
+      padding: 7px 10px;
+      font-size: 13px;
+      line-height: 1.45;
+      overflow-wrap: break-word;
+    }
+
+    .learning-chat-bubble.user {
+      align-self: flex-end;
+      background: #2563eb;
+      color: white;
+      white-space: pre-wrap;
+    }
+
+    .learning-chat-bubble.assistant {
+      align-self: flex-start;
+      background: #f3f4f6;
+      color: #1f2937;
+    }
+
+    .learning-chat-bubble.assistant.error {
+      background: rgba(239, 68, 68, 0.1);
+      color: #b91c1c;
+    }
+
+    .learning-chat-bubble.assistant p { margin: 0 0 6px; }
+    .learning-chat-bubble.assistant p:last-child { margin-bottom: 0; }
+    .learning-chat-bubble.assistant ul,
+    .learning-chat-bubble.assistant ol { margin: 4px 0; padding-left: 18px; }
+    .learning-chat-bubble.assistant pre {
+      background: #1f2937;
+      color: #e5e7eb;
+      border-radius: 6px;
+      padding: 8px;
+      overflow-x: auto;
+      font-size: 12px;
+      margin: 6px 0;
+    }
+    .learning-chat-bubble.assistant code {
+      background: rgba(0, 0, 0, 0.07);
+      border-radius: 3px;
+      padding: 1px 4px;
+      font-size: 12px;
+    }
+    .learning-chat-bubble.assistant pre code {
+      background: transparent;
+      padding: 0;
+    }
+
+    .learning-chat-bubble.thinking {
+      color: #9ca3af;
+      font-style: italic;
+    }
+
+    .learning-chat-input-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 6px;
+      padding: 8px 10px;
+      border-top: 1px solid #e5e7eb;
+      background: #f9fafb;
+      flex-shrink: 0;
+    }
+
+    .learning-chat-input {
+      flex: 1;
+      resize: none;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      outline: none;
+      padding: 7px 10px;
+      font-size: 13px;
+      line-height: 1.4;
+      max-height: 90px;
+      color: #1f2937;
+      background: white;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      box-sizing: border-box;
+    }
+
+    .learning-chat-input:focus {
+      border-color: #2563eb;
+    }
+
+    .learning-chat-input::placeholder {
+      color: #9ca3af;
+    }
+
+    .learning-chat-send {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      flex-shrink: 0;
+      border: none;
+      border-radius: 8px;
+      background: #2563eb;
+      color: white;
+      cursor: pointer;
+    }
+
+    .learning-chat-send:hover {
+      background: #1d4ed8;
+    }
+
+    .learning-chat-send:disabled {
+      background: #9ca3af;
+      cursor: default;
+    }
+
+    .learning-chat-panel.dark {
+      background: #1e1e2e;
+      border-color: #313244;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    }
+
+    .learning-chat-panel.dark .learning-chat-header {
+      background: #181825;
+      border-bottom-color: #313244;
+      color: #9ca3af;
+    }
+
+    .learning-chat-panel.dark .learning-chat-empty {
+      color: #6b7280;
+    }
+
+    .learning-chat-panel.dark .learning-chat-bubble.assistant {
+      background: #313244;
+      color: #d1d5db;
+    }
+
+    .learning-chat-panel.dark .learning-chat-bubble.assistant code {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .learning-chat-panel.dark .learning-chat-input-row {
+      background: #181825;
+      border-top-color: #313244;
+    }
+
+    .learning-chat-panel.dark .learning-chat-input {
+      background: #1e1e2e;
+      border-color: #313244;
+      color: #d1d5db;
+    }
+
+    .learning-chat-panel.dark .learning-chat-input::placeholder {
       color: #6b7280;
     }
 
@@ -1456,6 +1731,9 @@ function extractPlainText(node, separator = '\n') {
 // State management
 let currentItem = null;
 let isFlipped = false;
+// Per-card AI chat thread; wiped whenever a new card is displayed.
+let chatHistory = [];
+let chatBusy = false;
 let sessionTotal = 0;
 
 // Timer (mirrors Study View: countdown resets on each new item). The duration
@@ -1590,9 +1868,10 @@ function updateContentDisplay(item, meta) {
   currentItem = item;
   isFlipped = false;
 
-  // Fresh item — wipe the ephemeral scratchpad.
+  // Fresh item — wipe the ephemeral scratchpad and AI chat thread.
   const notesTextarea = document.querySelector('.learning-notes-textarea');
   if (notesTextarea) notesTextarea.value = '';
+  resetChatThread();
 
   updateMetaDisplay(meta);
   startContentTimer();
@@ -1660,6 +1939,111 @@ function toggleNotesPanel() {
   // Mirror the widget's theme so the panel matches light/dark.
   panel.classList.toggle('dark', !!widget?.classList.contains('dark'));
   if (open) panel.querySelector('.learning-notes-textarea')?.focus();
+}
+
+function toggleChatPanel() {
+  const panel = document.getElementById('learning-chat-panel');
+  const btn = document.getElementById('content-chat-toggle');
+  const widget = document.querySelector('.learning-content-widget');
+  if (!panel) return;
+  const open = panel.classList.toggle('open');
+  if (btn) btn.classList.toggle('active', open);
+  // Mirror the widget's theme so the panel matches light/dark.
+  panel.classList.toggle('dark', !!widget?.classList.contains('dark'));
+  if (open) panel.querySelector('.learning-chat-input')?.focus();
+}
+
+// Wipe the chat thread (called whenever a new card is shown).
+function resetChatThread() {
+  chatHistory = [];
+  chatBusy = false;
+  const messagesEl = document.getElementById('learning-chat-messages');
+  if (messagesEl) {
+    messagesEl.innerHTML = '<div class="learning-chat-empty">Ask anything about the current card</div>';
+  }
+  const sendBtn = document.getElementById('learning-chat-send');
+  if (sendBtn) sendBtn.disabled = false;
+}
+
+function appendChatBubble(role, extraClass = '') {
+  const messagesEl = document.getElementById('learning-chat-messages');
+  if (!messagesEl) return null;
+  messagesEl.querySelector('.learning-chat-empty')?.remove();
+  const bubble = document.createElement('div');
+  bubble.className = `learning-chat-bubble ${role}${extraClass ? ' ' + extraClass : ''}`;
+  messagesEl.appendChild(bubble);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  return bubble;
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById('learning-chat-input');
+  const sendBtn = document.getElementById('learning-chat-send');
+  const messagesEl = document.getElementById('learning-chat-messages');
+  const text = input?.value.trim();
+  if (!text || chatBusy || !currentItem || !messagesEl) return;
+
+  // The chat needs an Anthropic API key in the extension's storage (same one
+  // auto-answer uses); prompt for it here if it isn't set yet.
+  try {
+    const keyRes = await sendMessageForResponse({ action: 'hasApiKey' });
+    if (!keyRes?.hasKey) {
+      const key = prompt('Paste your Anthropic API key (stored in this extension, used directly from your browser):');
+      if (!key || !key.trim()) return;
+      await sendMessageForResponse({ action: 'setApiKey', key: key.trim() });
+    }
+  } catch {
+    return;
+  }
+
+  // Bind the request to the card it was asked about; if the card changes while
+  // Claude is answering, the stale reply is dropped instead of leaking into the
+  // fresh thread.
+  const itemId = currentItem.id;
+
+  input.value = '';
+  chatBusy = true;
+  if (sendBtn) sendBtn.disabled = true;
+
+  const userBubble = appendChatBubble('user');
+  if (userBubble) userBubble.textContent = text;
+  chatHistory.push({ role: 'user', content: text });
+
+  const thinkingBubble = appendChatBubble('assistant', 'thinking');
+  if (thinkingBubble) thinkingBubble.textContent = 'Thinking…';
+
+  try {
+    const res = await sendMessageForResponse({
+      action: 'cardChat',
+      title: currentItem.title || '',
+      body: extractPlainText(currentItem.content),
+      messages: chatHistory,
+    });
+    if (currentItem?.id !== itemId) return; // card changed mid-answer; thread was reset
+    if (res?.success) {
+      chatHistory.push({ role: 'assistant', content: res.markdown });
+      thinkingBubble.className = 'learning-chat-bubble assistant';
+      thinkingBubble.innerHTML = renderTiptapContent(res.content);
+    } else {
+      // Drop the failed turn so the API never sees a user message with no reply.
+      chatHistory.pop();
+      thinkingBubble.className = 'learning-chat-bubble assistant error';
+      thinkingBubble.textContent = res?.error || 'Something went wrong — check your API key and try again.';
+    }
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  } catch (error) {
+    if (currentItem?.id === itemId) {
+      chatHistory.pop();
+      thinkingBubble.className = 'learning-chat-bubble assistant error';
+      thinkingBubble.textContent = 'Something went wrong — check your API key and try again.';
+    }
+  } finally {
+    if (currentItem?.id === itemId) {
+      chatBusy = false;
+      if (sendBtn) sendBtn.disabled = false;
+      input?.focus();
+    }
+  }
 }
 
 // Promise-based sender for messages that need a response back from background.
@@ -1803,6 +2187,17 @@ if (document.readyState === 'loading') {
 
 // Keyboard shortcuts
 function handleKeydown(e) {
+  // AI chat input: Enter sends, Escape closes. Never leaks to flip/rating keys.
+  if (e.target.id === 'learning-chat-input') {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendChatMessage();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      toggleChatPanel();
+    }
+    return;
+  }
   // New-item modal: Enter submits, Escape closes.
   const addModal = document.getElementById('learning-add-panel');
   if (addModal?.classList.contains('open')) {
@@ -1881,6 +2276,24 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('#content-notes-toggle')) {
     e.stopPropagation();
     toggleNotesPanel();
+    return;
+  }
+  // Toggle AI chat panel
+  if (e.target.closest('#content-chat-toggle')) {
+    e.stopPropagation();
+    toggleChatPanel();
+    return;
+  }
+  // Close AI chat panel via its X button
+  if (e.target.closest('#learning-chat-close')) {
+    e.stopPropagation();
+    toggleChatPanel();
+    return;
+  }
+  // Send a chat question
+  if (e.target.closest('#learning-chat-send')) {
+    e.stopPropagation();
+    sendChatMessage();
     return;
   }
   // Close scratchpad notes panel via its X button

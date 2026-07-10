@@ -98,6 +98,94 @@ export const streamAnswer = async (
   }
 }
 
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+/**
+ * Stream a multi-turn chat about a specific flashcard. The card's title and
+ * content ride along as the system prompt so every turn stays grounded in the
+ * card being studied. Throws if no key is set or the request fails.
+ */
+export const streamCardChat = async (
+  title: string,
+  content: JSONContent | undefined,
+  messages: ChatMessage[],
+  onToken: (chunk: string) => void
+): Promise<void> => {
+  const apiKey = await getApiKey()
+  if (!apiKey) throw new Error('No API key set')
+
+  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true })
+
+  const body = extractText(content).trim()
+  const system =
+    `You are a study assistant. The user is reviewing this flashcard:\n\n` +
+    `Front: ${title}` +
+    (body ? `\n\nBack:\n${body}` : '') +
+    `\n\nAnswer the user's questions about this card clearly and concisely. ` +
+    `Stay focused on helping them understand this material.`
+
+  const stream = client.messages.stream({
+    model: MODEL,
+    max_tokens: 1024,
+    system,
+    messages,
+  })
+
+  for await (const event of stream) {
+    if (
+      event.type === 'content_block_delta' &&
+      event.delta.type === 'text_delta'
+    ) {
+      onToken(event.delta.text)
+    }
+  }
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+/**
+ * Multi-turn Q&A about a specific flashcard, used by the background worker on
+ * behalf of the content widget. The card's front/back ride along as the system
+ * prompt so every turn stays grounded in the card being studied. Non-streaming
+ * because the reply crosses the extension message channel in one piece.
+ * Throws if no key is set or the request fails.
+ */
+export const cardChatMarkdown = async (
+  title: string,
+  body: string,
+  messages: ChatMessage[]
+): Promise<string> => {
+  const apiKey = await getApiKey()
+  if (!apiKey) throw new Error('No API key set')
+
+  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true })
+
+  const system =
+    `You are a study assistant. The user is reviewing this flashcard:\n\n` +
+    `Front: ${title}` +
+    (body.trim() ? `\n\nBack:\n${body.trim()}` : '') +
+    `\n\nAnswer the user's questions about this card clearly and concisely. ` +
+    `Stay focused on helping them understand this material.`
+
+  const response = await client.messages.create({
+    model: MODEL,
+    max_tokens: 1024,
+    system,
+    messages,
+  })
+
+  return response.content
+    .filter((block) => block.type === 'text')
+    .map((block) => block.text)
+    .join('')
+}
+
 /**
  * Non-streaming variant used by the extension's background worker: returns the
  * whole answer as markdown. Throws if no key is set or the request fails.

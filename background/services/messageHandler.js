@@ -19,7 +19,7 @@ import {
   syncCollections
 } from '../../src/database/index.ts';
 import { formatISO } from 'date-fns';
-import { generateAnswerMarkdown, hasApiKey, setApiKey } from '../../src/utils/claude.ts';
+import { generateAnswerMarkdown, cardChatMarkdown, hasApiKey, setApiKey } from '../../src/utils/claude.ts';
 import { markdownToTiptap } from '../../src/utils/markdown.ts';
 
 export function setupMessageListeners() {
@@ -116,6 +116,12 @@ function handleContentScriptMessage(request, _sender, sendResponse) {
   } else if (request.action === 'setApiKey') {
     setApiKey(request.key)
       .then(() => sendResponse({ success: true }))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true; // async response
+  } else if (request.action === 'cardChat') {
+    // Answer as TipTap JSON so the content script can reuse its existing renderer.
+    cardChatMarkdown(request.title, request.body || '', request.messages)
+      .then((markdown) => sendResponse({ success: true, markdown, content: markdownToTiptap(markdown) }))
       .catch((error) => sendResponse({ success: false, error: error.message }));
     return true; // async response
   }
