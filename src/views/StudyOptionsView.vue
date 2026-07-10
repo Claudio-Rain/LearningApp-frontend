@@ -11,6 +11,33 @@
         label="Collections displayed in Study View"
         :loading="loadingCollections"
       />
+      <label class="text-caption font-weight-bold d-block mt-3 mb-2">Card timer</label>
+      <div class="d-flex gap-3 auto-advance-row">
+        <v-text-field
+          v-model.number="studyTimerMinutes"
+          type="number"
+          min="0"
+          label="Minutes"
+          suffix="min"
+          variant="outlined"
+          density="comfortable"
+          hide-details
+        />
+        <v-text-field
+          v-model.number="studyTimerSecondsPart"
+          type="number"
+          min="0"
+          max="59"
+          label="Seconds"
+          suffix="sec"
+          variant="outlined"
+          density="comfortable"
+          hide-details
+        />
+      </div>
+      <p class="text-caption text-medium-emphasis mt-1">
+        Countdown per card in Study View; the card auto-advances when it runs out. Minimum 10 seconds — saving as {{ totalStudyTimerSeconds }}s.
+      </p>
     </div>
 
     <div class="mb-4">
@@ -255,6 +282,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { getCollections, getCategories, getLearningItems, getAllCardProgress, getLocalContentWidget, syncContentWidget, syncExcludedItems, saveContentWidget } from '../database'
 import type { LearningItem, Category } from '../database'
 import { useStudyViewCollection } from '../composables/useStudyViewCollection'
+import { useStudyTimer, MIN_STUDY_TIMER_SECONDS } from '../composables/useStudyTimer'
 import { useExcludedItems } from '../composables/useExcludedItems'
 import CollectionMultiSelect from '../shared/components/CollectionMultiSelect.vue'
 
@@ -402,6 +430,19 @@ const missingContentCollectionIds = ref<string[]>([])
 const autoAdvanceMinutes = ref(3)
 const autoAdvanceSecondsPart = ref(0)
 
+// Study View card timer, edited as separate minutes + seconds fields (same
+// pattern as the content widget's auto-advance above, but stored locally).
+const { studyTimerSeconds, setStudyTimerSeconds } = useStudyTimer()
+const studyTimerMinutes = ref(Math.floor(studyTimerSeconds.value / 60))
+const studyTimerSecondsPart = ref(studyTimerSeconds.value % 60)
+
+const totalStudyTimerSeconds = computed(() =>
+  Math.max(
+    MIN_STUDY_TIMER_SECONDS,
+    (Number(studyTimerMinutes.value) || 0) * 60 + (Number(studyTimerSecondsPart.value) || 0)
+  )
+)
+
 // Chrome clamps alarm periods below ~30s, so that's the effective floor.
 const MIN_AUTO_ADVANCE_SECONDS = 30
 
@@ -508,6 +549,7 @@ async function saveNotificationSettings() {
   saving.value = true
   try {
     setStudyViewCollectionIds(studyViewCollectionIds.value)
+    setStudyTimerSeconds(totalStudyTimerSeconds.value)
     if (typeof chrome !== 'undefined' && chrome.storage) {
       await chrome.storage.local.set({
         notificationCollectionId: notificationCollectionId.value,

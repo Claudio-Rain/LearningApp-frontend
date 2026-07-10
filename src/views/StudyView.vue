@@ -5,7 +5,21 @@
       <div class="header-top">
         <div class="header-center">
           <div class="study-subtitle">
-            {{ currentIndex + 1 }} / {{ studyQueue.length }}
+            <div class="counter-nav">
+              <button class="counter-nav-btn" :disabled="currentIndex === 0" title="Previous card" @click="moveToPrev">&#8249;</button>
+              <input
+                v-model="jumpInput"
+                type="number"
+                class="counter-input"
+                :min="1"
+                :max="studyQueue.length"
+                @keydown.enter="jumpToCard"
+                @blur="jumpToCard"
+              />
+              <span class="counter-sep">/</span>
+              <span class="counter-total">{{ studyQueue.length }}</span>
+              <button class="counter-nav-btn" :disabled="studyQueue.length === 0" title="Next card" @click="skipToNext">&#8250;</button>
+            </div>
             <span class="stat-badge new-badge" :class="{ glowing: isCurrentCardNew }">New: {{ newCards }}</span>
             <span class="stat-badge revised-badge" :class="{ glowing: !isCurrentCardNew }">Revised: {{ revisedCards }}</span>
             <span v-if="currentStrengthLabel !== 'New'" class="strength-badge" :class="currentStrengthClass">{{ currentStrengthLabel }}</span>
@@ -25,10 +39,10 @@
       <!-- Timer bar -->
       <div v-if="studyQueue.length > 0 && currentItem" class="timer-wrapper">
         <div class="timer-bar-bg">
-          <div class="timer-bar-fill" :class="{ 'timer-low': timeLeft <= 30 }"
-            :style="{ width: (timeLeft / 180 * 100) + '%' }"></div>
+          <div class="timer-bar-fill" :class="{ 'timer-low': timeLeft <= studyTimerSeconds / 6 }"
+            :style="{ width: (timeLeft / studyTimerSeconds * 100) + '%' }"></div>
         </div>
-        <div class="timer-label" :class="{ 'timer-label-low': timeLeft <= 30 }">
+        <div class="timer-label" :class="{ 'timer-label-low': timeLeft <= studyTimerSeconds / 6 }">
           {{ Math.floor(timeLeft / 60) }}:{{ String(timeLeft % 60).padStart(2, '0') }}
         </div>
       </div>
@@ -90,13 +104,8 @@
           </div>
         </div>
 
-        <!-- Nav Buttons (always visible) -->
         <!-- Bottom Action Row -->
         <div v-if="isFlipped" class="action-row">
-          <div class="nav-buttons">
-            <v-btn @click="moveToPrev" :disabled="currentIndex === 0" variant="tonal" size="large" icon="mdi-arrow-left" />
-            <v-btn @click="skipToNext" variant="tonal" size="large" icon="mdi-arrow-right" />
-          </div>
           <div class="rating-buttons">
             <v-btn @click="recordAttempt(-0.15)" color="error" variant="tonal" size="large">
               <v-icon start>mdi-close</v-icon>
@@ -185,6 +194,7 @@ import {
 import type { Collection, LearningItem, CardProgress } from '../database/types'
 import { useExcludedItems } from '../composables/useExcludedItems'
 import { useStudyViewCollection } from '../composables/useStudyViewCollection'
+import { useStudyTimer } from '../composables/useStudyTimer'
 
 interface StudyItem extends LearningItem {
   progress?: CardProgress
@@ -214,7 +224,8 @@ const excludeDialog = ref(false)
 const editDialog = ref(false)
 const fabOpen = ref(false)
 
-const timeLeft = ref(180)
+const { studyTimerSeconds } = useStudyTimer()
+const timeLeft = ref(studyTimerSeconds.value)
 let timerInterval: ReturnType<typeof setInterval> | null = null
 
 const editableItem = computed<LearningItem | null>(() => {
@@ -277,7 +288,7 @@ const isCurrentCardNew = computed(() => {
 
 const startTimer = () => {
   clearTimer()
-  timeLeft.value = 180
+  timeLeft.value = studyTimerSeconds.value
   timerInterval = setInterval(() => {
     if (timeLeft.value > 0) {
       timeLeft.value--
@@ -409,6 +420,27 @@ const moveToPrev = () => {
   }
 }
 
+const jumpInput = ref('1')
+
+watch(currentIndex, index => {
+  jumpInput.value = String(index + 1)
+}, { immediate: true })
+
+const jumpToCard = (e: Event) => {
+  const target = Number(jumpInput.value)
+  if (!Number.isInteger(target) || studyQueue.value.length === 0) {
+    jumpInput.value = String(currentIndex.value + 1)
+    return
+  }
+  const index = Math.min(Math.max(target, 1), studyQueue.value.length) - 1
+  jumpInput.value = String(index + 1)
+  if (index !== currentIndex.value) {
+    currentIndex.value = index
+    isFlipped.value = false
+  }
+  if (e.type === 'keydown') (e.target as HTMLInputElement).blur()
+}
+
 const skipToNext = async () => {
   await moveToNext()
 }
@@ -478,6 +510,7 @@ const deleteCurrentItem = async () => {
 
 const handleKeydown = (e: KeyboardEvent) => {
   if (editDialog.value || deleteDialog.value) return
+  if ((e.target as HTMLElement)?.tagName === 'INPUT') return
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault()
     isFlipped.value = !isFlipped.value
@@ -579,6 +612,82 @@ onUnmounted(() => {
   font-size: 0.75rem;
   color: rgba(0, 0, 0, 0.5);
   margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.counter-nav {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.counter-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  font-size: 26px;
+  font-weight: 300;
+  line-height: 1;
+  transition: background 0.2s, color 0.2s;
+  font-family: inherit;
+}
+
+.counter-nav-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.06);
+  color: #374151;
+}
+
+.counter-nav-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.counter-input {
+  width: 36px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+  background: transparent;
+  padding: 1px 2px;
+  font-family: inherit;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.counter-input::-webkit-outer-spin-button,
+.counter-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.counter-input:hover,
+.counter-input:focus {
+  border-color: #d1d5db;
+  outline: none;
+  background: white;
+}
+
+.counter-sep,
+.counter-total {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
 }
 
 
@@ -697,11 +806,6 @@ onUnmounted(() => {
   width: 100%;
 }
 
-.nav-buttons {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
 
 .rating-buttons {
   display: grid;
