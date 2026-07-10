@@ -343,10 +343,12 @@ const removeQuestionField = (i: number) => {
   questionFieldRefs.value.splice(i, 1)
 }
 
-// Freeze the study timer while adding a question; resume where it left off.
-watch(addDialog, open => {
-  if (open) clearTimer()
-  else resumeTimer()
+// Freeze the study timer while adding a question or editing the current card;
+// resume where it left off. Editing must pause it, otherwise the timer can
+// advance to the next card mid-edit and the save lands on the wrong item.
+watch([addDialog, editDialog], ([adding, editing], [wasAdding, wasEditing]) => {
+  if (adding || editing) clearTimer()
+  else if (wasAdding || wasEditing) resumeTimer()
 })
 
 const { studyTimerSeconds } = useStudyTimer()
