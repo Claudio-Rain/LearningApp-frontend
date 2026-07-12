@@ -394,9 +394,17 @@ const toggleChat = async () => {
   }
 }
 
-const scrollChatToBottom = async () => {
+// Pin the just-sent question to the top of the thread, then leave the scroll
+// alone while the answer streams in below it, so reading isn't yanked around.
+const scrollToLatestQuestion = async () => {
   await nextTick()
-  if (chatMessagesEl.value) chatMessagesEl.value.scrollTop = chatMessagesEl.value.scrollHeight
+  const el = chatMessagesEl.value
+  if (!el) return
+  const bubbles = el.querySelectorAll<HTMLElement>('.study-chat-bubble.user')
+  const last = bubbles[bubbles.length - 1]
+  if (last) {
+    el.scrollTop += last.getBoundingClientRect().top - el.getBoundingClientRect().top - 12
+  }
 }
 
 const sendChat = async () => {
@@ -425,13 +433,12 @@ const sendChat = async () => {
   chatMessages.value.push({ role: 'assistant', text: '' })
   // Grab the proxy out of the array so mutations during streaming are reactive.
   const reply = chatMessages.value[chatMessages.value.length - 1]!
-  scrollChatToBottom()
+  scrollToLatestQuestion()
 
   try {
     await streamCardChat(currentItem.value.title, currentItem.value.content, history, chunk => {
       if (currentItem.value?.id !== itemId) return
       reply.text += chunk
-      scrollChatToBottom()
     })
   } catch (error) {
     console.error('Card chat failed:', error)
