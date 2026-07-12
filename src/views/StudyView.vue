@@ -863,10 +863,20 @@ const deleteCurrentItem = async () => {
 }
 
 const handleKeydown = (e: KeyboardEvent) => {
+  // Escape closes the chat from anywhere — before the input/textarea guard so
+  // it works even while typing in the chat box.
+  if (e.key === 'Escape' && chatOpen.value) {
+    e.preventDefault()
+    chatOpen.value = false
+    return
+  }
   if (editDialog.value || deleteDialog.value || addDialog.value) return
   const tag = (e.target as HTMLElement)?.tagName
   if (tag === 'INPUT' || tag === 'TEXTAREA') return
-  if (e.key === 'Enter' || e.key === ' ') {
+  if ((e.key === 'c' || e.key === 'C') && currentItem.value) {
+    e.preventDefault()
+    toggleChat()
+  } else if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault()
     isFlipped.value = !isFlipped.value
   } else if (e.key === 'ArrowLeft') {
