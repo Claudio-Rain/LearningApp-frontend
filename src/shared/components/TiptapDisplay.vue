@@ -5,7 +5,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount } from 'vue'
+import { onBeforeUnmount, watch } from 'vue'
 import type { JSONContent } from '@tiptap/vue-3'
 import { Editor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
@@ -41,6 +41,13 @@ const editor = new Editor({
   ],
   content: props.content,
   editable: false,
+})
+
+// Keep the editor in sync when the prop changes in place (e.g. the study
+// chat streaming an answer token by token); without this the editor only
+// ever shows the content it was created with.
+watch(() => props.content, content => {
+  editor.commands.setContent(content)
 })
 
 onBeforeUnmount(() => editor.destroy())

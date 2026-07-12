@@ -31,6 +31,7 @@
           </template>
           <template v-else>
             <v-btn class="header-edit-btn" icon="mdi-plus" variant="text" title="Add question" @click="openAddDialog" />
+            <v-btn v-if="currentItem" class="header-edit-btn" :class="{ 'chat-toggle-active': chatOpen }" icon="mdi-chat-question-outline" variant="text" title="Ask AI about this card" @click="toggleChat" />
             <v-btn v-if="currentItem" class="header-edit-btn" icon="mdi-pencil-outline" variant="text" @click="editDialog = true" />
             <v-btn v-if="currentItem" class="header-edit-btn" icon="mdi-delete-outline" variant="text" color="error" @click="confirmDelete" />
             <v-btn v-if="currentItem" class="header-edit-btn" icon="mdi-eye-off-outline" variant="text" color="warning" @click="excludeDialog = true" />
@@ -148,6 +149,37 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- AI chat panel: ask Claude about the card on screen. The thread is
+         per-card and resets whenever the card changes (mirrors content.js). -->
+    <div v-if="chatOpen" class="study-chat-panel">
+      <div class="study-chat-header">
+        <span>Ask AI about this card</span>
+        <v-btn icon="mdi-close" variant="text" size="x-small" title="Close chat" @click="chatOpen = false" />
+      </div>
+      <div ref="chatMessagesEl" class="study-chat-messages">
+        <div v-if="chatMessages.length === 0" class="study-chat-empty">Ask anything about the current card</div>
+        <template v-for="(msg, i) in chatMessages" :key="i">
+          <div v-if="msg.role === 'user'" class="study-chat-bubble user">{{ msg.text }}</div>
+          <div v-else-if="msg.error" class="study-chat-bubble assistant error">{{ msg.text }}</div>
+          <div v-else-if="!msg.text" class="study-chat-bubble assistant thinking">Thinking…</div>
+          <div v-else class="study-chat-bubble assistant">
+            <TiptapDisplay :content="markdownToTiptap(msg.text)" />
+          </div>
+        </template>
+      </div>
+      <div class="study-chat-input-row">
+        <textarea
+          ref="chatInputEl"
+          v-model="chatInput"
+          class="study-chat-input"
+          rows="1"
+          placeholder="Ask a question…"
+          @keydown.enter.exact.prevent="sendChat"
+        />
+        <v-btn icon="mdi-send" size="small" color="primary" variant="tonal" :disabled="chatBusy" title="Send" @click="sendChat" />
+      </div>
+    </div>
 
     <!-- Inline Edit Mode -->
     <div v-if="editDialog && editableItem" class="edit-mode">
@@ -274,7 +306,7 @@ import {
   syncLearningItems,
   syncCollections
 } from '../database'
-import { getApiKey, setApiKey, generateAnswerMarkdown } from '../utils/claude'
+import { getApiKey, setApiKey, generateAnswerMarkdown, streamCardChat, type ChatMessage } from '../utils/claude'
 import { markdownToTiptap } from '../utils/markdown'
 import type { Collection, LearningItem, CardProgress } from '../database/types'
 import { useExcludedItems } from '../composables/useExcludedItems'
@@ -343,12 +375,85 @@ const removeQuestionField = (i: number) => {
   questionFieldRefs.value.splice(i, 1)
 }
 
-// Freeze the study timer while adding a question or editing the current card;
-// resume where it left off. Editing must pause it, otherwise the timer can
-// advance to the next card mid-edit and the save lands on the wrong item.
-watch([addDialog, editDialog], ([adding, editing], [wasAdding, wasEditing]) => {
-  if (adding || editing) clearTimer()
-  else if (wasAdding || wasEditing) resumeTimer()
+// AI chat about the current card. Bubbles keep the raw markdown; the template
+// converts it to TipTap on render. Errors are display-only and are excluded
+// from the history sent to the API.
+interface ChatBubble { role: 'user' | 'assistant'; text: string; error?: boolean }
+const chatOpen = ref(false)
+const chatMessages = ref<ChatBubble[]>([])
+const chatInput = ref('')
+const chatBusy = ref(false)
+const chatMessagesEl = ref<HTMLElement | null>(null)
+const chatInputEl = ref<HTMLTextAreaElement | null>(null)
+
+const toggleChat = async () => {
+  chatOpen.value = !chatOpen.value
+  if (chatOpen.value) {
+    await nextTick()
+    chatInputEl.value?.focus()
+  }
+}
+
+const scrollChatToBottom = async () => {
+  await nextTick()
+  if (chatMessagesEl.value) chatMessagesEl.value.scrollTop = chatMessagesEl.value.scrollHeight
+}
+
+const sendChat = async () => {
+  const text = chatInput.value.trim()
+  if (!text || chatBusy.value || !currentItem.value) return
+
+  // Same bring-your-own-key flow as auto-answer: prompt once if no key is set.
+  if (!(await getApiKey())) {
+    const key = prompt('Paste your Anthropic API key (stored only in this browser, used directly from it):')
+    if (!key?.trim()) return
+    await setApiKey(key)
+  }
+
+  // Bind the request to the card it was asked about; if the card changes while
+  // Claude is answering, the stale reply is dropped instead of leaking into the
+  // fresh thread.
+  const itemId = currentItem.value.id
+  const history: ChatMessage[] = chatMessages.value
+    .filter(m => !m.error && m.text)
+    .map(m => ({ role: m.role, content: m.text }))
+  history.push({ role: 'user', content: text })
+
+  chatInput.value = ''
+  chatBusy.value = true
+  chatMessages.value.push({ role: 'user', text })
+  chatMessages.value.push({ role: 'assistant', text: '' })
+  // Grab the proxy out of the array so mutations during streaming are reactive.
+  const reply = chatMessages.value[chatMessages.value.length - 1]!
+  scrollChatToBottom()
+
+  try {
+    await streamCardChat(currentItem.value.title, currentItem.value.content, history, chunk => {
+      if (currentItem.value?.id !== itemId) return
+      reply.text += chunk
+      scrollChatToBottom()
+    })
+  } catch (error) {
+    console.error('Card chat failed:', error)
+    if (currentItem.value?.id === itemId) {
+      reply.text = 'Something went wrong — check your API key and try again.'
+      reply.error = true
+    }
+  } finally {
+    if (currentItem.value?.id === itemId) {
+      chatBusy.value = false
+      chatInputEl.value?.focus()
+    }
+  }
+}
+
+// Freeze the study timer while adding a question, editing the current card, or
+// chatting with the AI; resume where it left off. Otherwise the timer can
+// advance to the next card mid-edit/mid-chat and the interaction lands on the
+// wrong item.
+watch([addDialog, editDialog, chatOpen], ([adding, editing, chatting], [wasAdding, wasEditing, wasChatting]) => {
+  if (adding || editing || chatting) clearTimer()
+  else if (wasAdding || wasEditing || wasChatting) resumeTimer()
 })
 
 const { studyTimerSeconds } = useStudyTimer()
@@ -370,6 +475,12 @@ const onEditContent = (_id: string, content: JSONContent) => {
 }
 
 const currentItem = computed(() => studyQueue.value[currentIndex.value])
+
+// Wipe the chat thread whenever a different card comes up.
+watch(() => currentItem.value?.id, () => {
+  chatMessages.value = []
+  chatBusy.value = false
+})
 
 const newCards = computed(() => {
   let count = 0
@@ -746,7 +857,8 @@ const deleteCurrentItem = async () => {
 
 const handleKeydown = (e: KeyboardEvent) => {
   if (editDialog.value || deleteDialog.value || addDialog.value) return
-  if ((e.target as HTMLElement)?.tagName === 'INPUT') return
+  const tag = (e.target as HTMLElement)?.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault()
     isFlipped.value = !isFlipped.value
@@ -824,6 +936,115 @@ onUnmounted(() => {
 .header-center {
   min-width: 0;
   flex: 1;
+}
+
+.chat-toggle-active {
+  color: rgb(var(--v-theme-primary));
+  background: rgba(var(--v-theme-primary), 0.12);
+}
+
+.study-chat-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: min(560px, calc(100vw - 32px));
+  height: min(760px, calc(100vh - 120px));
+  display: flex;
+  flex-direction: column;
+  background: rgb(var(--v-theme-surface));
+  color: rgb(var(--v-theme-on-surface));
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+  z-index: 2000;
+  overflow: hidden;
+}
+
+.study-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 8px 8px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  flex-shrink: 0;
+}
+
+.study-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 120px;
+}
+
+.study-chat-empty {
+  color: rgba(var(--v-theme-on-surface), 0.4);
+  font-size: 0.85rem;
+  text-align: center;
+  margin: auto;
+}
+
+.study-chat-bubble {
+  max-width: 88%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  overflow-wrap: break-word;
+}
+
+.study-chat-bubble.user {
+  align-self: flex-end;
+  background: rgb(var(--v-theme-primary));
+  color: white;
+  white-space: pre-wrap;
+}
+
+.study-chat-bubble.assistant {
+  align-self: flex-start;
+  background: rgba(var(--v-theme-on-surface), 0.06);
+}
+
+.study-chat-bubble.assistant.error {
+  background: rgba(var(--v-theme-error), 0.1);
+  color: rgb(var(--v-theme-error));
+}
+
+.study-chat-bubble.thinking {
+  color: rgba(var(--v-theme-on-surface), 0.45);
+  font-style: italic;
+}
+
+.study-chat-input-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  flex-shrink: 0;
+}
+
+.study-chat-input {
+  flex: 1;
+  resize: none;
+  background: transparent;
+  color: inherit;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.25);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 0.875rem;
+  line-height: 1.4;
+  max-height: 96px;
+  outline: none;
+}
+
+.study-chat-input:focus {
+  border-color: rgb(var(--v-theme-primary));
 }
 
 .study-title {
