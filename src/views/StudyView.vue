@@ -30,7 +30,7 @@
             <v-btn variant="tonal" color="primary" size="small" @click="editDialog = false">Done</v-btn>
           </template>
           <template v-else>
-            <v-btn class="header-edit-btn" icon="mdi-plus" variant="text" title="Add question" @click="openAddDialog" />
+            <v-btn class="header-edit-btn" icon="mdi-plus" variant="text" title="Add question" @click="openAddDialog()" />
             <v-btn v-if="currentItem" class="header-edit-btn" :class="{ 'chat-toggle-active': chatOpen }" icon="mdi-chat-question-outline" variant="text" title="Ask AI about this card" @click="toggleChat" />
             <v-btn v-if="currentItem" class="header-edit-btn" icon="mdi-pencil-outline" variant="text" @click="editDialog = true" />
             <v-btn v-if="currentItem" class="header-edit-btn" icon="mdi-delete-outline" variant="text" color="error" @click="confirmDelete" />
@@ -160,7 +160,22 @@
       <div ref="chatMessagesEl" class="study-chat-messages">
         <div v-if="chatMessages.length === 0" class="study-chat-empty">Ask anything about the current card</div>
         <template v-for="(msg, i) in chatMessages" :key="i">
-          <div v-if="msg.role === 'user'" class="study-chat-bubble user">{{ msg.text }}</div>
+          <div v-if="msg.role === 'user'" class="study-chat-user-group">
+            <div class="study-chat-bubble user">{{ msg.text }}</div>
+            <v-btn
+              class="study-chat-save-btn"
+              size="x-small"
+              variant="text"
+              :color="msg.added ? 'success' : 'primary'"
+              :prepend-icon="msg.added ? 'mdi-check' : 'mdi-plus'"
+              :loading="msg.saving"
+              :disabled="msg.added"
+              title="Save this question as a new card in this collection"
+              @click="saveChatQuestion(msg, i)"
+            >
+              {{ msg.added ? 'Added' : 'Add to collection' }}
+            </v-btn>
+          </div>
           <div v-else-if="msg.error" class="study-chat-bubble assistant error">{{ msg.text }}</div>
           <div v-else-if="!msg.text" class="study-chat-bubble assistant thinking">Thinking…</div>
           <div v-else class="study-chat-bubble assistant">
@@ -306,7 +321,7 @@ import {
   syncLearningItems,
   syncCollections
 } from '../database'
-import { getApiKey, setApiKey, generateAnswerMarkdown, streamCardChat, type ChatMessage } from '../utils/claude'
+import { getApiKey, setApiKey, generateAnswerMarkdown, streamCardChat, rewriteAsStandaloneQuestion, type ChatMessage } from '../utils/claude'
 import { markdownToTiptap } from '../utils/markdown'
 import type { Collection, LearningItem, CardProgress } from '../database/types'
 import { useExcludedItems } from '../composables/useExcludedItems'
@@ -378,7 +393,7 @@ const removeQuestionField = (i: number) => {
 // AI chat about the current card. Bubbles keep the raw markdown; the template
 // converts it to TipTap on render. Errors are display-only and are excluded
 // from the history sent to the API.
-interface ChatBubble { role: 'user' | 'assistant'; text: string; error?: boolean }
+interface ChatBubble { role: 'user' | 'assistant'; text: string; error?: boolean; saving?: boolean; added?: boolean }
 const chatOpen = ref(false)
 const chatMessages = ref<ChatBubble[]>([])
 const chatInput = ref('')
@@ -451,6 +466,44 @@ const sendChat = async () => {
       chatBusy.value = false
       chatInputEl.value?.focus()
     }
+  }
+}
+
+// One-click save of a chat question as a new card in the current card's
+// collection. Questions asked mid-chat lean on the card for context ("why do
+// we need this?"), so Claude rewrites them into a standalone title first (on
+// failure the raw text is used as-is). The reply Claude already gave in the
+// thread becomes the card's answer — nothing is generated twice; if the reply
+// isn't in yet, the answer is filled in the background like the add dialog's
+// auto-answer.
+const saveChatQuestion = async (msg: ChatBubble, index: number) => {
+  const item = currentItem.value
+  if (msg.saving || msg.added || !item) return
+  const next = chatMessages.value[index + 1]
+  const answer = next?.role === 'assistant' && !next.error && next.text ? next.text : undefined
+
+  msg.saving = true
+  try {
+    let title = msg.text
+    try {
+      title = (await rewriteAsStandaloneQuestion(item.title, item.content, msg.text)) || msg.text
+    } catch (error) {
+      console.error('Question rewrite failed:', error)
+    }
+
+    const content = answer ? markdownToTiptap(answer) : undefined
+    const [created] = await createCards(item.collectionId, [{ title, content }])
+    msg.added = true
+    showToast(`Added "${title}"`)
+    if (!content && created) {
+      generateAutoAnswer(created.id!, item.collectionId, title, created.dateCreated)
+        .catch(error => console.error(`Auto-answer failed for "${title}":`, error))
+    }
+  } catch (error) {
+    console.error('Failed to add chat question:', error)
+    showToast('Failed to add the question', true)
+  } finally {
+    msg.saving = false
   }
 }
 
@@ -751,6 +804,35 @@ const openAddDialog = async () => {
     : addCollections.value[0]?.id ?? null
 }
 
+// Create cards in a collection and keep everything in step: the collection's
+// item count, the background sync, and — when the collection is being studied
+// — the in-memory queue, so the new cards come up this session. Shared by the
+// add dialog and the chat's one-click save.
+const createCards = async (
+  collectionId: string,
+  entries: { title: string; content?: JSONContent }[]
+): Promise<StudyItem[]> => {
+  const now = formatISO(new Date())
+  const created: StudyItem[] = []
+  for (const { title, content } of entries) {
+    const id = String(await createLearningItem({ collectionId, title, content, dateCreated: now, lastModified: now }))
+    created.push({ id, collectionId, title, content, dateCreated: now, lastModified: now })
+  }
+
+  const collection = (await getCollections()).find(c => c.id === collectionId)
+  if (collection) {
+    await editCollection({ ...collection, numberOfItems: (collection.numberOfItems || 0) + created.length, lastModified: now })
+    syncCollections().catch(() => {})
+  }
+  syncLearningItems().catch(() => {})
+
+  if (collectionIds.value.includes(collectionId)) {
+    learningItems.value.push(...created)
+    studyQueue.value.push(...created)
+  }
+  return created
+}
+
 const submitAddDialog = async () => {
   const titles = addTitles.value
   const collectionId = addCollectionId.value
@@ -769,27 +851,7 @@ const submitAddDialog = async () => {
 
   addCreating.value = true
   try {
-    const now = formatISO(new Date())
-    const created: StudyItem[] = []
-    for (const title of titles) {
-      const id = String(await createLearningItem({ collectionId, title, dateCreated: now, lastModified: now }))
-      created.push({ id, collectionId, title, dateCreated: now, lastModified: now })
-    }
-
-    // Keep the collection's item count in step with the SPA's "Add" behavior.
-    const collection = addCollections.value.find(c => c.id === collectionId)
-    if (collection) {
-      await editCollection({ ...collection, numberOfItems: (collection.numberOfItems || 0) + created.length, lastModified: now })
-      syncCollections().catch(() => {})
-    }
-    syncLearningItems().catch(() => {})
-
-    // If the new cards belong to a collection being studied, put them at the
-    // end of the current queue so they come up this session.
-    if (collectionIds.value.includes(collectionId)) {
-      learningItems.value.push(...created)
-      studyQueue.value.push(...created)
-    }
+    const created = await createCards(collectionId, titles.map(title => ({ title })))
 
     addDialog.value = false
 
@@ -801,7 +863,7 @@ const submitAddDialog = async () => {
         let failed = 0
         for (const item of created) {
           try {
-            await generateAutoAnswer(item.id!, collectionId, item.title, now)
+            await generateAutoAnswer(item.id!, collectionId, item.title, item.dateCreated)
           } catch (error) {
             failed++
             console.error(`Auto-answer failed for "${item.title}":`, error)
@@ -1019,6 +1081,26 @@ onUnmounted(() => {
   background: rgb(var(--v-theme-primary));
   color: white;
   white-space: pre-wrap;
+}
+
+/* User bubble plus its "Add to collection" action, kept right-aligned as one unit. */
+.study-chat-user-group {
+  align-self: flex-end;
+  max-width: 88%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.study-chat-user-group .study-chat-bubble.user {
+  max-width: 100%;
+}
+
+.study-chat-save-btn {
+  text-transform: none;
+  letter-spacing: normal;
+  opacity: 0.85;
 }
 
 .study-chat-bubble.assistant {

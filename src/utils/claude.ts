@@ -187,6 +187,48 @@ export const cardChatMarkdown = async (
 }
 
 /**
+ * Rewrite a chat question into a self-contained flashcard title. Questions
+ * asked mid-chat ("why do we need this?") lean on the card for context, so
+ * saved verbatim they make meaningless titles; Claude resolves the pronouns
+ * against the card first ("Why do we need named routes?"). Throws if no key
+ * is set or the request fails.
+ */
+export const rewriteAsStandaloneQuestion = async (
+  cardTitle: string,
+  cardContent: JSONContent | undefined,
+  question: string
+): Promise<string> => {
+  const apiKey = await getApiKey()
+  if (!apiKey) throw new Error('No API key set')
+
+  const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true })
+
+  const body = extractText(cardContent).trim()
+  const system =
+    `The user is studying this flashcard:\n\n` +
+    `Front: ${cardTitle}` +
+    (body ? `\n\nBack:\n${body}` : '') +
+    `\n\nThey asked a follow-up question in chat and want to save it as a new standalone flashcard. ` +
+    `Rewrite their question so it makes sense on its own, away from this card: replace words like ` +
+    `"this", "it", "that" with the concrete concept they refer to. Preserve the user's intent and ` +
+    `phrasing as much as possible, keep it to one short sentence, and reply with ONLY the rewritten ` +
+    `question — no quotes, no explanation.`
+
+  const response = await client.messages.create({
+    model: MODEL,
+    max_tokens: 200,
+    system,
+    messages: [{ role: 'user', content: question }],
+  })
+
+  return response.content
+    .filter((block) => block.type === 'text')
+    .map((block) => block.text)
+    .join('')
+    .trim()
+}
+
+/**
  * Non-streaming variant used by the extension's background worker: returns the
  * whole answer as markdown. Throws if no key is set or the request fails.
  */
