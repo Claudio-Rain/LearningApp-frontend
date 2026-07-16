@@ -38,14 +38,46 @@
           </template>
         </div>
       </div>
-      <!-- Timer bar -->
-      <div v-if="studyQueue.length > 0 && currentItem" class="timer-wrapper">
-        <div class="timer-bar-bg">
-          <div class="timer-bar-fill" :class="{ 'timer-low': timeLeft <= studyTimerSeconds / 6 }"
-            :style="{ width: (timeLeft / studyTimerSeconds * 100) + '%' }"></div>
+      <!-- Timer ring + session stats -->
+      <div v-if="studyQueue.length > 0 && currentItem" class="study-metrics">
+        <div class="timer-ring-wrap" :title="`Time left on this card`">
+          <span class="timer-label" :class="{ 'timer-label-low': timerLow }">
+            {{ Math.floor(timeLeft / 60) }}:{{ String(timeLeft % 60).padStart(2, '0') }}
+          </span>
+          <svg class="timer-ring" viewBox="0 0 36 36">
+            <circle class="timer-ring-bg" cx="18" cy="18" r="15.5" />
+            <circle
+              class="timer-ring-fill"
+              :class="{ 'timer-low': timerLow }"
+              cx="18" cy="18" r="15.5"
+              :stroke-dasharray="RING_CIRCUMFERENCE"
+              :stroke-dashoffset="ringOffset"
+            />
+          </svg>
         </div>
-        <div class="timer-label" :class="{ 'timer-label-low': timeLeft <= studyTimerSeconds / 6 }">
-          {{ Math.floor(timeLeft / 60) }}:{{ String(timeLeft % 60).padStart(2, '0') }}
+        <div class="metric-group">
+          <span class="metric" title="Revisions today, across all cards">
+            <v-icon size="14">mdi-flash-outline</v-icon>{{ attemptsToday }} revisions today
+          </span>
+          <span class="metric-sep">·</span>
+          <span class="metric" title="Revisions of this card">
+            <v-icon size="14">mdi-refresh</v-icon>{{ currentItemAttempts }} revisions of this card
+          </span>
+          <span class="metric-sep">·</span>
+          <span class="metric" :title="`${totalRevisions} revisions across the ${learningItems.length} cards loaded — avg ${avgRevisions} per card`">
+            <v-icon size="14">mdi-history</v-icon>{{ totalRevisions }} revisions / {{ learningItems.length }} cards · avg {{ avgRevisions }}
+          </span>
+        </div>
+        <div class="dist-bar" title="Strength distribution — new / weak / struggling / good / mastered">
+          <template v-for="seg in strengthDistribution" :key="seg.label">
+            <div
+              v-if="seg.count > 0"
+              class="dist-seg"
+              :class="seg.cls"
+              :style="{ flexGrow: seg.count }"
+              :title="`${seg.label}: ${seg.count}`"
+            />
+          </template>
         </div>
       </div>
     </div>
@@ -297,7 +329,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
-import { formatISO, parseISO } from 'date-fns'
+import { formatISO, parseISO, isToday } from 'date-fns'
 import type { JSONContent } from '@tiptap/vue-3'
 import { useRoute, useRouter } from 'vue-router'
 import TiptapDisplay from '../shared/components/TiptapDisplay.vue'
@@ -306,6 +338,7 @@ import {
   getCollections,
   getLearningItems,
   getAllCardProgress,
+  getAllAttemptLogs,
   createAttemptLog,
   createCardProgress,
   updateCardProgress,
@@ -584,6 +617,59 @@ const isCurrentCardNew = computed(() => {
   return !progress || progress.total_attempts === 0
 })
 
+// Countdown ring geometry: r=15.5 in a 36x36 viewBox.
+const RING_CIRCUMFERENCE = 2 * Math.PI * 15.5
+const ringOffset = computed(() =>
+  RING_CIRCUMFERENCE * (1 - timeLeft.value / studyTimerSeconds.value)
+)
+const timerLow = computed(() => timeLeft.value <= studyTimerSeconds.value / 6)
+
+// Attempts recorded today across every card (loaded from the logs, then bumped
+// locally on each rating so it stays live without re-reading the store).
+const attemptsToday = ref(0)
+
+// Read from the live progress map (not the queue snapshot) so it updates the
+// moment a rating is recorded.
+const currentItemAttempts = computed(() => {
+  const id = currentItem.value?.id
+  return id ? cardProgressMap.value.get(id)?.total_attempts ?? 0 : 0
+})
+
+// Total revisions summed over the loaded items, and its per-card average.
+const totalRevisions = computed(() => {
+  let total = 0
+  learningItems.value.forEach(item => {
+    total += cardProgressMap.value.get(item.id!)?.total_attempts ?? 0
+  })
+  return total
+})
+
+const avgRevisions = computed(() => {
+  const count = learningItems.value.length
+  return count ? (totalRevisions.value / count).toFixed(1) : '0'
+})
+
+// Strength buckets across the items being studied. New (never attempted) cards
+// get their own grey segment so the colored ones only compare revised cards.
+const strengthDistribution = computed(() => {
+  const buckets = { new: 0, weak: 0, struggling: 0, good: 0, mastered: 0 }
+  learningItems.value.forEach(item => {
+    const progress = cardProgressMap.value.get(item.id!)
+    if (!progress || progress.total_attempts === 0) buckets.new++
+    else if (progress.strength_score < 0.25) buckets.weak++
+    else if (progress.strength_score < 0.5) buckets.struggling++
+    else if (progress.strength_score < 0.75) buckets.good++
+    else buckets.mastered++
+  })
+  return [
+    { label: 'New', cls: 'dist-new', count: buckets.new },
+    { label: 'Weak', cls: 'dist-weak', count: buckets.weak },
+    { label: 'Struggling', cls: 'dist-struggling', count: buckets.struggling },
+    { label: 'Good', cls: 'dist-good', count: buckets.good },
+    { label: 'Mastered', cls: 'dist-mastered', count: buckets.mastered }
+  ]
+})
+
 const startTimer = () => {
   timeLeft.value = studyTimerSeconds.value
   resumeTimer()
@@ -642,6 +728,9 @@ const loadData = async () => {
   })
   cardProgressMap.value = progressMap
 
+  const allLogs = await getAllAttemptLogs()
+  attemptsToday.value = allLogs.filter(log => isToday(parseISO(log.created_at))).length
+
   // Create study queue sorted by strength (weakest/least confident first)
   studyQueue.value = learningItems.value
     .map((item) => ({
@@ -676,6 +765,7 @@ const recordAttempt = async (easeScore: number) => {
 
   const now = formatISO(new Date())
   const itemId = currentItem.value.id
+  attemptsToday.value++
 
   // Write to local DB and update UI immediately
   createAttemptLog({
@@ -1468,32 +1558,116 @@ onUnmounted(() => {
   word-break: break-word;
 }
 
-.timer-wrapper {
+.study-metrics {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 10px;
   width: 100%;
+  flex-shrink: 0;
+  padding: 2px 0;
+}
+
+.timer-ring-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   flex-shrink: 0;
 }
 
-.timer-bar-bg {
-  width: 100%;
-  height: 6px;
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 3px;
+.timer-ring {
+  width: 34px;
+  height: 34px;
+  transform: rotate(-90deg);
+}
+
+.timer-ring-bg,
+.timer-ring-fill {
+  fill: none;
+  stroke-width: 4;
+}
+
+.timer-ring-bg {
+  stroke: rgba(0, 0, 0, 0.1);
+}
+
+.timer-ring-fill {
+  stroke: #4caf50;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 1s linear, stroke 0.5s;
+}
+
+.timer-ring-fill.timer-low {
+  stroke: #f44336;
+}
+
+.metric-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
   overflow: hidden;
 }
 
-.timer-bar-fill {
-  height: 100%;
-  background: #4caf50;
-  border-radius: 3px;
-  transition: width 1s linear, background 0.5s;
+.metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: rgba(0, 0, 0, 0.62);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  cursor: default;
 }
 
-.timer-bar-fill.timer-low {
-  background: #f44336;
+.metric .v-icon {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+.metric-sep {
+  color: rgba(0, 0, 0, 0.25);
+  font-size: 0.78rem;
+}
+
+.dist-bar {
+  display: flex;
+  flex: 0 1 180px;
+  min-width: 60px;
+  margin-left: auto;
+  height: 5px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.dist-seg {
+  flex-basis: 0;
+  min-width: 4px;
+  transition: flex-grow 0.4s ease;
+}
+
+.dist-seg + .dist-seg {
+  margin-left: 1.5px;
+}
+
+.dist-new {
+  background: #b6c2c9;
+}
+
+.dist-weak {
+  background: #ef8380;
+}
+
+.dist-struggling {
+  background: #f5b266;
+}
+
+.dist-good {
+  background: #83c588;
+}
+
+.dist-mastered {
+  background: #b98cc9;
 }
 
 .timer-label {
@@ -1580,8 +1754,26 @@ onUnmounted(() => {
     font-size: 0.75rem;
   }
 
-  .timer-wrapper {
-    width: 90%;
+  .study-metrics {
+    gap: 6px;
+  }
+
+  .metric {
+    font-size: 0.7rem;
+  }
+
+  .metric-sep {
+    display: none;
+  }
+
+  .metric-group {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .timer-ring {
+    width: 28px;
+    height: 28px;
   }
 
   .timer-label {
