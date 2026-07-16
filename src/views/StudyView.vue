@@ -767,6 +767,9 @@ const excludeCurrentItem = async () => {
     currentIndex.value = Math.max(0, studyQueue.value.length - 1)
   }
   isFlipped.value = false
+  // Same as delete: if currentIndex didn't move, restart the timer for the
+  // card that took the removed one's place.
+  startTimer()
 }
 
 const moveToNext = async () => {
@@ -910,6 +913,10 @@ const deleteCurrentItem = async () => {
     }
     isFlipped.value = false
     deleteDialog.value = false
+    // Reset the timer for the card that slid into place. When the deleted card
+    // isn't the last one, currentIndex is unchanged so the currentIndex watcher
+    // won't fire — restart the countdown here instead.
+    startTimer()
     await removeLearningItem(id)
     if (studyQueue.value.length === 0) {
       await loadData()
