@@ -143,7 +143,13 @@
             <v-btn value="notRevised" size="small">Not Revised</v-btn>
           </v-btn-toggle>
         </div>
-        <div ref="collectionOverviewChartRef" class="chart"></div>
+        <div class="chart-hscroll">
+          <div
+            ref="collectionOverviewChartRef"
+            class="chart"
+            :style="{ width: collectionOverviewWidth }"
+          ></div>
+        </div>
       </div>
 
       <div class="chart-wrapper full-width">
@@ -211,6 +217,9 @@ const studyHoursChartRef = ref<HTMLElement>()
 const studyDaysChartRef = ref<HTMLElement>()
 const studyHeatmapChartRef = ref<HTMLElement>()
 const collectionOverviewChartRef = ref<HTMLElement>()
+// width of the (scrollable) collection overview chart; fills the container when
+// there are few collections, and grows past it — scrolling — when there are many
+const collectionOverviewWidth = ref('100%')
 const collectionOverviewSortBy = ref<'name' | 'strength' | 'revisions' | 'revised' | 'notRevised'>('strength')
 const timelineStartDate = ref(format(subDays(new Date(), 29), 'yyyy-MM-dd'))
 const timelineEndDate = ref(format(new Date(), 'yyyy-MM-dd'))
@@ -401,6 +410,8 @@ const renderCollectionOverviewChart = () => {
   const categories = visibleCollections.map(c =>
     c.title.length > 20 ? c.title.substring(0, 20) + '…' : c.title
   )
+  // full (untruncated) titles for the tooltip, indexed by point position
+  const fullTitles = visibleCollections.map(c => c.title)
 
   const strengthColor = (pct: number) => {
     if (pct < 25) return '#F44336'
@@ -426,6 +437,11 @@ const renderCollectionOverviewChart = () => {
     chartInstances.collectionOverview.destroy()
     delete chartInstances.collectionOverview
   }
+
+  // give each collection ~120px; the chart fills the container when it fits and
+  // grows past it (scrolling horizontally) when there are many collections
+  const minPlotWidth = visibleCollections.length * 120
+  collectionOverviewWidth.value = `max(100%, ${minPlotWidth}px)`
 
   chartInstances.collectionOverview = Highcharts.chart(collectionOverviewChartRef.value, {
     chart: { type: 'column' },
@@ -457,7 +473,8 @@ const renderCollectionOverviewChart = () => {
     tooltip: {
       shared: true,
       formatter: function(this: any) {
-        let s = `<b>${this.x}</b><br/>`
+        const title = fullTitles[this.points?.[0]?.point?.index] ?? this.x
+        let s = `<b>${title}</b><br/>`
         this.points.forEach((p: any) => {
           const suffix = p.series.name === 'Avg Strength (%)' ? '%' : ''
           s += `<span style="color:${p.color}">●</span> ${p.series.name}: <b>${p.y}${suffix}</b><br/>`
@@ -1220,6 +1237,10 @@ onUnmounted(() => {
 .chart-scroll-container {
   max-height: 500px;
   overflow-y: auto;
+}
+
+.chart-hscroll {
+  overflow-x: auto;
 }
 
 @media (max-width: 1024px) {
