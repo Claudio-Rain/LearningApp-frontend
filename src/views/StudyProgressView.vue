@@ -159,6 +159,12 @@
       </div>
 
       <div class="chart-wrapper full-width">
+        <h3>Average Strength Per Day</h3>
+        <p class="chart-subtitle">Your overall strength each day, averaged over all cards — cards never revised count as 0</p>
+        <div ref="dailyStrengthChartRef" class="chart"></div>
+      </div>
+
+      <div class="chart-wrapper full-width">
         <div class="chart-header-row">
           <div>
             <h3>Strength vs Attempts</h3>
@@ -211,6 +217,7 @@ const strengthChartRef = ref<HTMLElement>()
 const timelineChartRef = ref<HTMLElement>()
 const challengingChartRef = ref<HTMLElement>()
 const compositionChartRef = ref<HTMLElement>()
+const dailyStrengthChartRef = ref<HTMLElement>()
 const strengthScatterChartRef = ref<HTMLElement>()
 const showCardTitles = ref(false)
 const studyHoursChartRef = ref<HTMLElement>()
@@ -496,6 +503,7 @@ const renderCharts = () => {
     renderTimelineChart,
     renderChallengingChart,
     renderCompositionChart,
+    renderDailyStrengthChart,
     renderStrengthScatterChart,
     renderStudyHoursChart,
     renderStudyDaysChart,
@@ -719,6 +727,96 @@ const renderCompositionChart = () => {
     legend: { enabled: true },
     credits: { enabled: false },
     tooltip: { pointFormat: '<b>{point.percentage:.0f}%</b> {series.name}' }
+  } as any)
+}
+
+const renderDailyStrengthChart = () => {
+  if (!dailyStrengthChartRef.value || filteredAttemptLogs.value.length === 0) return
+  const totalCardCount = filteredLearningItems.value.length
+  if (totalCardCount === 0) return
+
+  const sortedLogs = [...filteredAttemptLogs.value].sort(
+    (a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime()
+  )
+
+  // Group logs by calendar day, then replay them chronologically: each card's
+  // strength accumulates via ease_score (clamped 0–1, same as the composition
+  // chart). At the end of each day, the average counts every card — cards
+  // never revised contribute 0.
+  const logsByDay = new Map<string, AttemptLog[]>()
+  for (const log of sortedLogs) {
+    const day = format(parseISO(log.created_at), 'yyyy-MM-dd')
+    if (!logsByDay.has(day)) logsByDay.set(day, [])
+    logsByDay.get(day)!.push(log)
+  }
+
+  const firstDay = parseISO(format(parseISO(sortedLogs[0]!.created_at), 'yyyy-MM-dd'))
+  const days = eachDayOfInterval({ start: firstDay, end: new Date() })
+
+  const runningStrength = new Map<string, number>()
+  let strengthSum = 0
+  const dates: string[] = []
+  const avgStrengths: number[] = []
+  for (const day of days) {
+    const dayKey = format(day, 'yyyy-MM-dd')
+    for (const log of logsByDay.get(dayKey) ?? []) {
+      const prev = runningStrength.get(log.learning_item_id) ?? 0
+      const next = Math.min(1, Math.max(0, prev + log.ease_score))
+      runningStrength.set(log.learning_item_id, next)
+      strengthSum += next - prev
+    }
+    dates.push(dayKey)
+    avgStrengths.push(Math.round((strengthSum / totalCardCount) * 1000) / 10)
+  }
+
+  const dateLabels = dates.map(d => format(parseISO(d), 'MMM d, yy'))
+  const tickInterval = Math.max(1, Math.round(dates.length / 8))
+
+  if (chartInstances.dailyStrength) {
+    chartInstances.dailyStrength.xAxis[0]?.update({ categories: dateLabels, tickInterval }, false)
+    chartInstances.dailyStrength.series[0]?.setData(avgStrengths, true, { duration: 300 })
+    return
+  }
+  chartInstances.dailyStrength = Highcharts.chart(dailyStrengthChartRef.value, {
+    chart: { type: 'areaspline', zooming: { type: 'x' } },
+    title: { text: '' },
+    xAxis: { categories: dateLabels, tickInterval },
+    yAxis: {
+      title: { text: 'Avg Strength (%)' },
+      min: 0,
+      max: 100,
+      gridLineWidth: 1,
+      gridLineColor: 'rgba(0,0,0,0.08)',
+      plotLines: [
+        { value: 25, color: '#FF9800', width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Struggling', align: 'right', x: -6, y: -6, style: { color: '#EF6C00', fontSize: '11px', fontWeight: '600' } } },
+        { value: 50, color: '#8BC34A', width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Good', align: 'right', x: -6, y: -6, style: { color: '#689F38', fontSize: '11px', fontWeight: '600' } } },
+        { value: 75, color: '#4CAF50', width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Mastered', align: 'right', x: -6, y: -6, style: { color: '#388E3C', fontSize: '11px', fontWeight: '600' } } }
+      ]
+    },
+    series: [{
+      name: 'Avg Strength',
+      data: avgStrengths,
+      type: 'areaspline',
+      color: '#1565C0',
+      fillColor: {
+        linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
+        stops: [
+          [0, 'rgba(21, 101, 192, 0.35)'],
+          [1, 'rgba(21, 101, 192, 0.02)']
+        ]
+      },
+      lineWidth: 2.5,
+      marker: { enabled: false }
+    }],
+    legend: { enabled: false },
+    credits: { enabled: false },
+    tooltip: {
+      formatter: function(this: any) {
+        const dateStr = dates[this.point?.index ?? 0]
+        const label = dateStr ? format(parseISO(dateStr), 'EEEE, MMM d, yyyy') : this.x
+        return `<span style="font-size:11px">${label}</span><br/><b>${this.y}%</b> average strength`
+      }
+    }
   } as any)
 }
 
