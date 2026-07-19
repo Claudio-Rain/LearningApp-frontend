@@ -28,12 +28,13 @@ function parseTextMarks(element: Element): JSONContent['marks'] {
       case 'code':
         marks.push({ type: 'code' })
         break
-      case 'a':
+      case 'a': {
         const href = (current as HTMLAnchorElement).href
         if (href) {
           marks.push({ type: 'link', attrs: { href } })
         }
         break
+      }
     }
 
     current = current.parentElement as Element
@@ -110,13 +111,14 @@ function parseElement(element: HTMLElement): JSONContent | JSONContent[] | null 
     case 'mark':
       return parseParagraph(element)
 
-    default:
+    default: {
       // For unknown elements, try to extract content
       const content = parseContent(element)
       if (content && content.length > 0) {
         return { type: 'paragraph', content }
       }
       return null
+    }
   }
 }
 

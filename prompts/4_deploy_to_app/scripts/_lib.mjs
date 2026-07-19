@@ -308,7 +308,7 @@ function parseQAPairs(markdown) {
       .replace(blMatch[0], '')
     if (codeBlock) remaining = remaining.replace(/```[\s\S]*?```/g, '')
 
-    let elaboration = ''
+    let elaboration
     const elMatch = remaining.match(/\*\*Elaboration:\*\*\s*([\s\S]+?)(?:\n\s*\n|$)/)
     if (elMatch) {
       elaboration = elMatch[1].trim().replace(/\s*\n\s*/g, ' ')

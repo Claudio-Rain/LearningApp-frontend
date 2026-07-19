@@ -213,7 +213,7 @@ async function notifyAllTabs(item, meta) {
         item: item,
         meta: meta
       });
-    } catch (err) {
+    } catch {
       // Tab might not have content script, ignore
     }
   }

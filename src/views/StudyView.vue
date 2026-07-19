@@ -342,19 +342,19 @@
         <!-- Bottom Action Row -->
         <div v-if="isFlipped" class="action-row">
           <div class="rating-buttons">
-            <v-btn @click="recordAttempt(-0.15)" color="error" variant="tonal" size="large">
+            <v-btn color="error" variant="tonal" size="large" @click="recordAttempt(-0.15)">
               <v-icon start>mdi-close</v-icon>
               Very Hard
             </v-btn>
-            <v-btn @click="recordAttempt(-0.10)" color="warning" variant="tonal" size="large">
+            <v-btn color="warning" variant="tonal" size="large" @click="recordAttempt(-0.10)">
               <v-icon start>mdi-minus</v-icon>
               Hard
             </v-btn>
-            <v-btn @click="recordAttempt(0.10)" color="info" variant="tonal" size="large">
+            <v-btn color="info" variant="tonal" size="large" @click="recordAttempt(0.10)">
               <v-icon start>mdi-check</v-icon>
               Good
             </v-btn>
-            <v-btn @click="recordAttempt(0.15)" color="success" variant="tonal" size="large">
+            <v-btn color="success" variant="tonal" size="large" @click="recordAttempt(0.15)">
               <v-icon start>mdi-star</v-icon>
               Easy
             </v-btn>

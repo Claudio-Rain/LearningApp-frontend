@@ -11,11 +11,13 @@
         <v-radio label="Create new collection" value="new" />
       </v-radio-group>
 
-      <v-select v-if="collectionMode === 'existing'" v-model="selectedCollectionId" :items="collections"
+      <v-select
+v-if="collectionMode === 'existing'" v-model="selectedCollectionId" :items="collections"
         item-title="title" item-value="id" label="Select collection" variant="outlined" density="compact"
         :rules="[v => !!v || 'Select a collection']" />
 
-      <v-text-field v-else v-model="newCollectionTitle" label="New collection name" variant="outlined" density="compact"
+      <v-text-field
+v-else v-model="newCollectionTitle" label="New collection name" variant="outlined" density="compact"
         :rules="[v => !!v || 'Enter a name']" />
     </v-card>
 
@@ -41,7 +43,8 @@
     <v-card class="mb-4 pa-4" variant="outlined">
       <div class="text-subtitle-2 mb-1">Content</div>
 
-      <v-textarea v-model="rawInput" variant="outlined" :placeholder="placeholder" rows="14" auto-grow
+      <v-textarea
+v-model="rawInput" variant="outlined" :placeholder="placeholder" rows="14" auto-grow
         font-family="monospace" class="bulk-textarea" />
 
       <!-- Preview -->
@@ -73,8 +76,9 @@
 
     <!-- Actions -->
     <div class="d-flex gap-3 align-center">
-      <v-btn color="primary" :disabled="!canInsert" :loading="inserting" @click="handleBulkInsert"
-        prepend-icon="mdi-database-import">
+      <v-btn
+color="primary" :disabled="!canInsert" :loading="inserting" prepend-icon="mdi-database-import"
+        @click="handleBulkInsert">
         Insert {{ parsedItems.filter(i => i.valid).length }} Items
       </v-btn>
       <v-btn variant="text" @click="reset">Clear</v-btn>
@@ -159,7 +163,7 @@ function parseTsv(): ParsedItem[] {
         preview,
         valid: true
       })
-    } catch (error) {
+    } catch {
       items.push({
         title: title.trim(),
         content: { type: 'doc', content: [] },
@@ -185,7 +189,7 @@ function parseHtmlContent(): ParsedItem[] {
     }
 
     return sections
-  } catch (error) {
+  } catch {
     return []
   }
 }

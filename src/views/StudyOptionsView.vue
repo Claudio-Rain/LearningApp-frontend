@@ -271,7 +271,7 @@
       Settings saved. Background script will use them on next alarm.
     </v-alert>
 
-    <v-btn color="primary" block @click="saveNotificationSettings" :loading="saving">
+    <v-btn color="primary" block :loading="saving" @click="saveNotificationSettings">
       Save Settings
     </v-btn>
   </div>

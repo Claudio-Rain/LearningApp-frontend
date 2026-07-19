@@ -4,23 +4,27 @@
     <div v-if="editor" class="container">
       <div class="editor-menu">
         <div class="editor-group">
-          <v-btn size="small" variant="text" icon @click="editor.chain().focus().toggleBold().run()"
-            :class="{ 'is-active': editor.isActive('bold') }">
+          <v-btn
+size="small" variant="text" icon :class="{ 'is-active': editor.isActive('bold') }"
+            @click="editor.chain().focus().toggleBold().run()">
             <v-icon>mdi-format-bold</v-icon>
             <v-tooltip activator="parent" location="top">Bold</v-tooltip>
           </v-btn>
-          <v-btn size="small" variant="text" icon @click="editor.chain().focus().toggleItalic().run()"
-            :class="{ 'is-active': editor.isActive('italic') }">
+          <v-btn
+size="small" variant="text" icon :class="{ 'is-active': editor.isActive('italic') }"
+            @click="editor.chain().focus().toggleItalic().run()">
             <v-icon>mdi-format-italic</v-icon>
             <v-tooltip activator="parent" location="top">Italic</v-tooltip>
           </v-btn>
-          <v-btn size="small" variant="text" icon @click="editor.chain().focus().toggleUnderline().run()"
-            :class="{ 'is-active': editor.isActive('underline') }">
+          <v-btn
+size="small" variant="text" icon :class="{ 'is-active': editor.isActive('underline') }"
+            @click="editor.chain().focus().toggleUnderline().run()">
             <v-icon>mdi-format-underline</v-icon>
             <v-tooltip activator="parent" location="top">Underline</v-tooltip>
           </v-btn>
-          <v-btn size="small" variant="text" icon @click="editor.chain().focus().toggleHighlight().run()"
-            :class="{ 'is-active': editor.isActive('highlight') }">
+          <v-btn
+size="small" variant="text" icon :class="{ 'is-active': editor.isActive('highlight') }"
+            @click="editor.chain().focus().toggleHighlight().run()">
             <v-icon>mdi-marker</v-icon>
             <v-tooltip activator="parent" location="top">Highlight</v-tooltip>
           </v-btn>
@@ -30,12 +34,14 @@
         <div class="editor-divider"></div>
 
         <div class="editor-group">
-          <v-btn size="small" variant="text" icon @click="editor.chain().focus().toggleCodeBlock().run()"
-            :class="{ 'is-active': editor.isActive('codeBlock') }">
+          <v-btn
+size="small" variant="text" icon :class="{ 'is-active': editor.isActive('codeBlock') }"
+            @click="editor.chain().focus().toggleCodeBlock().run()">
             <v-icon>mdi-code-tags</v-icon>
             <v-tooltip activator="parent" location="top">Code block</v-tooltip>
           </v-btn>
-          <v-btn size="small" variant="text" icon
+          <v-btn
+size="small" variant="text" icon
             @click="editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()">
             <v-icon>mdi-table-plus</v-icon>
             <v-tooltip activator="parent" location="top">Insert table</v-tooltip>

@@ -16,13 +16,13 @@
         >
           Add Collection
         </v-btn>
-        <v-btn variant="text" @click="goToProgress" prepend-icon="mdi-chart-line">
+        <v-btn variant="text" prepend-icon="mdi-chart-line" @click="goToProgress">
           Progress
         </v-btn>
         <v-btn variant="text" prepend-icon="mdi-tag-multiple" @click="categoriesDialog = true">
           Categories
         </v-btn>
-        <v-btn variant="text" @click="handleRefresh" prepend-icon="mdi-refresh" :loading="isSyncing">
+        <v-btn variant="text" prepend-icon="mdi-refresh" :loading="isSyncing" @click="handleRefresh">
           Pull
         </v-btn>
       </div>
@@ -134,8 +134,8 @@
             icon="mdi-school"
             variant="text"
             size="small"
-            @click="goToStudy(item.id!)"
             title="Study"
+            @click="goToStudy(item.id!)"
           />
           <v-btn
             icon="mdi-pencil"

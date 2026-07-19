@@ -1,5 +1,5 @@
 // Simple Tiptap JSON to HTML renderer
-function renderTiptapContent(node, isQuestion = false) {
+function renderTiptapContent(node) {
   if (!node) return '';
   if (typeof node === 'string') return escapeHtml(node);
 
@@ -43,9 +43,10 @@ function renderTiptapContent(node, isQuestion = false) {
       return content;
     case 'paragraph':
       return `<p>${content}</p>`;
-    case 'heading':
+    case 'heading': {
       const level = node.attrs?.level || 1;
       return `<h${level}>${content}</h${level}>`;
+    }
     case 'bulletList':
       return `<ul>${content}</ul>`;
     case 'orderedList':
@@ -1734,7 +1735,6 @@ let isFlipped = false;
 // Per-card AI chat thread; wiped whenever a new card is displayed.
 let chatHistory = [];
 let chatBusy = false;
-let sessionTotal = 0;
 
 // Timer (mirrors Study View: countdown resets on each new item). The duration
 // is configurable in Study Options and arrives with each item's meta; this is
@@ -1813,7 +1813,6 @@ function updateMetaDisplay(meta) {
   const revisedBadge = document.getElementById('content-revised-badge');
   const strengthBadge = document.getElementById('content-strength-badge');
 
-  sessionTotal = meta.sessionTotal || 0;
   if (typeof meta.autoAdvanceSeconds === 'number' && meta.autoAdvanceSeconds > 0) {
     contentTimerDuration = meta.autoAdvanceSeconds;
   }
@@ -2031,7 +2030,7 @@ async function sendChatMessage() {
       thinkingBubble.textContent = res?.error || 'Something went wrong — check your API key and try again.';
     }
     messagesEl.scrollTop = messagesEl.scrollHeight;
-  } catch (error) {
+  } catch {
     if (currentItem?.id === itemId) {
       chatHistory.pop();
       thinkingBubble.className = 'learning-chat-bubble assistant error';

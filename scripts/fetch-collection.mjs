@@ -1,5 +1,5 @@
 import { initializeApp } from '../node_modules/firebase/app/dist/esm/index.esm.js'
-import { getFirestore, collection, getDocs, query, where } from '../node_modules/firebase/firestore/dist/esm/index.esm.js'
+import { getFirestore, collection, getDocs } from '../node_modules/firebase/firestore/dist/esm/index.esm.js'
 
 const firebaseConfig = {
   apiKey: "AIzaSyCMwyu5jelRDJ39rEeq0_huAntu52ne8EQ",
@@ -45,7 +45,7 @@ for (const path of paths) {
     collections.forEach(c => console.log(` - ${c.title || c.name || 'Unknown'} (ID: ${c.id})`))
     targetCollection = collections.find(c => (c.title || c.name)?.toLowerCase().includes('data sending'))
     if (targetCollection) break
-  } catch (e) {
+  } catch {
     console.log(`✗ ${path} not found`)
   }
 }

@@ -9,10 +9,10 @@
             size="small"
             variant="tonal"
             prepend-icon="mdi-sync"
-            @click="handlePullItems"
             :loading="isPulling"
             title="Pull latest items from Firebase"
             class="action-btn"
+            @click="handlePullItems"
           >
             Pull
           </v-btn>
@@ -21,8 +21,8 @@
             size="small"
             variant="flat"
             prepend-icon="mdi-plus"
-            @click="handleAddLearningItem"
             class="action-btn"
+            @click="handleAddLearningItem"
           >
             Add
           </v-btn>
@@ -31,8 +31,8 @@
             size="small"
             variant="tonal"
             prepend-icon="mdi-play-circle-outline"
-            @click="router.push({ name: 'study', params: { id: collectionId } })"
             class="action-btn"
+            @click="router.push({ name: 'study', params: { id: collectionId } })"
           >
             Study
           </v-btn>
@@ -58,7 +58,8 @@
         <template #item.title="{ item }">
           <v-tooltip :text="item.title" location="top" open-delay="300" max-width="600">
             <template #activator="{ props }">
-              <span v-bind="props"
+              <span
+v-bind="props"
                 :class="['item-title']">
                 {{ item.title }}
               </span>
@@ -66,7 +67,8 @@
           </v-tooltip>
         </template>
         <template #item.actions="{ item }">
-          <v-btn icon="mdi-delete" size="x-small" variant="text" color="grey"
+          <v-btn
+icon="mdi-delete" size="x-small" variant="text" color="grey"
             class="delete-btn" @click.stop="handleDeleteLearningItem(item)" />
         </template>
       </v-data-table>
@@ -80,7 +82,8 @@
     <div v-if="selectedItem" class="splitter" :class="{ dragging: isDragging }" @mousedown="startDrag" />
 
     <div v-if="selectedItem" class="split-right">
-      <LearningItemView :item="selectedItem" @update:content="handleContentUpdate"
+      <LearningItemView
+:item="selectedItem" @update:content="handleContentUpdate"
         @update:title="handleTitleUpdate" />
     </div>
   </div>

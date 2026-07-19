@@ -77,7 +77,7 @@ async function sendToAllTabs(item, notificationId) {
         item: item,
         notificationId: notificationId
       });
-    } catch (err) {
+    } catch {
       // Tab might not have content script, ignore
     }
   }
@@ -108,7 +108,7 @@ async function createNativeNotification(notificationId, item) {
       for (const tab of tabs) {
         try {
           await chrome.tabs.sendMessage(tab.id, { action: 'hideQuestion' });
-        } catch (err) {}
+        } catch { /* tab may lack content script */ }
       }
       await clearNotificationLearningItemId();
     }, NOTIFICATION_TIMEOUT_MS);
