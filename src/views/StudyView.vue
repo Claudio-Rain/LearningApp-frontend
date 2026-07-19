@@ -214,6 +214,92 @@
             <TiptapDisplay :content="markdownToTiptap(msg.text)" />
           </div>
         </template>
+
+        <!-- Split flow: slider → proposed cards → approve → original's fate. -->
+        <div v-if="splitStep !== 'idle'" class="study-chat-split">
+          <template v-if="splitStep === 'slider'">
+            <div class="split-title">Split this card into how many cards?</div>
+            <v-slider
+              v-model="splitCount"
+              :min="1"
+              :max="10"
+              :step="1"
+              show-ticks="always"
+              thumb-label
+              hide-details
+              density="compact"
+            />
+            <div class="split-actions">
+              <v-btn size="small" variant="text" @click="resetSplit">Cancel</v-btn>
+              <v-btn size="small" color="primary" variant="tonal" @click="generateSplit">
+                Propose {{ splitCount }} card{{ splitCount === 1 ? '' : 's' }}
+              </v-btn>
+            </div>
+          </template>
+
+          <div v-else-if="splitStep === 'generating'" class="split-thinking">
+            Splitting the card into {{ splitCount }}…
+          </div>
+
+          <template v-else-if="splitStep === 'proposal'">
+            <div class="split-title">Proposed cards — approve to create them</div>
+            <div v-for="(p, i) in splitProposals" :key="i" class="split-proposal">
+              <div class="split-proposal-body">
+                <div class="split-proposal-question">{{ i + 1 }}. {{ p.question }}</div>
+                <div v-if="p.answer" class="split-proposal-answer">{{ p.answer }}</div>
+              </div>
+              <v-btn
+                icon="mdi-close"
+                size="x-small"
+                variant="text"
+                title="Drop this card from the split"
+                @click="removeSplitProposal(i)"
+              />
+            </div>
+            <div class="split-actions">
+              <v-btn size="small" variant="text" @click="resetSplit">Cancel</v-btn>
+              <v-btn size="small" variant="text" prepend-icon="mdi-refresh" @click="generateSplit">Regenerate</v-btn>
+              <v-btn
+                size="small"
+                color="primary"
+                variant="tonal"
+                prepend-icon="mdi-check"
+                :disabled="!splitProposals.length"
+                @click="approveSplit"
+              >
+                Approve
+              </v-btn>
+            </div>
+          </template>
+
+          <template v-else-if="splitStep === 'fate'">
+            <div class="split-title">What should happen to the original card?</div>
+            <div class="split-actions">
+              <v-btn size="small" variant="text" @click="resetSplit">Cancel</v-btn>
+              <v-btn size="small" color="primary" variant="tonal" prepend-icon="mdi-content-save-outline" @click="finishSplit(false)">
+                Keep it
+              </v-btn>
+              <v-btn size="small" color="error" variant="tonal" prepend-icon="mdi-delete-outline" @click="finishSplit(true)">
+                Delete it
+              </v-btn>
+            </div>
+          </template>
+
+          <div v-else-if="splitStep === 'creating'" class="split-thinking">Creating cards…</div>
+
+          <div v-if="splitError" class="split-error">{{ splitError }}</div>
+        </div>
+      </div>
+      <div class="study-chat-presets">
+        <v-btn
+          size="x-small"
+          variant="tonal"
+          prepend-icon="mdi-call-split"
+          :disabled="chatBusy || splitStep !== 'idle'"
+          @click="startSplit"
+        >
+          Split
+        </v-btn>
       </div>
       <div class="study-chat-input-row">
         <textarea
@@ -354,7 +440,7 @@ import {
   syncLearningItems,
   syncCollections
 } from '../database'
-import { getApiKey, setApiKey, generateAnswerMarkdown, streamCardChat, rewriteAsStandaloneQuestion, type ChatMessage } from '../utils/claude'
+import { getApiKey, setApiKey, generateAnswerMarkdown, streamCardChat, rewriteAsStandaloneQuestion, proposeCardSplit, type ChatMessage, type SplitProposal } from '../utils/claude'
 import { markdownToTiptap } from '../utils/markdown'
 import type { Collection, LearningItem, CardProgress } from '../database/types'
 import { useExcludedItems } from '../composables/useExcludedItems'
@@ -540,6 +626,98 @@ const saveChatQuestion = async (msg: ChatBubble, index: number) => {
   }
 }
 
+// "Split" flow: a guided sequence inside the chat panel that divides the
+// current card into N smaller cards. Steps: pick a count with a slider →
+// Claude proposes question/answer pairs → the user approves the list → the
+// user decides whether the original card is kept or deleted → cards are
+// created (and the original removed, if asked).
+type SplitStep = 'idle' | 'slider' | 'generating' | 'proposal' | 'fate' | 'creating'
+const splitStep = ref<SplitStep>('idle')
+const splitCount = ref(3)
+const splitProposals = ref<SplitProposal[]>([])
+const splitError = ref('')
+
+const resetSplit = () => {
+  splitStep.value = 'idle'
+  splitProposals.value = []
+  splitError.value = ''
+}
+
+const scrollSplitIntoView = async () => {
+  await nextTick()
+  const el = chatMessagesEl.value
+  if (el) el.scrollTop = el.scrollHeight
+}
+
+const startSplit = async () => {
+  if (!currentItem.value || splitStep.value !== 'idle') return
+  // Same bring-your-own-key flow as the rest of the chat.
+  if (!(await getApiKey())) {
+    const key = prompt('Paste your Anthropic API key (stored only in this browser, used directly from it):')
+    if (!key?.trim()) return
+    await setApiKey(key)
+  }
+  splitError.value = ''
+  splitStep.value = 'slider'
+  scrollSplitIntoView()
+}
+
+const generateSplit = async () => {
+  const item = currentItem.value
+  if (!item) return
+  const itemId = item.id
+  splitStep.value = 'generating'
+  splitError.value = ''
+  scrollSplitIntoView()
+  try {
+    const proposals = await proposeCardSplit(item.title, item.content, splitCount.value)
+    // The card changed while Claude was working; the watcher already reset the
+    // flow, so drop the stale proposal instead of resurrecting it.
+    if (currentItem.value?.id !== itemId) return
+    splitProposals.value = proposals
+    splitStep.value = 'proposal'
+    scrollSplitIntoView()
+  } catch (error) {
+    console.error('Card split failed:', error)
+    if (currentItem.value?.id === itemId) {
+      splitError.value = 'Something went wrong — check your API key and try again.'
+      splitStep.value = 'slider'
+    }
+  }
+}
+
+const removeSplitProposal = (i: number) => {
+  splitProposals.value.splice(i, 1)
+}
+
+const approveSplit = () => {
+  if (!splitProposals.value.length) return
+  splitStep.value = 'fate'
+  scrollSplitIntoView()
+}
+
+// Final step: create the approved cards, then keep or delete the original.
+const finishSplit = async (deleteOriginal: boolean) => {
+  const item = currentItem.value
+  if (!item?.id) return
+  splitStep.value = 'creating'
+  splitError.value = ''
+  try {
+    const proposals = splitProposals.value
+    await createCards(item.collectionId, proposals.map(p => ({
+      title: p.question,
+      content: p.answer ? markdownToTiptap(p.answer) : undefined,
+    })))
+    showToast(`Added ${proposals.length} card${proposals.length === 1 ? '' : 's'} from the split`)
+    resetSplit()
+    if (deleteOriginal) await deleteCurrentItem()
+  } catch (error) {
+    console.error('Failed to create split cards:', error)
+    splitError.value = 'Failed to create the cards — try again.'
+    splitStep.value = 'fate'
+  }
+}
+
 // Freeze the study timer while adding a question, editing the current card, or
 // chatting with the AI; resume where it left off. Otherwise the timer can
 // advance to the next card mid-edit/mid-chat and the interaction lands on the
@@ -573,6 +751,7 @@ const currentItem = computed(() => studyQueue.value[currentIndex.value])
 watch(() => currentItem.value?.id, () => {
   chatMessages.value = []
   chatBusy.value = false
+  resetSplit()
 })
 
 const newCards = computed(() => {
@@ -1213,6 +1392,90 @@ onUnmounted(() => {
 .study-chat-bubble.thinking {
   color: rgba(var(--v-theme-on-surface), 0.45);
   font-style: italic;
+}
+
+.study-chat-split {
+  align-self: stretch;
+  background: rgba(var(--v-theme-primary), 0.06);
+  border: 1px solid rgba(var(--v-theme-primary), 0.2);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.split-title {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.split-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.split-actions .v-btn {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.split-thinking {
+  color: rgba(var(--v-theme-on-surface), 0.45);
+  font-style: italic;
+}
+
+.split-proposal {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgb(var(--v-theme-surface));
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.split-proposal-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.split-proposal-question {
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.split-proposal-answer {
+  margin-top: 2px;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-wrap;
+}
+
+.split-error {
+  color: rgb(var(--v-theme-error));
+  font-size: 0.8rem;
+}
+
+.study-chat-presets {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px 0;
+  flex-shrink: 0;
+}
+
+.study-chat-presets .v-btn {
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .study-chat-input-row {
