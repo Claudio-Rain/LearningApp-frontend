@@ -3,6 +3,7 @@ import globals from 'globals'
 import vue from 'eslint-plugin-vue'
 import tseslint from '@typescript-eslint/eslint-plugin'
 import tsParser from '@typescript-eslint/parser'
+import sonarjs from 'eslint-plugin-sonarjs'
 import prettierConfig from 'eslint-config-prettier'
 
 export default [
@@ -66,6 +67,15 @@ export default [
       ],
       // Plenty of pre-existing `any`s; flag them without failing the build
       '@typescript-eslint/no-explicit-any': 'warn'
+    }
+  },
+
+  // Complexity signals only (not the full SonarJS preset) — warnings, never build-breaking
+  {
+    plugins: { sonarjs },
+    rules: {
+      'sonarjs/cognitive-complexity': ['warn', 15],
+      complexity: ['warn', 15]
     }
   },
 

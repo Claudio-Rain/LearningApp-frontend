@@ -60,6 +60,7 @@
     "@vue/tsconfig": "^0.8.1",
     "eslint": "^10.0.2",
     "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-sonarjs": "^4.2.0",
     "eslint-plugin-vue": "^10.8.0",
     "firebase-tools": "^15.18.0",
     "globals": "^17.7.0",
