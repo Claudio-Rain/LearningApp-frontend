@@ -954,7 +954,6 @@ const recordAttempt = async (easeScore: number) => {
     created_at: now
   }).then(() => {
     syncAttemptLogs()
-    new BroadcastChannel('study-progress').postMessage('attempt')
   }).catch(() => {})
 
   const progress = cardProgressMap.value.get(itemId)

@@ -192,7 +192,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { parseISO, subDays, format, eachDayOfInterval } from 'date-fns'
 import { useRouter } from 'vue-router'
 import Highcharts from 'highcharts'
@@ -1126,21 +1126,8 @@ const goBack = () => {
   router.push({ name: 'collections' })
 }
 
-let debounceTimer: ReturnType<typeof setTimeout> | null = null
-let progressChannel: BroadcastChannel | null = null
-
 onMounted(async () => {
   await loadData()
-  progressChannel = new BroadcastChannel('study-progress')
-  progressChannel.onmessage = () => {
-    if (debounceTimer) clearTimeout(debounceTimer)
-    debounceTimer = setTimeout(loadData, 1000)
-  }
-})
-
-onUnmounted(() => {
-  progressChannel?.close()
-  if (debounceTimer) clearTimeout(debounceTimer)
 })
 </script>
 
