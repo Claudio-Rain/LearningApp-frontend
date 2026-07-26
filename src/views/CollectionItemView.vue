@@ -36,6 +36,18 @@
           >
             Study
           </v-btn>
+          <v-btn
+            color="error"
+            size="small"
+            variant="tonal"
+            :prepend-icon="isClearing ? 'mdi-loading mdi-spin' : 'mdi-history'"
+            :disabled="isClearing || learningItems.length === 0"
+            title="Clear your progress so you can study this collection fresh"
+            class="action-btn"
+            @click="handleClearStudyHistory"
+          >
+            {{ clearProgress || 'Start over' }}
+          </v-btn>
         </div>
       </div>
 
@@ -104,7 +116,8 @@ import {
   editCollection,
   syncLearningItems,
   syncCollections,
-  pullLearningItems
+  pullLearningItems,
+  clearStudyHistoryForItems
 } from '../database'
 
 import type { Collection, LearningItem } from '../database/types'
@@ -118,6 +131,8 @@ const collection = ref<Collection | null>(null)
 const learningItems = ref<LearningItem[]>([])
 const selectedItem = ref<LearningItem | null>(null)
 const isPulling = ref(false)
+const isClearing = ref(false)
+const clearProgress = ref('')
 
 const headers = [
   { title: '#', key: 'rowNumber', sortable: false, align: 'center' as const, width: '50px' },
@@ -234,6 +249,32 @@ const handleTitleUpdate = async (id: string, title: string, lastModified: string
     collection.value.lastModified = lastModified
     await editCollection(collection.value)
     await syncCollections()
+  }
+}
+
+const handleClearStudyHistory = async () => {
+  if (!collection.value || learningItems.value.length === 0) return
+  const confirmed = confirm(
+    `Start over with "${collection.value.title}"?\n\n` +
+    'This clears how you did last time so you can study it fresh. ' +
+    'Your cards stay exactly as they are.'
+  )
+  if (!confirmed) return
+
+  isClearing.value = true
+  clearProgress.value = ''
+  try {
+    const itemIds = learningItems.value.map(i => i.id).filter((id): id is string => !!id)
+    await clearStudyHistoryForItems(itemIds, (done, total) => {
+      clearProgress.value = total > 0 ? `Clearing ${done} of ${total}…` : ''
+    })
+    alert('All set! You can study this collection fresh.')
+  } catch (error) {
+    console.error('Failed to clear study history:', error)
+    alert("Something went wrong and your progress wasn't cleared. Please try again.")
+  } finally {
+    isClearing.value = false
+    clearProgress.value = ''
   }
 }
 

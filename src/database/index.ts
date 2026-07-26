@@ -38,7 +38,8 @@ export {
   pullContentWidget,
   saveContentWidget,
   pushContentWidget,
-  syncContentWidget
+  syncContentWidget,
+  clearStudyHistoryForItems
 } from './operations'
 export {
   getCategories,
