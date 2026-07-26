@@ -117,7 +117,7 @@ import Highlight from '@tiptap/extension-highlight'
 import Underline from '@tiptap/extension-underline'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { all, createLowlight } from 'lowlight'
-import CodeBlockComponent from './CodeBlockComponent.vue'
+import CodeBlock from './CodeBlock.vue'
 import Table from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
 import TableHeader from '@tiptap/extension-table-header'
@@ -158,7 +158,7 @@ const editor = new Editor({
     TableCell,
     CodeBlockLowlight.extend({
       addNodeView() {
-        return VueNodeViewRenderer(CodeBlockComponent)
+        return VueNodeViewRenderer(CodeBlock)
       },
     }).configure({ lowlight }),
 
