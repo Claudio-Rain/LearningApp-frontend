@@ -302,6 +302,15 @@ const groupLogsByCard = (logs: AttemptLog[]) => {
   return map
 }
 
+// Create a Highcharts chart and stash it under `key`. Centralizes the loose
+// options cast the chart configs rely on (formatter `this`, dashStyle strings,
+// colorByPoint, etc.) so the individual render functions stay cast-free.
+const createChart = (key: string, el: HTMLElement, options: unknown) => {
+  const chart = Highcharts.chart(el, options as Highcharts.Options)
+  chartInstances[key] = chart
+  return chart
+}
+
 // ── derived filtered data ──────────────────────────────────────────────────
 
 const filteredItemIds = computed(() => {
@@ -479,7 +488,7 @@ const renderCollectionOverviewChart = () => {
   const minPlotWidth = visibleCollections.length * 120
   collectionOverviewWidth.value = `max(100%, ${minPlotWidth}px)`
 
-  chartInstances.collectionOverview = Highcharts.chart(collectionOverviewChartRef.value, {
+  createChart('collectionOverview', collectionOverviewChartRef.value, {
     chart: { type: 'column' },
     title: { text: '' },
     xAxis: { categories, crosshair: true },
@@ -518,7 +527,7 @@ const renderCollectionOverviewChart = () => {
         return s
       }
     }
-  } as any)
+  })
 }
 
 const renderCharts = () => {
@@ -570,7 +579,7 @@ const renderAccuracyChart = () => {
     chartInstances.accuracy.setTitle(null as any, { text: subtitle })
     return
   }
-  chartInstances.accuracy = Highcharts.chart(accuracyChartRef.value, {
+  createChart('accuracy', accuracyChartRef.value, {
     chart: { type: 'pie' },
     title: { text: '' },
     subtitle: { text: subtitle, style: { color: '#666', fontSize: '13px' } },
@@ -579,7 +588,7 @@ const renderAccuracyChart = () => {
     legend: { enabled: true },
     credits: { enabled: false },
     tooltip: { pointFormat: '<b>{point.y} cards</b> ({point.percentage:.1f}%)' }
-  } as any)
+  })
 }
 
 const renderStrengthChart = () => {
@@ -591,7 +600,7 @@ const renderStrengthChart = () => {
     chartInstances.strength.series[0]?.setData(data, true, { duration: 300 })
     return
   }
-  chartInstances.strength = Highcharts.chart(strengthChartRef.value, {
+  createChart('strength', strengthChartRef.value, {
     chart: { type: 'column' },
     title: { text: '' },
     xAxis: { categories: ['Critical', 'Struggling', 'Good', 'Mastered', 'New'], crosshair: true },
@@ -600,7 +609,7 @@ const renderStrengthChart = () => {
     legend: { enabled: false },
     credits: { enabled: false },
     tooltip: { pointFormat: '<b>{point.y}</b> cards' }
-  } as any)
+  })
 }
 
 const renderTimelineChart = () => {
@@ -637,7 +646,7 @@ const renderTimelineChart = () => {
     chartInstances.timeline.series[1]?.setData(movingAvg, true, { duration: 300 })
     return
   }
-  chartInstances.timeline = Highcharts.chart(timelineChartRef.value, {
+  createChart('timeline', timelineChartRef.value, {
     chart: { type: 'spline', zooming: { type: 'x' } },
     title: { text: '' },
     xAxis: { categories: dateLabels, tickInterval },
@@ -660,7 +669,7 @@ const renderTimelineChart = () => {
         return s
       }
     }
-  } as any)
+  })
 }
 
 const renderChallengingChart = () => {
@@ -684,7 +693,7 @@ const renderChallengingChart = () => {
     chartInstances.challenging.series[0]?.setData(strengths, true, { duration: 300 })
     return
   }
-  chartInstances.challenging = Highcharts.chart(challengingChartRef.value, {
+  createChart('challenging', challengingChartRef.value, {
     chart: { type: 'bar', height: chartHeight },
     title: { text: '' },
     xAxis: { categories: labels },
@@ -693,7 +702,7 @@ const renderChallengingChart = () => {
     legend: { enabled: false },
     credits: { enabled: false },
     tooltip: { pointFormat: '<b>{point.y}%</b> strength' }
-  } as any)
+  })
 }
 
 
@@ -733,7 +742,7 @@ const renderCompositionChart = () => {
     chartInstances.composition.series[3]?.setData(mastered, true, { duration: 300 })
     return
   }
-  chartInstances.composition = Highcharts.chart(compositionChartRef.value, {
+  createChart('composition', compositionChartRef.value, {
     chart: { type: 'areaspline' },
     title: { text: '' },
     xAxis: { categories: labels, tickInterval: Math.max(1, Math.floor(labels.length / 8)) },
@@ -748,7 +757,7 @@ const renderCompositionChart = () => {
     legend: { enabled: true },
     credits: { enabled: false },
     tooltip: { pointFormat: '<b>{point.percentage:.0f}%</b> {series.name}' }
-  } as any)
+  })
 }
 
 const renderDailyStrengthChart = () => {
@@ -796,7 +805,7 @@ const renderDailyStrengthChart = () => {
     chartInstances.dailyStrength.series[0]?.setData(avgStrengths, true, { duration: 300 })
     return
   }
-  chartInstances.dailyStrength = Highcharts.chart(dailyStrengthChartRef.value, {
+  createChart('dailyStrength', dailyStrengthChartRef.value, {
     chart: { type: 'areaspline', zooming: { type: 'x' } },
     title: { text: '' },
     xAxis: { categories: dateLabels, tickInterval },
@@ -836,7 +845,7 @@ const renderDailyStrengthChart = () => {
         return `<span style="font-size:11px">${label}</span><br/><b>${this.y}%</b> average strength`
       }
     }
-  } as any)
+  })
 }
 
 const renderStrengthScatterChart = () => {
@@ -898,7 +907,7 @@ const renderStrengthScatterChart = () => {
     return
   }
 
-  chartInstances.strengthScatter = Highcharts.chart(strengthScatterChartRef.value, {
+  createChart('strengthScatter', strengthScatterChartRef.value, {
     chart: { type: 'bubble', zooming: { type: 'xy' } },
     title: { text: '' },
     xAxis: { title: { text: 'Attempt number' }, min: 1, allowDecimals: false, gridLineWidth: 0 },
@@ -948,7 +957,7 @@ const renderStrengthScatterChart = () => {
         return s
       }
     }
-  } as any)
+  })
 }
 
 const renderStudyHoursChart = () => {
@@ -971,7 +980,7 @@ const renderStudyHoursChart = () => {
     chartInstances.studyHours.series[0]?.setData(data, true, { duration: 300 })
     return
   }
-  chartInstances.studyHours = Highcharts.chart(studyHoursChartRef.value, {
+  createChart('studyHours', studyHoursChartRef.value, {
     chart: { type: 'column' },
     title: { text: '' },
     xAxis: { categories, title: { text: 'Hour of Day' } },
@@ -984,7 +993,7 @@ const renderStudyHoursChart = () => {
         return `<b>${categories[this.point.index]}</b><br/><b>${this.y}</b> attempts`
       }
     }
-  } as any)
+  })
 }
 
 const renderStudyDaysChart = () => {
@@ -1009,7 +1018,7 @@ const renderStudyDaysChart = () => {
     chartInstances.studyDays.series[0]?.setData(data, true, { duration: 300 })
     return
   }
-  chartInstances.studyDays = Highcharts.chart(studyDaysChartRef.value, {
+  createChart('studyDays', studyDaysChartRef.value, {
     chart: { type: 'column' },
     title: { text: '' },
     xAxis: { categories: dayNames, title: { text: 'Day of Week' } },
@@ -1018,7 +1027,7 @@ const renderStudyDaysChart = () => {
     legend: { enabled: false },
     credits: { enabled: false },
     tooltip: { pointFormat: '<b>{point.y}</b> attempts' }
-  } as any)
+  })
 }
 
 const renderStudyHeatmapChart = () => {
@@ -1060,7 +1069,7 @@ const renderStudyHeatmapChart = () => {
     return
   }
 
-  chartInstances.studyHeatmap = Highcharts.chart(studyHeatmapChartRef.value, {
+  createChart('studyHeatmap', studyHeatmapChartRef.value, {
     chart: { type: 'heatmap', height: 24 * 16 + 100 },
     title: { text: '' },
     xAxis: {
@@ -1103,7 +1112,7 @@ const renderStudyHeatmapChart = () => {
         return `<b>${fullDate}, ${hourCategories[this.point.y]}</b><br/><b>${this.point.value}</b> attempts`
       }
     }
-  } as any)
+  })
 }
 
 const syncAndReload = async () => {
