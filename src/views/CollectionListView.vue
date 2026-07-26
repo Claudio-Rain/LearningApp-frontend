@@ -224,7 +224,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { formatISO } from 'date-fns'
 import { useRouter } from 'vue-router'
-import { useStudyViewCollection } from '../../composables/useStudyViewCollection'
+import { useStudyViewCollection } from '../composables/useStudyViewCollection'
 import {
   getCollections,
   createCollection,
@@ -237,12 +237,12 @@ import {
   removeCategory,
   syncCategories,
   syncAll,
-} from '../../database'
+} from '../database'
 
 import type {
   Collection,
   Category
-} from '../../database'
+} from '../database'
 
 const router = useRouter()
 const { setStudyViewCollectionIds } = useStudyViewCollection()

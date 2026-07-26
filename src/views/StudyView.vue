@@ -316,7 +316,7 @@
 
     <!-- Inline Edit Mode -->
     <div v-if="editDialog && editableItem" class="edit-mode">
-      <LearningItemView :item="editableItem" @update:title="onEditTitle" @update:content="onEditContent" />
+      <LearningItemPanel :item="editableItem" @update:title="onEditTitle" @update:content="onEditContent" />
     </div>
 
     <!-- Main Content -->
@@ -419,7 +419,7 @@ import { formatISO, parseISO, isToday } from 'date-fns'
 import type { JSONContent } from '@tiptap/vue-3'
 import { useRoute, useRouter } from 'vue-router'
 import TiptapDisplay from '../shared/components/TiptapDisplay.vue'
-import LearningItemView from './LearningItemView.vue'
+import LearningItemPanel from '../shared/components/LearningItemPanel.vue'
 import {
   getCollections,
   getLearningItems,

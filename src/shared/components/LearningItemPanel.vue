@@ -1,4 +1,4 @@
-<!-- LearningItemView.vue -->
+<!-- LearningItemPanel.vue -->
 <template>
   <div class="content-panel">
     <v-textarea
@@ -25,11 +25,11 @@
 import { ref, watch, toRaw, reactive, computed } from 'vue'
 import { formatISO } from 'date-fns'
 import type { JSONContent } from '@tiptap/vue-3'
-import { editLearningItem } from '../database'
-import type { LearningItem } from '../database/types'
+import { editLearningItem } from '../../database'
+import type { LearningItem } from '../../database/types'
 import LearningItemEditor from './LearningItemEditor.vue'
-import { streamAnswer, getApiKey, setApiKey, extractText } from '../utils/claude'
-import { markdownToTiptap } from '../utils/markdown'
+import { streamAnswer, getApiKey, setApiKey, extractText } from '../../utils/claude'
+import { markdownToTiptap } from '../../utils/markdown'
 
 const props = defineProps<{
   item: LearningItem
@@ -116,7 +116,7 @@ const content = ref<JSONContent>(
 const title = ref(props.item.title)
 
 watch(() => props.item.id, () => {
-  console.log('[LearningItemView] item ID changed', { newId: props.item.id, contentLength: props.item.content ? JSON.stringify(props.item.content).length : 0 })
+  console.log('[LearningItemPanel] item ID changed', { newId: props.item.id, contentLength: props.item.content ? JSON.stringify(props.item.content).length : 0 })
   content.value = typeof props.item.content === 'string'
     ? { type: 'doc', content: [] }
     : props.item.content ?? { type: 'doc', content: [] }
@@ -127,18 +127,18 @@ let contentTimer: ReturnType<typeof setTimeout> | null = null
 let titleTimer: ReturnType<typeof setTimeout> | null = null
 
 const handleContentChange = (val: JSONContent) => {
-  console.log('[LearningItemView] handleContentChange', { itemId: props.item.id, contentLength: JSON.stringify(val).length, content: JSON.stringify(val) })
+  console.log('[LearningItemPanel] handleContentChange', { itemId: props.item.id, contentLength: JSON.stringify(val).length, content: JSON.stringify(val) })
   content.value = val
   if (contentTimer) clearTimeout(contentTimer)
   contentTimer = setTimeout(async () => {
-    console.log('[LearningItemView] saving to DB after 500ms', { itemId: props.item.id, contentLength: JSON.stringify(val).length, content: JSON.stringify(val) })
+    console.log('[LearningItemPanel] saving to DB after 500ms', { itemId: props.item.id, contentLength: JSON.stringify(val).length, content: JSON.stringify(val) })
     const lastModified = formatISO(new Date())
     await editLearningItem({
       ...toRaw(props.item),
       content: val,
       lastModified
     })
-    console.log('[LearningItemView] emitting update:content', { itemId: props.item.id, contentLength: JSON.stringify(val).length, content: JSON.stringify(val) })
+    console.log('[LearningItemPanel] emitting update:content', { itemId: props.item.id, contentLength: JSON.stringify(val).length, content: JSON.stringify(val) })
     emit('update:content', props.item.id!, val, lastModified)
   }, 500)
 }

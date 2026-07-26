@@ -82,7 +82,7 @@ icon="mdi-delete" size="x-small" variant="text" color="grey"
     <div v-if="selectedItem" class="splitter" :class="{ dragging: isDragging }" @mousedown="startDrag" />
 
     <div v-if="selectedItem" class="split-right">
-      <LearningItemView
+      <LearningItemPanel
 :item="selectedItem" @update:content="handleContentUpdate"
         @update:title="handleTitleUpdate" />
     </div>
@@ -93,7 +93,7 @@ icon="mdi-delete" size="x-small" variant="text" color="grey"
 import { ref, onMounted, onUnmounted } from 'vue'
 import { formatISO } from 'date-fns'
 import { useRoute, useRouter } from 'vue-router'
-import LearningItemView from './LearningItemView.vue'
+import LearningItemPanel from '../shared/components/LearningItemPanel.vue'
 import type { JSONContent } from '@tiptap/vue-3'
 
 import {

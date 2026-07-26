@@ -1,6 +1,6 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 import CollectionItemView from '@/views/CollectionItemView.vue'
-import CollectionList from '../shared/components/CollectionList.vue'
+import CollectionListView from '../views/CollectionListView.vue'
 import BulkInsertView from '../views/BulkInsertView.vue'
 import HtmlBulkInsertView from '../views/HtmlBulkInsertView.vue'
 import StudyView from '../views/StudyView.vue'
@@ -12,7 +12,7 @@ const routes = [
   {
     path: '/collections',
     name: 'collections',
-    component: CollectionList
+    component: CollectionListView
   },
   {
     path: '/collections/:id',
