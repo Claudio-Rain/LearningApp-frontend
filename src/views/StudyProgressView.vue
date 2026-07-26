@@ -256,6 +256,52 @@ let chartInstances: Record<string, Highcharts.Chart> = {}
 // the tooltip formatter (bound once at chart creation) stays accurate.
 let timelineDates: string[] = []
 
+// ── domain constants & helpers ─────────────────────────────────────────────
+
+// Strength tiers, ordered low→high. Scores are 0–1; a card accumulates strength
+// by summing ease_score, clamped to [0, 1].
+type StrengthTier = 'critical' | 'struggling' | 'good' | 'mastered'
+const STRENGTH_COLORS: Record<StrengthTier | 'new', string> = {
+  critical: '#F44336',
+  struggling: '#FF9800',
+  good: '#8BC34A',
+  mastered: '#4CAF50',
+  new: '#BDBDBD'
+}
+
+const GRID_LINE_COLOR = 'rgba(0,0,0,0.08)'
+
+// Hour-of-day labels: '12am', '1am', … '12pm', … '11pm'
+const HOUR_LABELS = Array.from({ length: 24 }, (_, h) => {
+  if (h === 0) return '12am'
+  if (h === 12) return '12pm'
+  return h < 12 ? `${h}am` : `${h - 12}pm`
+})
+
+// Chronological comparator for anything carrying a created_at ISO timestamp.
+const byCreatedAt = (a: { created_at: string }, b: { created_at: string }) =>
+  parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime()
+
+const clampStrength = (s: number) => Math.min(1, Math.max(0, s))
+
+// Strength tier for a 0–1 score.
+const strengthTier = (score: number): StrengthTier =>
+  score < 0.25 ? 'critical' : score < 0.5 ? 'struggling' : score < 0.75 ? 'good' : 'mastered'
+
+// Tier color for a 0–100 percentage.
+const strengthColorFor = (pct: number) => STRENGTH_COLORS[strengthTier(pct / 100)]
+
+// Group attempt logs by their card (learning item) id.
+const groupLogsByCard = (logs: AttemptLog[]) => {
+  const map = new Map<string, AttemptLog[]>()
+  for (const log of logs) {
+    const list = map.get(log.learning_item_id)
+    if (list) list.push(log)
+    else map.set(log.learning_item_id, [log])
+  }
+  return map
+}
+
 // ── derived filtered data ──────────────────────────────────────────────────
 
 const filteredItemIds = computed(() => {
@@ -322,17 +368,13 @@ const updateStats = () => {
 
   // Avg revisions to master: for each card, simulate cumulative strength from logs
   // sorted by date and count how many attempts until it first reaches >= 0.75.
-  const logsByCard = new Map<string, AttemptLog[]>()
-  for (const log of filteredAttemptLogs.value) {
-    if (!logsByCard.has(log.learning_item_id)) logsByCard.set(log.learning_item_id, [])
-    logsByCard.get(log.learning_item_id)!.push(log)
-  }
+  const logsByCard = groupLogsByCard(filteredAttemptLogs.value)
   const masteredCounts: number[] = []
-  for (const [, logs] of logsByCard) {
-    const sorted = logs.slice().sort((a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime())
+  for (const logs of logsByCard.values()) {
+    const sorted = logs.slice().sort(byCreatedAt)
     let strength = 0
     for (let i = 0; i < sorted.length; i++) {
-      strength = Math.min(1, Math.max(0, strength + sorted[i]!.ease_score))
+      strength = clampStrength(strength + sorted[i]!.ease_score)
       if (strength >= 0.75) { masteredCounts.push(i + 1); break }
     }
   }
@@ -358,15 +400,9 @@ watch([timelineStartDate, timelineEndDate], () => renderTimelineChart())
 // ── chart helpers ──────────────────────────────────────────────────────────
 
 const computeStrengthBuckets = () => {
-  let critical = 0, struggling = 0, good = 0, mastered = 0
-  for (const p of filteredCardProgress.value) {
-    const s = p.strength_score
-    if (s < 0.25) critical++
-    else if (s < 0.5) struggling++
-    else if (s < 0.75) good++
-    else mastered++
-  }
-  return { critical, struggling, good, mastered }
+  const buckets = { critical: 0, struggling: 0, good: 0, mastered: 0 }
+  for (const p of filteredCardProgress.value) buckets[strengthTier(p.strength_score)]++
+  return buckets
 }
 
 // Cards never studied: no attempt log AND no card progress entry.
@@ -420,13 +456,6 @@ const renderCollectionOverviewChart = () => {
   // full (untruncated) titles for the tooltip, indexed by point position
   const fullTitles = visibleCollections.map(c => c.title)
 
-  const strengthColor = (pct: number) => {
-    if (pct < 25) return '#F44336'
-    if (pct < 50) return '#FF9800'
-    if (pct < 75) return '#8BC34A'
-    return '#4CAF50'
-  }
-
   const strengthData: { y: number; color: string }[] = []
   const revisionsData: number[] = []
   const revisedData: number[] = []
@@ -434,7 +463,7 @@ const renderCollectionOverviewChart = () => {
 
   for (const collection of visibleCollections) {
     const m = metricsMap.get(collection.id!)!
-    strengthData.push({ y: m.strength, color: strengthColor(m.strength) })
+    strengthData.push({ y: m.strength, color: strengthColorFor(m.strength) })
     revisionsData.push(m.revisions)
     revisedData.push(m.revised)
     notRevisedData.push(m.notRevised)
@@ -459,7 +488,7 @@ const renderCollectionOverviewChart = () => {
         title: { text: 'Count' },
         min: 0,
         gridLineWidth: 1,
-        gridLineColor: 'rgba(0,0,0,0.08)'
+        gridLineColor: GRID_LINE_COLOR
       },
       {
         title: { text: 'Avg Strength (%)' },
@@ -530,11 +559,11 @@ const renderAccuracyChart = () => {
   const newPct = total > 0 ? Math.round((newCards / total) * 100) : 0
   const subtitle = `${weakPct}% weak · ${strongPct}% strong · ${newPct}% new`
   const data = [
-    { name: 'Critical', y: critical, color: '#F44336' },
-    { name: 'Struggling', y: struggling, color: '#FF9800' },
-    { name: 'Good', y: good, color: '#8BC34A' },
-    { name: 'Mastered', y: mastered, color: '#4CAF50' },
-    { name: 'New', y: newCards, color: '#BDBDBD' }
+    { name: 'Critical', y: critical, color: STRENGTH_COLORS.critical },
+    { name: 'Struggling', y: struggling, color: STRENGTH_COLORS.struggling },
+    { name: 'Good', y: good, color: STRENGTH_COLORS.good },
+    { name: 'Mastered', y: mastered, color: STRENGTH_COLORS.mastered },
+    { name: 'New', y: newCards, color: STRENGTH_COLORS.new }
   ]
   if (chartInstances.accuracy) {
     chartInstances.accuracy.series[0]?.setData(data, true, { duration: 300 })
@@ -566,8 +595,8 @@ const renderStrengthChart = () => {
     chart: { type: 'column' },
     title: { text: '' },
     xAxis: { categories: ['Critical', 'Struggling', 'Good', 'Mastered', 'New'], crosshair: true },
-    yAxis: { title: { text: 'Number of Cards' }, min: 0, gridLineWidth: 1, gridLineColor: 'rgba(0,0,0,0.08)' },
-    series: [{ name: 'Cards', data, colorByPoint: true, colors: ['#F44336', '#FF9800', '#8BC34A', '#4CAF50', '#BDBDBD'], type: 'column' }],
+    yAxis: { title: { text: 'Number of Cards' }, min: 0, gridLineWidth: 1, gridLineColor: GRID_LINE_COLOR },
+    series: [{ name: 'Cards', data, colorByPoint: true, colors: Object.values(STRENGTH_COLORS), type: 'column' }],
     legend: { enabled: false },
     credits: { enabled: false },
     tooltip: { pointFormat: '<b>{point.y}</b> cards' }
@@ -612,7 +641,7 @@ const renderTimelineChart = () => {
     chart: { type: 'spline', zooming: { type: 'x' } },
     title: { text: '' },
     xAxis: { categories: dateLabels, tickInterval },
-    yAxis: { title: { text: 'Attempts' }, min: 0, gridLineWidth: 1, gridLineColor: 'rgba(0,0,0,0.08)' },
+    yAxis: { title: { text: 'Attempts' }, min: 0, gridLineWidth: 1, gridLineColor: GRID_LINE_COLOR },
     series: [
       { name: 'Daily Attempts', data: counts, color: '#2196F3', type: 'spline', lineWidth: 2, marker: { enabled: false } },
       { name: '5-Day Avg', data: movingAvg, color: '#90CAF9', type: 'spline', lineWidth: 2.5, marker: { enabled: false }, dashStyle: 'ShortDash' }
@@ -645,7 +674,7 @@ const renderChallengingChart = () => {
   })
   const strengths = sorted.map(p => ({
     y: Math.round(p.strength_score * 100),
-    color: p.strength_score < 0.25 ? '#F44336' : '#FF9800'
+    color: STRENGTH_COLORS[strengthTier(p.strength_score)]
   }))
   const rowHeight = 35
   const chartHeight = Math.max(300, sorted.length * rowHeight)
@@ -659,7 +688,7 @@ const renderChallengingChart = () => {
     chart: { type: 'bar', height: chartHeight },
     title: { text: '' },
     xAxis: { categories: labels },
-    yAxis: { title: { text: 'Strength Score (%)' }, min: 0, max: 100, gridLineWidth: 1, gridLineColor: 'rgba(0,0,0,0.08)' },
+    yAxis: { title: { text: 'Strength Score (%)' }, min: 0, max: 100, gridLineWidth: 1, gridLineColor: GRID_LINE_COLOR },
     series: [{ name: 'Strength', data: strengths, colorByPoint: true }],
     legend: { enabled: false },
     credits: { enabled: false },
@@ -670,40 +699,32 @@ const renderChallengingChart = () => {
 
 const renderCompositionChart = () => {
   if (!compositionChartRef.value || filteredAttemptLogs.value.length === 0) return
-  const sortedLogs = [...filteredAttemptLogs.value].sort(
-    (a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime()
-  )
+  const sortedLogs = [...filteredAttemptLogs.value].sort(byCreatedAt)
   const runningStrength = new Map<string, number>()
-  const compositionSnapshots: Array<{ Critical: number; Struggling: number; Good: number; Mastered: number }> = []
+  const compositionSnapshots: Array<Record<StrengthTier, number>> = []
   const labels: string[] = []
   const seenCards = new Set<string>()
 
   sortedLogs.forEach((log, index) => {
     seenCards.add(log.learning_item_id)
     const prev = runningStrength.get(log.learning_item_id) ?? 0
-    runningStrength.set(log.learning_item_id, Math.min(1, Math.max(0, prev + log.ease_score)))
+    runningStrength.set(log.learning_item_id, clampStrength(prev + log.ease_score))
     if ((index + 1) % 5 === 0) {
-      const buckets = { Critical: 0, Struggling: 0, Good: 0, Mastered: 0 }
-      seenCards.forEach(id => {
-        const s = runningStrength.get(id) ?? 0
-        if (s < 0.25) buckets.Critical++
-        else if (s < 0.5) buckets.Struggling++
-        else if (s < 0.75) buckets.Good++
-        else buckets.Mastered++
-      })
+      const buckets: Record<StrengthTier, number> = { critical: 0, struggling: 0, good: 0, mastered: 0 }
+      seenCards.forEach(id => buckets[strengthTier(runningStrength.get(id) ?? 0)]++)
       compositionSnapshots.push(buckets)
       labels.push(`After ${index + 1} attempts`)
     }
   })
 
-  const pct = (snapshot: { Critical: number; Struggling: number; Good: number; Mastered: number }, key: keyof { Critical: number; Struggling: number; Good: number; Mastered: number }) => {
-    const total = snapshot.Critical + snapshot.Struggling + snapshot.Good + snapshot.Mastered
+  const pct = (snapshot: Record<StrengthTier, number>, key: StrengthTier) => {
+    const total = snapshot.critical + snapshot.struggling + snapshot.good + snapshot.mastered
     return total > 0 ? Math.round((snapshot[key] / total) * 100) : 0
   }
-  const critical = compositionSnapshots.map(s => pct(s, 'Critical'))
-  const struggling = compositionSnapshots.map(s => pct(s, 'Struggling'))
-  const good = compositionSnapshots.map(s => pct(s, 'Good'))
-  const mastered = compositionSnapshots.map(s => pct(s, 'Mastered'))
+  const critical = compositionSnapshots.map(s => pct(s, 'critical'))
+  const struggling = compositionSnapshots.map(s => pct(s, 'struggling'))
+  const good = compositionSnapshots.map(s => pct(s, 'good'))
+  const mastered = compositionSnapshots.map(s => pct(s, 'mastered'))
   if (chartInstances.composition) {
     chartInstances.composition.xAxis[0]?.setCategories(labels, false)
     chartInstances.composition.series[0]?.setData(critical, false)
@@ -716,13 +737,13 @@ const renderCompositionChart = () => {
     chart: { type: 'areaspline' },
     title: { text: '' },
     xAxis: { categories: labels, tickInterval: Math.max(1, Math.floor(labels.length / 8)) },
-    yAxis: { title: { text: 'Composition (%)' }, min: 0, max: 100, stackLabels: { enabled: false }, gridLineWidth: 1, gridLineColor: 'rgba(0,0,0,0.08)' },
+    yAxis: { title: { text: 'Composition (%)' }, min: 0, max: 100, stackLabels: { enabled: false }, gridLineWidth: 1, gridLineColor: GRID_LINE_COLOR },
     plotOptions: { areaspline: { stacking: 'percent', lineWidth: 0, marker: { enabled: false }, dataLabels: { enabled: false } } },
     series: [
-      { name: 'Critical', data: critical, color: '#F44336', type: 'areaspline' },
-      { name: 'Struggling', data: struggling, color: '#FF9800', type: 'areaspline' },
-      { name: 'Good', data: good, color: '#8BC34A', type: 'areaspline' },
-      { name: 'Mastered', data: mastered, color: '#4CAF50', type: 'areaspline' }
+      { name: 'Critical', data: critical, color: STRENGTH_COLORS.critical, type: 'areaspline' },
+      { name: 'Struggling', data: struggling, color: STRENGTH_COLORS.struggling, type: 'areaspline' },
+      { name: 'Good', data: good, color: STRENGTH_COLORS.good, type: 'areaspline' },
+      { name: 'Mastered', data: mastered, color: STRENGTH_COLORS.mastered, type: 'areaspline' }
     ],
     legend: { enabled: true },
     credits: { enabled: false },
@@ -735,9 +756,7 @@ const renderDailyStrengthChart = () => {
   const totalCardCount = filteredLearningItems.value.length
   if (totalCardCount === 0) return
 
-  const sortedLogs = [...filteredAttemptLogs.value].sort(
-    (a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime()
-  )
+  const sortedLogs = [...filteredAttemptLogs.value].sort(byCreatedAt)
 
   // Group logs by calendar day, then replay them chronologically: each card's
   // strength accumulates via ease_score (clamped 0–1, same as the composition
@@ -761,7 +780,7 @@ const renderDailyStrengthChart = () => {
     const dayKey = format(day, 'yyyy-MM-dd')
     for (const log of logsByDay.get(dayKey) ?? []) {
       const prev = runningStrength.get(log.learning_item_id) ?? 0
-      const next = Math.min(1, Math.max(0, prev + log.ease_score))
+      const next = clampStrength(prev + log.ease_score)
       runningStrength.set(log.learning_item_id, next)
       strengthSum += next - prev
     }
@@ -786,7 +805,7 @@ const renderDailyStrengthChart = () => {
       min: 0,
       max: 100,
       gridLineWidth: 1,
-      gridLineColor: 'rgba(0,0,0,0.08)',
+      gridLineColor: GRID_LINE_COLOR,
       plotLines: [
         { value: 25, color: '#FF9800', width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Struggling', align: 'right', x: -6, y: -6, style: { color: '#EF6C00', fontSize: '11px', fontWeight: '600' } } },
         { value: 50, color: '#8BC34A', width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Good', align: 'right', x: -6, y: -6, style: { color: '#689F38', fontSize: '11px', fontWeight: '600' } } },
@@ -825,11 +844,7 @@ const renderStrengthScatterChart = () => {
 
   // Replay each card's attempts in chronological order, accumulating strength.
   // One dot per attempt: x = that card's attempt number (1,2,3…), y = strength %.
-  const logsByCard = new Map<string, AttemptLog[]>()
-  for (const log of filteredAttemptLogs.value) {
-    if (!logsByCard.has(log.learning_item_id)) logsByCard.set(log.learning_item_id, [])
-    logsByCard.get(log.learning_item_id)!.push(log)
-  }
+  const logsByCard = groupLogsByCard(filteredAttemptLogs.value)
 
   const idToTitle = new Map(filteredLearningItems.value.map(i => [i.id!, i.title]))
 
@@ -840,12 +855,10 @@ const renderStrengthScatterChart = () => {
   const rawPoints: [number, number][] = []
   const bucketTitles = new Map<string, string[]>()
   for (const [itemId, logs] of logsByCard) {
-    const sorted = logs.slice().sort(
-      (a, b) => parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime()
-    )
+    const sorted = logs.slice().sort(byCreatedAt)
     let strength = 0
     sorted.forEach((log, i) => {
-      strength = Math.min(1, Math.max(0, strength + log.ease_score))
+      strength = clampStrength(strength + log.ease_score)
       const pct = Math.round(strength * 100)
       rawPoints.push([i + 1, pct])
       const band = Math.min(100, Math.round(pct / 10) * 10) // snap to 0,10,…,100
@@ -953,11 +966,7 @@ const renderStudyHoursChart = () => {
     y: count,
     color: count === peak && peak > 0 ? '#2196F3' : '#90CAF9'
   }))
-  const categories = Array.from({ length: 24 }, (_, h) => {
-    if (h === 0) return '12am'
-    if (h === 12) return '12pm'
-    return h < 12 ? `${h}am` : `${h - 12}pm`
-  })
+  const categories = HOUR_LABELS
   if (chartInstances.studyHours) {
     chartInstances.studyHours.series[0]?.setData(data, true, { duration: 300 })
     return
@@ -966,7 +975,7 @@ const renderStudyHoursChart = () => {
     chart: { type: 'column' },
     title: { text: '' },
     xAxis: { categories, title: { text: 'Hour of Day' } },
-    yAxis: { title: { text: 'Attempts' }, min: 0, gridLineWidth: 1, gridLineColor: 'rgba(0,0,0,0.08)' },
+    yAxis: { title: { text: 'Attempts' }, min: 0, gridLineWidth: 1, gridLineColor: GRID_LINE_COLOR },
     series: [{ name: 'Attempts', data, colorByPoint: true, type: 'column' }],
     legend: { enabled: false },
     credits: { enabled: false },
@@ -1004,7 +1013,7 @@ const renderStudyDaysChart = () => {
     chart: { type: 'column' },
     title: { text: '' },
     xAxis: { categories: dayNames, title: { text: 'Day of Week' } },
-    yAxis: { title: { text: 'Attempts' }, min: 0, gridLineWidth: 1, gridLineColor: 'rgba(0,0,0,0.08)' },
+    yAxis: { title: { text: 'Attempts' }, min: 0, gridLineWidth: 1, gridLineColor: GRID_LINE_COLOR },
     series: [{ name: 'Attempts', data, colorByPoint: true, type: 'column' }],
     legend: { enabled: false },
     credits: { enabled: false },
@@ -1017,11 +1026,7 @@ const renderStudyHeatmapChart = () => {
   const cutoff = subDays(new Date(), 29)
   const today = new Date()
 
-  const hourCategories = Array.from({ length: 24 }, (_, h) => {
-    if (h === 0) return '12am'
-    if (h === 12) return '12pm'
-    return h < 12 ? `${h}am` : `${h - 12}pm`
-  })
+  const hourCategories = HOUR_LABELS
 
   // days[0] = 30 days ago, days[29] = today — today renders at the right (last X index)
   const days = Array.from({ length: 30 }, (_, i) => {
