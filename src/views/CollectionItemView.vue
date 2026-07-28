@@ -98,6 +98,15 @@ icon="mdi-delete" size="x-small" variant="text" color="grey"
 :item="selectedItem" @update:content="handleContentUpdate"
         @update:title="handleTitleUpdate" />
     </div>
+
+    <CollectionAssistant
+      v-if="collection"
+      :collection="collection"
+      :items="learningItems"
+      :apply-create="applyAssistantCreate"
+      :apply-delete="applyAssistantDelete"
+      :apply-update="applyAssistantUpdate"
+    />
   </div>
 </template>
 
@@ -106,12 +115,15 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { formatISO } from 'date-fns'
 import { useRoute, useRouter } from 'vue-router'
 import LearningItemPanel from '../shared/components/LearningItemPanel.vue'
+import CollectionAssistant from '../shared/components/CollectionAssistant.vue'
 import type { JSONContent } from '@tiptap/vue-3'
+import { markdownToTiptap } from '../utils/markdown'
 
 import {
   getCollections,
   getLearningItems,
   createLearningItem,
+  editLearningItem,
   removeLearningItem,
   editCollection,
   syncLearningItems,
@@ -276,6 +288,69 @@ const handleClearStudyHistory = async () => {
     isClearing.value = false
     clearProgress.value = ''
   }
+}
+
+// --- AI assistant apply handlers ---
+// The assistant proposes writes; these run the approved change, keep the
+// collection's item count and sync in step (mirroring the manual handlers
+// above), then reload so the table and any open editor reflect it.
+
+const applyAssistantCreate = async (items: { title: string; content: string }[]) => {
+  if (!collection.value || items.length === 0) return
+  const now = formatISO(new Date())
+  for (const it of items) {
+    await createLearningItem({
+      collectionId: collection.value.id!,
+      title: it.title,
+      content: it.content ? markdownToTiptap(it.content) : undefined,
+      dateCreated: now,
+      lastModified: now
+    })
+  }
+  await editCollection({
+    ...collection.value,
+    numberOfItems: collection.value.numberOfItems + items.length,
+    lastModified: now
+  })
+  await syncLearningItems()
+  await syncCollections()
+  await loadData()
+}
+
+const applyAssistantDelete = async (ids: string[]) => {
+  if (!collection.value || ids.length === 0) return
+  for (const id of ids) {
+    await removeLearningItem(id)
+  }
+  await editCollection({
+    ...collection.value,
+    numberOfItems: Math.max(0, collection.value.numberOfItems - ids.length),
+    lastModified: formatISO(new Date())
+  })
+  await syncLearningItems()
+  await syncCollections()
+  await loadData()
+}
+
+const applyAssistantUpdate = async (
+  id: string,
+  patch: { title?: string; content?: string }
+) => {
+  const item = learningItems.value.find(i => i.id === id)
+  if (!item) return
+  const lastModified = formatISO(new Date())
+  await editLearningItem({
+    ...item,
+    title: patch.title ?? item.title,
+    content: patch.content !== undefined ? markdownToTiptap(patch.content) : item.content,
+    lastModified
+  })
+  if (collection.value) {
+    collection.value.lastModified = lastModified
+    await editCollection(collection.value)
+    await syncCollections()
+  }
+  await loadData()
 }
 
 const handlePullItems = async () => {
