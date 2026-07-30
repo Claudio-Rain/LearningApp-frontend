@@ -1,0 +1,21 @@
+- Future phrases (be about to, will probably, will definitely)
+- Articles used appropriately
+- Future Continuous for actions in progress
+- Modal verbs for present and past deduction
+- Passive forms across tenses
+- Present Perfect Continuous for unfinished situations
+- Sequence of tenses
+- Third Conditional
+- Comparatives & superlatives (as...as, much bigger, way better)
+- Phrasal verbs & idioms for nuanced meaning
+- Sophisticated vocabulary for everyday and work situations
+- Varied collocations
+- Phrases for giving opinions, agreeing/disagreeing
+- Moderately lengthy answers
+- Natural pace in varied situations
+- Speaking with natural flow, without strain
+- Linking words for relationships & cause/effect
+- Natural word linking within sentences
+- Correct pronunciation of international words
+- Words with silent letters (calm, walk, debt, doubt)
+- Stress in 2-syllable words (increase, project, record)
