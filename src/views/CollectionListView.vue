@@ -221,7 +221,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { formatISO } from 'date-fns'
 import { useRouter } from 'vue-router'
 import { useStudyViewCollection } from '../composables/useStudyViewCollection'
@@ -251,7 +251,13 @@ const categories = ref<Category[]>([])
 const isSyncing = ref(false)
 
 // Category filter: 'all' | 'none' (uncategorized) | a category id
-const selectedCategoryId = ref<string>('all')
+// Persisted so the last-used filter is pre-selected on re-entry.
+const CATEGORY_FILTER_KEY = 'collectionsCategoryFilter'
+const selectedCategoryId = ref<string>(localStorage.getItem(CATEGORY_FILTER_KEY) || 'all')
+
+watch(selectedCategoryId, (id) => {
+  localStorage.setItem(CATEGORY_FILTER_KEY, id)
+})
 
 const categoriesDialog = ref(false)
 const newCategoryTitle = ref('')
@@ -471,14 +477,25 @@ const handleRefresh = async () => {
   try {
     await syncAll()
     await loadCategories()
+    validateSelectedCategory()
     await loadCollections()
   } finally {
     isSyncing.value = false
   }
 }
 
+// Drop a stored filter that points at a category that no longer exists.
+const validateSelectedCategory = () => {
+  const id = selectedCategoryId.value
+  if (id === 'all' || id === 'none') return
+  if (!categories.value.some(c => c.id === id)) {
+    selectedCategoryId.value = 'all'
+  }
+}
+
 onMounted(async () => {
   await loadCategories()
+  validateSelectedCategory()
   await loadCollections()
   syncAll()
 })
