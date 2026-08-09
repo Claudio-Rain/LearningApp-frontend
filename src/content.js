@@ -1745,6 +1745,8 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * 16;
 let contentTimerDuration = TIMER_DURATION;
 let contentTimeLeft = TIMER_DURATION;
 let contentTimerInterval = null;
+// Set while the AI chat panel holds the card open (see pauseContentTimer).
+let contentTimerPaused = false;
 
 function updateTimerDisplay() {
   const ringFill = document.getElementById('content-timer-ring-fill');
@@ -1784,9 +1786,8 @@ function clearContentTimer() {
   }
 }
 
-function startContentTimer() {
+function runContentTimer() {
   clearContentTimer();
-  contentTimeLeft = contentTimerDuration;
   updateTimerDisplay();
   contentTimerInterval = setInterval(() => {
     if (contentTimeLeft > 0) {
@@ -1796,6 +1797,37 @@ function startContentTimer() {
       clearContentTimer();
     }
   }, 1000);
+}
+
+function startContentTimer() {
+  contentTimeLeft = contentTimerDuration;
+  // A card can still change while paused (rating, navigation). The new card
+  // gets a full countdown, but it stays frozen until the chat closes — and the
+  // background alarm, which contentService re-armed on the way in, is paused
+  // again to match.
+  if (contentTimerPaused) {
+    clearContentTimer();
+    updateTimerDisplay();
+    sendMessageSafely({ action: 'pauseAutoAdvance' });
+    return;
+  }
+  runContentTimer();
+}
+
+// Pause/resume the visible countdown *and* the background auto-advance alarm,
+// so opening the AI chat never has the card swap out mid-question (mirrors
+// Study View, where the chat panel suspends the timer).
+function pauseContentTimer() {
+  contentTimerPaused = true;
+  clearContentTimer();
+  sendMessageSafely({ action: 'pauseAutoAdvance' });
+}
+
+function resumeContentTimer() {
+  if (!contentTimerPaused) return;
+  contentTimerPaused = false;
+  runContentTimer();
+  sendMessageSafely({ action: 'resumeAutoAdvance', secondsLeft: contentTimeLeft });
 }
 
 function strengthInfo(score) {
@@ -1949,6 +1981,10 @@ function toggleChatPanel() {
   if (btn) btn.classList.toggle('active', open);
   // Mirror the widget's theme so the panel matches light/dark.
   panel.classList.toggle('dark', !!widget?.classList.contains('dark'));
+  // Hold the card still while the question is being asked; pick the countdown
+  // back up (from where it stopped) once the chat closes.
+  if (open) pauseContentTimer();
+  else resumeContentTimer();
   if (open) panel.querySelector('.learning-chat-input')?.focus();
 }
 

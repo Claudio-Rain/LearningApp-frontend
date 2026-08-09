@@ -45,6 +45,27 @@ export async function resetContentAlarm() {
   });
 }
 
+// Suspend auto-advance while the user is busy with the card (e.g. the widget's
+// AI chat is open). The widget keeps its own countdown paused in parallel and
+// calls resumeContentAlarm with the seconds it had left.
+export function pauseContentAlarm() {
+  chrome.alarms.clear("contentAlarm");
+}
+
+// Re-arm auto-advance after a pause: fire once after the remaining time, then
+// fall back to the regular interval. Chrome clamps sub-30s alarms, so treat a
+// nearly-expired countdown as "advance as soon as allowed".
+export async function resumeContentAlarm(secondsLeft) {
+  const { contentAutoAdvanceSeconds } = await getStudySettings();
+  const remaining = Number.isFinite(secondsLeft) && secondsLeft > 0
+    ? Math.min(secondsLeft, contentAutoAdvanceSeconds)
+    : contentAutoAdvanceSeconds;
+  chrome.alarms.create("contentAlarm", {
+    delayInMinutes: remaining / 60,
+    periodInMinutes: contentAutoAdvanceSeconds / 60,
+  });
+}
+
 export async function checkSessionTime() {
   const { startHour, endHour } = await getStudySettings();
   const hour = getHours(new Date());

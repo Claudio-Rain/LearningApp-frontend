@@ -8,6 +8,7 @@ import {
 } from '../utils/storage.js';
 import { recordAttempt, recordContentRating } from './progressService.js';
 import { fetchNextContentItem } from './contentService.js';
+import { pauseContentAlarm, resumeContentAlarm } from './alarmService.js';
 import {
   removeLearningItem,
   createExcludedItem,
@@ -90,6 +91,14 @@ function handleContentScriptMessage(request, _sender, sendResponse) {
     console.log('[background] received requestContent from content script');
     // false = re-show the current session item; don't advance the cursor.
     fetchNextContentItem(false);
+    sendResponse({ success: true });
+  } else if (request.action === 'pauseAutoAdvance') {
+    console.log('[background] pausing auto-advance (widget busy)');
+    pauseContentAlarm();
+    sendResponse({ success: true });
+  } else if (request.action === 'resumeAutoAdvance') {
+    console.log('[background] resuming auto-advance, secondsLeft =', request.secondsLeft);
+    resumeContentAlarm(request.secondsLeft);
     sendResponse({ success: true });
   } else if (request.action === 'openEditTab') {
     const url = chrome.runtime.getURL(`index.html#/collections/${request.collectionId}/${request.itemId}`);
