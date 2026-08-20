@@ -54,6 +54,19 @@
           />
           <!-- eslint-enable vue/no-v-html -->
 
+          <!-- Progress step: what the assistant is doing right now -->
+          <div v-else-if="m.role === 'activity'" class="activity" :class="m.activity.status">
+            <v-progress-circular
+              v-if="m.activity.status === 'running'"
+              indeterminate size="12" width="2"
+            />
+            <v-icon v-else size="14" class="activity-icon">
+              {{ m.activity.status === 'failed' ? 'mdi-alert-circle-outline' : m.activity.icon }}
+            </v-icon>
+            <span class="activity-label">{{ m.activity.label }}</span>
+            <span v-if="m.activity.detail" class="activity-detail">{{ m.activity.detail }}</span>
+          </div>
+
           <!-- Proposal cards -->
           <div v-else class="proposal" :class="m.status">
             <!-- Create -->
@@ -102,18 +115,26 @@
             <template v-else>
               <div class="proposal-head">
                 <v-icon size="16" color="primary">mdi-pencil-outline</v-icon>
-                Edit "{{ m.proposal.update.currentTitle }}"
+                Edit {{ selectedCount(m) }} item{{ selectedCount(m) === 1 ? '' : 's' }}
               </div>
-              <div class="proposal-update">
-                <div v-if="m.proposal.update.title" class="proposal-field">
-                  <span class="proposal-label">New title</span>
-                  <div class="proposal-item-title">{{ m.proposal.update.title }}</div>
-                </div>
-                <div v-if="m.proposal.update.content !== undefined" class="proposal-field">
-                  <span class="proposal-label">New content</span>
-                  <div class="proposal-item-body">{{ shorten(m.proposal.update.content, 400) }}</div>
-                </div>
-              </div>
+              <ul class="proposal-list">
+                <li v-for="it in m.proposal.items" :key="it.id">
+                  <input
+                    type="checkbox" :checked="m.selected[it.id]"
+                    :disabled="m.status !== 'pending'"
+                    @change="toggle(m, it.id)"
+                  />
+                  <div class="proposal-item-text">
+                    <div class="proposal-item-title">{{ it.title ?? it.currentTitle }}</div>
+                    <div v-if="it.title" class="proposal-item-body">
+                      was "{{ it.currentTitle }}"
+                    </div>
+                    <div v-if="it.content !== undefined" class="proposal-item-body">
+                      {{ shorten(it.content) }}
+                    </div>
+                  </div>
+                </li>
+              </ul>
             </template>
 
             <!-- Actions / status -->
@@ -121,7 +142,7 @@
               <v-btn
                 size="small" variant="flat"
                 :color="m.proposal.kind === 'delete' ? 'error' : 'primary'"
-                :disabled="applying || (m.proposal.kind !== 'update' && selectedCount(m) === 0)"
+                :disabled="applying || selectedCount(m) === 0"
                 :loading="applying"
                 @click="apply(m)"
               >
@@ -130,6 +151,13 @@
               <v-btn size="small" variant="text" :disabled="applying" @click="m.status = 'cancelled'">
                 Cancel
               </v-btn>
+              <v-spacer />
+              <button
+                v-if="m.proposal.items.length > 1"
+                class="link-btn" :disabled="applying" @click="toggleAll(m)"
+              >
+                {{ allSelected(m) ? 'Clear all' : 'Select all' }}
+              </button>
             </div>
             <div v-else class="proposal-status" :class="m.status">
               <v-icon size="14">{{ m.status === 'applied' ? 'mdi-check' : 'mdi-close' }}</v-icon>
@@ -138,7 +166,7 @@
           </div>
         </template>
 
-        <div v-if="loading" class="msg assistant thinking">
+        <div v-if="loading && !stepRunning" class="msg assistant thinking">
           <span class="dot" /><span class="dot" /><span class="dot" />
         </div>
         <div v-if="error" class="assistant-error">{{ error }}</div>
@@ -163,7 +191,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import type Anthropic from '@anthropic-ai/sdk'
@@ -173,6 +201,7 @@ import {
   runAssistantTurn,
   type Proposal,
   type AssistantItem,
+  type AssistantActivity,
 } from '../../utils/collectionAssistant'
 
 const props = defineProps<{
@@ -190,10 +219,12 @@ type ProposalMessage = {
   selected: Record<string, boolean>
   result?: string
 }
+type ActivityMessage = { role: 'activity'; activity: AssistantActivity }
 type DisplayMessage =
   | { role: 'user'; text: string }
   | { role: 'assistant'; text: string; streaming?: boolean }
   | ProposalMessage
+  | ActivityMessage
 
 const open = ref(false)
 const draft = ref('')
@@ -226,6 +257,11 @@ const scrollToBottom = () => {
   })
 }
 
+// A step is on screen and spinning, so the generic typing dots would be noise.
+const stepRunning = computed(() =>
+  messages.value.some((m) => m.role === 'activity' && m.activity.status === 'running'),
+)
+
 const selectedCount = (m: ProposalMessage): number =>
   Object.values(m.selected).filter(Boolean).length
 
@@ -234,9 +270,19 @@ const toggle = (m: ProposalMessage, key: string) => {
 }
 
 const applyLabel = (m: ProposalMessage): string => {
-  if (m.proposal.kind === 'update') return 'Save edit'
   const n = selectedCount(m)
-  return m.proposal.kind === 'delete' ? `Delete selected (${n})` : `Add selected (${n})`
+  if (m.proposal.kind === 'delete') return `Delete selected (${n})`
+  if (m.proposal.kind === 'update') return `Save selected (${n})`
+  return `Add selected (${n})`
+}
+
+const allSelected = (m: ProposalMessage): boolean =>
+  selectedCount(m) === m.proposal.items.length
+
+// One click to clear the batch, one to take it all back.
+const toggleAll = (m: ProposalMessage) => {
+  const next = !allSelected(m)
+  for (const key of Object.keys(m.selected)) m.selected[key] = next
 }
 
 const getItems = (): AssistantItem[] =>
@@ -257,11 +303,26 @@ const closeStreamingBubble = () => {
   if (last && last.role === 'assistant') last.streaming = false
 }
 
+// Upsert a progress step: the loop re-emits the same id as the step advances.
+const pushActivity = (activity: AssistantActivity) => {
+  const existing = messages.value.find(
+    (m): m is ActivityMessage => m.role === 'activity' && m.activity.id === activity.id,
+  )
+  if (existing) {
+    existing.activity = activity
+    return
+  }
+  closeStreamingBubble()
+  messages.value.push({ role: 'activity', activity })
+  scrollToBottom()
+}
+
 const pushProposal = (proposal: Proposal) => {
   closeStreamingBubble()
   const selected: Record<string, boolean> = {}
+  // Everything starts checked, so approving the whole batch is one click.
   if (proposal.kind === 'create') proposal.items.forEach((_, j) => (selected[String(j)] = true))
-  if (proposal.kind === 'delete') proposal.items.forEach((it) => (selected[it.id] = true))
+  else proposal.items.forEach((it) => (selected[it.id] = true))
   messages.value.push({ role: 'proposal', proposal, status: 'pending', selected })
   scrollToBottom()
 }
@@ -290,6 +351,7 @@ const send = async (preset?: string) => {
     await runAssistantTurn(props.collection, apiMessages, {
       onText: appendText,
       onProposal: pushProposal,
+      onActivity: pushActivity,
       getItems,
     })
     closeStreamingBubble()
@@ -315,9 +377,13 @@ const apply = async (m: ProposalMessage) => {
       await props.applyDelete(ids)
       m.result = `Deleted ${ids.length} item${ids.length === 1 ? '' : 's'}`
     } else {
-      const u = m.proposal.update
-      await props.applyUpdate(u.id, { title: u.title, content: u.content })
-      m.result = 'Saved'
+      const chosen = m.proposal.items.filter((it) => m.selected[it.id])
+      // Sequential: applyUpdate writes to the same collection, and a failure
+      // partway through should leave the earlier edits saved.
+      for (const it of chosen) {
+        await props.applyUpdate(it.id, { title: it.title, content: it.content })
+      }
+      m.result = `Saved ${chosen.length} edit${chosen.length === 1 ? '' : 's'}`
     }
     m.status = 'applied'
   } catch (err) {
@@ -484,6 +550,42 @@ const clearChat = () => {
   40% { opacity: 1; }
 }
 
+.activity {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  padding: 2px 2px;
+  font-size: 0.78rem;
+  color: rgba(0, 0, 0, 0.68);
+}
+
+.activity.done {
+  color: rgba(0, 0, 0, 0.42);
+}
+
+.activity.failed,
+.activity.failed .activity-icon {
+  color: rgb(var(--v-theme-error));
+}
+
+.activity-icon {
+  color: rgba(0, 0, 0, 0.35);
+}
+
+.activity-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.activity-detail {
+  font-size: 0.7rem;
+  color: rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+}
+
 .proposal {
   align-self: stretch;
   border: 1px solid rgba(0, 0, 0, 0.12);
@@ -555,8 +657,24 @@ const clearChat = () => {
 
 .proposal-actions {
   display: flex;
+  align-items: center;
   gap: 6px;
   margin-top: 10px;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  font-size: 0.75rem;
+  color: rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.link-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .proposal-status {

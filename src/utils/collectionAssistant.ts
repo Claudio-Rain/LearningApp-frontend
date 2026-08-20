@@ -12,6 +12,7 @@
 //   tools        — read + write tool schemas
 //   prompt       — system-prompt construction (and full-collection embedding)
 //   toolHandlers — executing the model's tool calls
+//   activity     — progress steps reported while a turn is working
 //   run          — the agentic turn loop
 //
 // Bring-your-own-key, same as ./claude: the user's Anthropic key lives only in
@@ -22,8 +23,9 @@ export type {
   AssistantItem,
   CreateProposalItem,
   DeleteProposalItem,
-  UpdateProposal,
+  UpdateProposalItem,
   Proposal,
+  AssistantActivity,
   AssistantHandlers,
 } from './collectionAssistant/types'
 export type { ChatMessage } from './claude'

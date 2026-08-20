@@ -12,6 +12,13 @@ import type { AssistantItem } from './types'
 // character proxy for tokens (~4 chars/token → ~12k tokens), well within budget.
 export const MAX_EMBED_CHARS = 48_000
 
+// How many item edits the model may write in one message. They all land on a
+// single approval card, so this is not about clicks — it is the output budget:
+// each rewritten card body runs to hundreds of tokens, and a batch that
+// overruns MAX_TOKENS in ./run loses the proposal it was mid-way through.
+// Sized to sit comfortably inside that budget with room for the reply text.
+const MAX_PROPOSALS_PER_MESSAGE = 25
+
 // Render every item's id, title, and full content as a block for the system
 // prompt. Used only when the whole collection fits under MAX_EMBED_CHARS.
 export const renderItemsBlock = (items: AssistantItem[]): string =>
@@ -49,6 +56,7 @@ export const buildSystem = (
     : `- Use list_items to see the collection before reasoning about it as a whole. The list only has short previews, so before you judge difficulty, compare, or answer questions about what an item actually says, call read_item to get its full content.\n`) +
   `- NEVER claim you created, edited, or deleted anything. The propose_* tools only show the user an approval card — the user makes the final change. After proposing, briefly tell the user to review the card.\n` +
   `- When the user asks for "N exercises/questions", propose exactly N with propose_create_items.\n` +
+  `- Put every edit you are making into ONE propose_update_items call so the user approves them all at once — never call it repeatedly with a single item each. If a request touches more than ${MAX_PROPOSALS_PER_MESSAGE} items, do ${MAX_PROPOSALS_PER_MESSAGE} per message (more than that overruns the reply limit and the whole batch is lost), say how many are left, and continue when the user asks.\n` +
   `- Keep chat replies concise and friendly. Use markdown.` +
   (itemsBlock
     ? `\n\n---\nFull collection (${itemCount} item${itemCount === 1 ? '' : 's'}):\n\n${itemsBlock}`

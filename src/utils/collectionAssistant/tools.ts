@@ -78,17 +78,28 @@ export const WRITE_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
-    name: 'propose_update_item',
+    name: 'propose_update_items',
     description:
-      "Propose an edit to an existing item's title and/or content. This does NOT save — it shows the user a proposal to approve. Provide `content` as markdown when changing the body.",
+      "Propose edits to one or more existing items' titles and/or content. This does NOT save — it shows the user ONE approval card listing every edit, which they confirm together. Put all the edits you are making in a single call rather than calling this repeatedly, so the user approves them in one go. Provide `content` as markdown when changing the body.",
     input_schema: {
       type: 'object',
       properties: {
-        id: { type: 'string', description: 'The learning item id to edit.' },
-        title: { type: 'string', description: 'New title, if changing it.' },
-        content: { type: 'string', description: 'New content as markdown, if changing it.' },
+        items: {
+          type: 'array',
+          description: 'The edits to propose.',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', description: 'The learning item id to edit.' },
+              title: { type: 'string', description: 'New title, if changing it.' },
+              content: { type: 'string', description: 'New content as markdown, if changing it.' },
+            },
+            required: ['id'],
+            additionalProperties: false,
+          },
+        },
       },
-      required: ['id'],
+      required: ['items'],
       additionalProperties: false,
     },
   },
