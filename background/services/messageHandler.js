@@ -17,7 +17,8 @@ import {
   syncLearningItems,
   getCollections,
   editCollection,
-  syncCollections
+  syncCollections,
+  syncAll
 } from '../../src/database/index.ts';
 import { formatISO } from 'date-fns';
 import { generateAnswerMarkdown, cardChatMarkdown, hasApiKey, setApiKey } from '../../src/utils/claude.ts';
@@ -92,6 +93,12 @@ function handleContentScriptMessage(request, _sender, sendResponse) {
     // false = re-show the current session item; don't advance the cursor.
     fetchNextContentItem(false);
     sendResponse({ success: true });
+  } else if (request.action === 'syncNow') {
+    console.log('[background] received syncNow from content script');
+    handleSyncNow()
+      .then(() => sendResponse({ success: true }))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true; // async response
   } else if (request.action === 'pauseAutoAdvance') {
     console.log('[background] pausing auto-advance (widget busy)');
     pauseContentAlarm();
@@ -174,6 +181,13 @@ async function generateAutoAnswer(id, collectionId, title, dateCreated) {
   const content = markdownToTiptap(markdown);
   await editLearningItem({ id, collectionId, title, content, dateCreated, lastModified: formatISO(new Date()) });
   await syncLearningItems();
+}
+
+// Manual pull from the widget: sync every table, then re-render the current
+// card (false = keep the cursor put) so freshly pulled edits show immediately.
+async function handleSyncNow() {
+  await syncAll();
+  await fetchNextContentItem(false);
 }
 
 async function handleButtonClickedFromNotification(buttonIndex) {

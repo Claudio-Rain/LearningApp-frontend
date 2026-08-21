@@ -1,5 +1,6 @@
 import { RATING_SCORES } from './constants.js';
 import { getCurrentItem, isFlipped } from './state.js';
+import { pullLatest } from './services/pull.js';
 import { sendMessageSafely } from './utils/messaging.js';
 import { closeAddModal, isAddModalOpen, openAddModal, submitAddModal } from './ui/addPanel.js';
 import { sendChatMessage, toggleChatPanel } from './ui/chatPanel.js';
@@ -21,6 +22,7 @@ function recordRating(score) {
 // Toolbar/panel buttons, matched with closest() against the click target. The
 // first match wins and stops there, so ordering only matters for nested ids.
 const CLICK_ACTIONS = [
+  ['#content-pull', pullLatest],
   ['#content-add', openAddModal],
   // Close the new-item panel (X button or Cancel)
   ['#learning-add-close', closeAddModal],

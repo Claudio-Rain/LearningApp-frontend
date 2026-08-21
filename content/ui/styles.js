@@ -1156,6 +1156,47 @@ export const WIDGET_STYLES = `
       background: rgba(255, 255, 255, 0.08);
     }
 
+    /* ---- Pull (manual sync) button ---- */
+    .content-pull-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: none;
+      border-radius: 6px;
+      background: transparent;
+      color: #2563eb;
+      cursor: pointer;
+      transition: background 0.2s;
+      font-family: inherit;
+    }
+
+    .content-pull-btn:hover {
+      background: rgba(37, 99, 235, 0.1);
+    }
+
+    .content-pull-btn.syncing {
+      cursor: default;
+    }
+
+    .content-pull-btn.syncing svg {
+      animation: content-pull-spin 0.9s linear infinite;
+    }
+
+    @keyframes content-pull-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .learning-content-widget.dark .content-pull-btn {
+      color: #60a5fa;
+    }
+
+    .learning-content-widget.dark .content-pull-btn:hover {
+      background: rgba(96, 165, 250, 0.15);
+    }
+
     /* ---- New-item button + modal ---- */
     .content-add-btn {
       display: flex;

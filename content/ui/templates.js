@@ -18,6 +18,9 @@ export const WIDGET_TEMPLATE = `
           </div>
         </div>
         <div class="content-header-actions">
+          <button class="content-pull-btn" id="content-pull" title="Pull latest data">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M17.65 6.35A8 8 0 1 0 19.73 14h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
+          </button>
           <button class="content-add-btn" id="content-add" title="New learning item">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M11 11V5h2v6h6v2h-6v6h-2v-6H5v-2h6z"/></svg>
           </button>
