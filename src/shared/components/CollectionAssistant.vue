@@ -419,7 +419,7 @@ const clearChat = () => {
   flex-direction: column;
   width: min(400px, calc(100vw - 32px));
   height: min(560px, calc(100vh - 96px));
-  background: white;
+  background: rgb(var(--v-theme-surface));
   border-radius: 14px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
   overflow: hidden;
@@ -429,7 +429,7 @@ const clearChat = () => {
   display: flex;
   align-items: center;
   padding: 10px 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   flex-shrink: 0;
 }
 
@@ -440,7 +440,7 @@ const clearChat = () => {
 
 .assistant-sub {
   font-size: 0.7rem;
-  color: rgba(0, 0, 0, 0.45);
+  color: rgba(var(--v-theme-on-surface), 0.45);
   margin-left: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -460,7 +460,7 @@ const clearChat = () => {
 .assistant-empty {
   margin: auto;
   text-align: center;
-  color: rgba(0, 0, 0, 0.5);
+  color: rgba(var(--v-theme-on-surface), 0.5);
   font-size: 0.85rem;
   display: flex;
   flex-direction: column;
@@ -477,17 +477,17 @@ const clearChat = () => {
 }
 
 .chip {
-  border: 1px solid rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.15);
   border-radius: 14px;
   padding: 4px 10px;
   font-size: 0.75rem;
   cursor: pointer;
-  background: white;
-  color: rgba(0, 0, 0, 0.7);
+  background: rgb(var(--v-theme-surface));
+  color: rgba(var(--v-theme-on-surface), 0.7);
 }
 
 .chip:hover {
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(var(--v-theme-on-surface), 0.04);
 }
 
 .msg {
@@ -502,14 +502,14 @@ const clearChat = () => {
 .msg.user {
   align-self: flex-end;
   background: rgb(var(--v-theme-primary));
-  color: white;
+  color: rgb(var(--v-theme-on-primary));
   white-space: pre-wrap;
 }
 
 .msg.assistant {
   align-self: flex-start;
-  background: rgba(0, 0, 0, 0.05);
-  color: rgba(0, 0, 0, 0.87);
+  background: rgba(var(--v-theme-on-surface), 0.05);
+  color: rgba(var(--v-theme-on-surface), 0.87);
 }
 
 .msg.assistant :deep(p) { margin: 0 0 6px; }
@@ -517,13 +517,13 @@ const clearChat = () => {
 .msg.assistant :deep(ul),
 .msg.assistant :deep(ol) { margin: 4px 0; padding-left: 18px; }
 .msg.assistant :deep(code) {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(var(--v-theme-on-surface), 0.08);
   padding: 1px 4px;
   border-radius: 4px;
   font-size: 0.8em;
 }
 .msg.assistant :deep(pre) {
-  background: rgba(0, 0, 0, 0.08);
+  background: rgba(var(--v-theme-on-surface), 0.08);
   padding: 8px;
   border-radius: 6px;
   overflow-x: auto;
@@ -539,7 +539,7 @@ const clearChat = () => {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.4);
+  background: rgba(var(--v-theme-on-surface), 0.4);
   animation: blink 1.4s infinite both;
 }
 .dot:nth-child(2) { animation-delay: 0.2s; }
@@ -558,11 +558,11 @@ const clearChat = () => {
   max-width: 100%;
   padding: 2px 2px;
   font-size: 0.78rem;
-  color: rgba(0, 0, 0, 0.68);
+  color: rgba(var(--v-theme-on-surface), 0.68);
 }
 
 .activity.done {
-  color: rgba(0, 0, 0, 0.42);
+  color: rgba(var(--v-theme-on-surface), 0.42);
 }
 
 .activity.failed,
@@ -571,7 +571,7 @@ const clearChat = () => {
 }
 
 .activity-icon {
-  color: rgba(0, 0, 0, 0.35);
+  color: rgba(var(--v-theme-on-surface), 0.35);
 }
 
 .activity-label {
@@ -582,16 +582,16 @@ const clearChat = () => {
 
 .activity-detail {
   font-size: 0.7rem;
-  color: rgba(0, 0, 0, 0.4);
+  color: rgba(var(--v-theme-on-surface), 0.4);
   flex-shrink: 0;
 }
 
 .proposal {
   align-self: stretch;
-  border: 1px solid rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: 12px;
   padding: 10px;
-  background: rgba(0, 0, 0, 0.015);
+  background: rgba(var(--v-theme-on-surface), 0.015);
 }
 
 .proposal.cancelled { opacity: 0.6; }
@@ -637,7 +637,7 @@ const clearChat = () => {
 
 .proposal-item-body {
   font-size: 0.75rem;
-  color: rgba(0, 0, 0, 0.55);
+  color: rgba(var(--v-theme-on-surface), 0.55);
   line-height: 1.35;
   margin-top: 2px;
 }
@@ -652,7 +652,7 @@ const clearChat = () => {
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: rgba(0, 0, 0, 0.45);
+  color: rgba(var(--v-theme-on-surface), 0.45);
 }
 
 .proposal-actions {
@@ -667,7 +667,7 @@ const clearChat = () => {
   border: none;
   padding: 2px 4px;
   font-size: 0.75rem;
-  color: rgba(0, 0, 0, 0.55);
+  color: rgba(var(--v-theme-on-surface), 0.55);
   cursor: pointer;
   text-decoration: underline;
 }
@@ -685,7 +685,7 @@ const clearChat = () => {
   margin-top: 8px;
 }
 .proposal-status.applied { color: rgb(var(--v-theme-primary)); }
-.proposal-status.cancelled { color: rgba(0, 0, 0, 0.5); }
+.proposal-status.cancelled { color: rgba(var(--v-theme-on-surface), 0.5); }
 
 .assistant-error {
   color: rgb(var(--v-theme-error));
@@ -698,7 +698,7 @@ const clearChat = () => {
   align-items: flex-end;
   gap: 4px;
   padding: 8px;
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   flex-shrink: 0;
 }
 

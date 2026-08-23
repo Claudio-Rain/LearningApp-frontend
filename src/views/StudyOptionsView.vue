@@ -319,13 +319,14 @@ type ExclusionItem = LearningItem & { collectionTitle: string; strengthScore: nu
 // learning_item_id -> strength_score (0..1). Absent = no progress yet ("New").
 const strengthByItem = ref<Map<string, number>>(new Map())
 
-// Same tiers as the progress/study pages.
+// Same tiers as the progress/study pages. Colors come from the theme's score
+// scale so the tiers stay distinguishable under both light and dark.
 function strengthInfo(score: number) {
-  if (score < 0) return { label: 'New', color: '#BDBDBD' }
-  if (score < 0.25) return { label: 'Critical', color: '#F44336' }
-  if (score < 0.5) return { label: 'Struggling', color: '#FF9800' }
-  if (score < 0.75) return { label: 'Good', color: '#8BC34A' }
-  return { label: 'Mastered', color: '#4CAF50' }
+  if (score < 0) return { label: 'New', color: 'scaleNew' }
+  if (score < 0.25) return { label: 'Critical', color: 'scaleCritical' }
+  if (score < 0.5) return { label: 'Struggling', color: 'scaleStruggling' }
+  if (score < 0.75) return { label: 'Good', color: 'scaleGood' }
+  return { label: 'Mastered', color: 'scaleMastered' }
 }
 const exclusionCollectionIds = ref<string[]>([])
 const exclusionItems = ref<ExclusionItem[]>([])

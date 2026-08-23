@@ -6,6 +6,14 @@
       <v-app-bar-title>
         <span class="toolbar-title" style="cursor: pointer;" @click="router.push({ name: 'collections' })">Learning App</span>
       </v-app-bar-title>
+
+      <v-btn
+        :icon="isDark ? 'mdi-weather-night' : 'mdi-weather-sunny'"
+        :title="isDark ? 'Switch to light theme' : 'Switch to dark theme'"
+        variant="text"
+        density="comfortable"
+        @click="toggle"
+      />
     </v-app-bar>
 
     <!-- Navigation Drawer -->
@@ -69,7 +77,9 @@ import { useDisplay } from 'vuetify'
 import { useRouter, useRoute } from 'vue-router'
 import { getAllAttemptLogs, getCollections, getLearningItems } from '../database'
 import { useStudyViewCollection } from '../composables/useStudyViewCollection'
+import { useAppTheme } from '../composables/useAppTheme'
 
+const { isDark, toggle } = useAppTheme()
 const { mobile } = useDisplay()
 const router = useRouter()
 const route = useRoute()

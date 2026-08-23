@@ -65,7 +65,7 @@
         @click:row="(_: any, { item }: any) => { selectedItem = item; router.replace({ name: 'collectionItemView', params: { id: collectionId, itemId: item.id } }) }"
       >
         <template #item.rowNumber="{ index }">
-          <span style="font-size: 0.75rem; color: rgba(0, 0, 0, 0.5);">{{ index + 1 }}</span>
+          <span style="font-size: 0.75rem; color: rgba(var(--v-theme-on-surface), 0.5);">{{ index + 1 }}</span>
         </template>
         <template #item.title="{ item }">
           <v-tooltip :text="item.title" location="top" open-delay="300" max-width="600">
@@ -384,7 +384,7 @@ onMounted(async () => {
 .split-left {
   display: flex;
   flex-direction: column;
-  /* border-right: 1px solid rgba(0, 0, 0, 0.12); */
+  /* border-right: 1px solid rgba(var(--v-theme-on-surface), 0.12); */
   overflow: hidden;
 }
 
@@ -393,7 +393,7 @@ onMounted(async () => {
   width: 4px;
   flex-shrink: 0;
   cursor: col-resize;
-  background: white;
+  background: rgb(var(--v-theme-surface));
   /* transition: background 0.15s ease; */
 }
 
@@ -432,7 +432,7 @@ onMounted(async () => {
 
 .panel-meta {
   font-size: 0.72rem;
-  color: rgba(0, 0, 0, 0.45);
+  color: rgba(var(--v-theme-on-surface), 0.45);
   margin-top: 2px;
 }
 
@@ -457,8 +457,8 @@ onMounted(async () => {
 }
 
 :deep(tr.selected-row) {
-  background: rgba(0, 0, 0, 0.06) !important;
-  box-shadow: inset 2px 0 0 0 #000;
+  background: rgba(var(--v-theme-on-surface), 0.06) !important;
+  box-shadow: inset 2px 0 0 0 rgba(var(--v-theme-on-surface), 0.87);
 }
 
 :deep(.delete-btn) {
@@ -501,7 +501,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  color: rgba(0, 0, 0, 0.35);
+  color: rgba(var(--v-theme-on-surface), 0.35);
   font-size: 0.85rem;
   padding: 32px;
   text-align: center;
@@ -519,7 +519,7 @@ onMounted(async () => {
 .content-header {
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .content-title {
@@ -530,13 +530,13 @@ onMounted(async () => {
 
 .content-meta {
   font-size: 0.75rem;
-  color: rgba(0, 0, 0, 0.45);
+  color: rgba(var(--v-theme-on-surface), 0.45);
 }
 
 .content-body {
   font-size: 0.95rem;
   line-height: 1.7;
-  color: rgba(0, 0, 0, 0.75);
+  color: rgba(var(--v-theme-on-surface), 0.75);
   white-space: pre-wrap;
 }
 </style>

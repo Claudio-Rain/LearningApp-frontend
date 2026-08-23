@@ -289,7 +289,7 @@ function hexToRgba(hex: string, alpha: number) {
 function chipStyle(color: string, active: boolean) {
   return active
     ? { backgroundColor: color, color: '#fff' }
-    : { backgroundColor: hexToRgba(color, 0.14), color: 'rgba(0, 0, 0, 0.72)' }
+    : { backgroundColor: hexToRgba(color, 0.14), color: 'rgba(var(--v-theme-on-surface), 0.72)' }
 }
 
 const filteredCollections = computed(() => {
@@ -511,7 +511,7 @@ onMounted(async () => {
 
 .collection-title {
   font-weight: 500;
-  color: rgba(0, 0, 0, 0.82);
+  color: rgba(var(--v-theme-on-surface), 0.82);
 }
 
 .collections-table :deep(tbody tr) {
@@ -551,7 +551,7 @@ onMounted(async () => {
 
 .page-count {
   font-size: 0.85rem;
-  color: rgba(0, 0, 0, 0.5);
+  color: rgba(var(--v-theme-on-surface), 0.5);
 }
 
 .header-actions {
@@ -595,7 +595,7 @@ onMounted(async () => {
 }
 
 .collections-table {
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .category-chip {
@@ -603,11 +603,11 @@ onMounted(async () => {
 }
 
 .add-category-chip {
-  color: rgba(0, 0, 0, 0.4) !important;
+  color: rgba(var(--v-theme-on-surface), 0.4) !important;
 }
 
 .add-category-chip:hover {
-  color: rgba(0, 0, 0, 0.7) !important;
+  color: rgba(var(--v-theme-on-surface), 0.7) !important;
 }
 
 .category-rows {
@@ -625,7 +625,7 @@ onMounted(async () => {
 
 .empty-state {
   text-align: center;
-  color: rgba(0, 0, 0, 0.4);
+  color: rgba(var(--v-theme-on-surface), 0.4);
   padding: 24px 0;
 }
 
@@ -653,7 +653,7 @@ onMounted(async () => {
 }
 
 .swatch--selected {
-  box-shadow: 0 0 0 2px #fff, 0 0 0 4px currentColor;
+  box-shadow: 0 0 0 2px rgb(var(--v-theme-surface)), 0 0 0 4px currentColor;
 }
 
 .resize-handle {
@@ -667,7 +667,7 @@ onMounted(async () => {
 }
 
 .resize-handle:hover {
-  background: rgba(0, 0, 0, 0.12);
+  background: rgba(var(--v-theme-on-surface), 0.12);
 }
 
 .resizable-table :deep(th) {
@@ -676,10 +676,10 @@ onMounted(async () => {
 }
 
 .description-field :deep(input) {
-  color: rgba(0, 0, 0, 0.55) !important;
+  color: rgba(var(--v-theme-on-surface), 0.55) !important;
 }
 
 .description-field :deep(input::placeholder) {
-  color: rgba(0, 0, 0, 0.25) !important;
+  color: rgba(var(--v-theme-on-surface), 0.25) !important;
 }
 </style>

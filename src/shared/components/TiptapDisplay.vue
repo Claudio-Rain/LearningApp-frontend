@@ -69,7 +69,7 @@ onBeforeUnmount(() => editor.destroy())
       width: 100%;
 
       td, th {
-        border: 1px solid #d1d5db;
+        border: 1px solid rgba(var(--v-theme-on-surface), 0.18);
         box-sizing: border-box;
         min-width: 1em;
         padding: 6px 8px;
@@ -80,7 +80,7 @@ onBeforeUnmount(() => editor.destroy())
       }
 
       th {
-        background-color: #f3f4f6;
+        background-color: rgba(var(--v-theme-on-surface), 0.05);
         font-weight: bold;
         text-align: left;
       }

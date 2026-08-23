@@ -192,10 +192,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { parseISO, subDays, format, eachDayOfInterval } from 'date-fns'
 import { useRouter } from 'vue-router'
 import Highcharts from 'highcharts'
+import { useTheme } from 'vuetify'
 import 'highcharts/modules/heatmap'
 import 'highcharts/highcharts-more'
 import {
@@ -261,15 +262,30 @@ let timelineDates: string[] = []
 // Strength tiers, ordered low→high. Scores are 0–1; a card accumulates strength
 // by summing ease_score, clamped to [0, 1].
 type StrengthTier = 'critical' | 'struggling' | 'good' | 'mastered'
-const STRENGTH_COLORS: Record<StrengthTier | 'new', string> = {
-  critical: '#F44336',
-  struggling: '#FF9800',
-  good: '#8BC34A',
-  mastered: '#4CAF50',
-  new: '#BDBDBD'
+
+// Highcharts renders SVG presentation attributes, which do not resolve CSS
+// custom properties — passing `var(--v-theme-*)` through to a chart option
+// silently yields no color. So every chart color is read out of the active
+// Vuetify theme as a concrete value at render time instead.
+const theme = useTheme()
+const c = (token: string) => theme.current.value.colors[token] ?? '#000000'
+const alpha = (token: string, a: number) => {
+  const hex = c(token).replace('#', '')
+  const n = parseInt(hex.length === 3 ? hex.replace(/(.)/g, '$1$1') : hex, 16)
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`
 }
 
-const GRID_LINE_COLOR = 'rgba(0,0,0,0.08)'
+const strengthColors = (): Record<StrengthTier | 'new', string> => ({
+  critical: c('scaleCritical'),
+  struggling: c('scaleStruggling'),
+  good: c('scaleGood'),
+  mastered: c('scaleMastered'),
+  new: c('scaleNew')
+})
+
+const gridLineColor = () => alpha('on-surface', 0.08)
+const axisLineColor = () => alpha('on-surface', 0.2)
+const mutedTextColor = () => alpha('on-surface', 0.6)
 
 // Hour-of-day labels: '12am', '1am', … '12pm', … '11pm'
 const HOUR_LABELS = Array.from({ length: 24 }, (_, h) => {
@@ -289,7 +305,7 @@ const strengthTier = (score: number): StrengthTier =>
   score < 0.25 ? 'critical' : score < 0.5 ? 'struggling' : score < 0.75 ? 'good' : 'mastered'
 
 // Tier color for a 0–100 percentage.
-const strengthColorFor = (pct: number) => STRENGTH_COLORS[strengthTier(pct / 100)]
+const strengthColorFor = (pct: number) => strengthColors()[strengthTier(pct / 100)]
 
 // Group attempt logs by their card (learning item) id.
 const groupLogsByCard = (logs: AttemptLog[]) => {
@@ -497,7 +513,7 @@ const renderCollectionOverviewChart = () => {
         title: { text: 'Count' },
         min: 0,
         gridLineWidth: 1,
-        gridLineColor: GRID_LINE_COLOR
+        gridLineColor: gridLineColor()
       },
       {
         title: { text: 'Avg Strength (%)' },
@@ -509,9 +525,9 @@ const renderCollectionOverviewChart = () => {
     ],
     series: [
       { name: 'Avg Strength (%)', data: strengthData, colorByPoint: true, type: 'column', yAxis: 1 },
-      { name: 'Total Revisions', data: revisionsData, color: '#1565C0', type: 'column' },
-      { name: 'Cards Revised', data: revisedData, color: '#64B5F6', type: 'column' },
-      { name: 'Cards Not Revised', data: notRevisedData, color: '#BDBDBD', type: 'column' }
+      { name: 'Total Revisions', data: revisionsData, color: c('chartPrimary'), type: 'column' },
+      { name: 'Cards Revised', data: revisedData, color: c('chartSecondary'), type: 'column' },
+      { name: 'Cards Not Revised', data: notRevisedData, color: c('chartNeutral'), type: 'column' }
     ],
     legend: { enabled: true },
     credits: { enabled: false },
@@ -531,9 +547,33 @@ const renderCollectionOverviewChart = () => {
 }
 
 const renderCharts = () => {
+  // Highcharts' built-in text colors are near-black and unreadable on a dark
+  // surface, so axis/legend/title text is pinned to the theme's foreground
+  // rather than left to the library default.
+  const text = { color: alpha('on-surface', 0.87) }
+  const muted = { color: mutedTextColor() }
   Highcharts.setOptions({
-    xAxis: { lineColor: 'rgba(0,0,0,0.2)', tickColor: 'rgba(0,0,0,0.2)' },
-    yAxis: { lineColor: 'rgba(0,0,0,0.2)' }
+    chart: { backgroundColor: 'transparent', style: { color: alpha('on-surface', 0.87) } },
+    title: { style: text },
+    subtitle: { style: muted },
+    xAxis: {
+      lineColor: axisLineColor(),
+      tickColor: axisLineColor(),
+      labels: { style: muted },
+      title: { style: muted }
+    },
+    yAxis: {
+      lineColor: axisLineColor(),
+      labels: { style: muted },
+      title: { style: muted }
+    },
+    legend: { itemStyle: text, itemHoverStyle: { color: c('primary') } },
+    tooltip: {
+      backgroundColor: c('surface'),
+      style: { color: alpha('on-surface', 0.87) },
+      borderColor: alpha('on-surface', 0.2)
+    },
+    plotOptions: { series: { dataLabels: { style: text } } }
   })
   const renders = [
     renderAccuracyChart,
@@ -568,11 +608,11 @@ const renderAccuracyChart = () => {
   const newPct = total > 0 ? Math.round((newCards / total) * 100) : 0
   const subtitle = `${weakPct}% weak · ${strongPct}% strong · ${newPct}% new`
   const data = [
-    { name: 'Critical', y: critical, color: STRENGTH_COLORS.critical },
-    { name: 'Struggling', y: struggling, color: STRENGTH_COLORS.struggling },
-    { name: 'Good', y: good, color: STRENGTH_COLORS.good },
-    { name: 'Mastered', y: mastered, color: STRENGTH_COLORS.mastered },
-    { name: 'New', y: newCards, color: STRENGTH_COLORS.new }
+    { name: 'Critical', y: critical, color: strengthColors().critical },
+    { name: 'Struggling', y: struggling, color: strengthColors().struggling },
+    { name: 'Good', y: good, color: strengthColors().good },
+    { name: 'Mastered', y: mastered, color: strengthColors().mastered },
+    { name: 'New', y: newCards, color: strengthColors().new }
   ]
   if (chartInstances.accuracy) {
     chartInstances.accuracy.series[0]?.setData(data, true, { duration: 300 })
@@ -582,7 +622,7 @@ const renderAccuracyChart = () => {
   createChart('accuracy', accuracyChartRef.value, {
     chart: { type: 'pie' },
     title: { text: '' },
-    subtitle: { text: subtitle, style: { color: '#666', fontSize: '13px' } },
+    subtitle: { text: subtitle, style: { color: mutedTextColor(), fontSize: '13px' } },
     series: [{ name: 'Cards', innerSize: '55%', data, type: 'pie' }],
     plotOptions: { pie: { dataLabels: { enabled: true, format: '{point.percentage:.0f}%', style: { fontSize: '13px', fontWeight: '600' } } } },
     legend: { enabled: true },
@@ -604,8 +644,8 @@ const renderStrengthChart = () => {
     chart: { type: 'column' },
     title: { text: '' },
     xAxis: { categories: ['Critical', 'Struggling', 'Good', 'Mastered', 'New'], crosshair: true },
-    yAxis: { title: { text: 'Number of Cards' }, min: 0, gridLineWidth: 1, gridLineColor: GRID_LINE_COLOR },
-    series: [{ name: 'Cards', data, colorByPoint: true, colors: Object.values(STRENGTH_COLORS), type: 'column' }],
+    yAxis: { title: { text: 'Number of Cards' }, min: 0, gridLineWidth: 1, gridLineColor: gridLineColor() },
+    series: [{ name: 'Cards', data, colorByPoint: true, colors: Object.values(strengthColors()), type: 'column' }],
     legend: { enabled: false },
     credits: { enabled: false },
     tooltip: { pointFormat: '<b>{point.y}</b> cards' }
@@ -650,10 +690,10 @@ const renderTimelineChart = () => {
     chart: { type: 'spline', zooming: { type: 'x' } },
     title: { text: '' },
     xAxis: { categories: dateLabels, tickInterval },
-    yAxis: { title: { text: 'Attempts' }, min: 0, gridLineWidth: 1, gridLineColor: GRID_LINE_COLOR },
+    yAxis: { title: { text: 'Attempts' }, min: 0, gridLineWidth: 1, gridLineColor: gridLineColor() },
     series: [
-      { name: 'Daily Attempts', data: counts, color: '#2196F3', type: 'spline', lineWidth: 2, marker: { enabled: false } },
-      { name: '5-Day Avg', data: movingAvg, color: '#90CAF9', type: 'spline', lineWidth: 2.5, marker: { enabled: false }, dashStyle: 'ShortDash' }
+      { name: 'Daily Attempts', data: counts, color: c('chartAccent'), type: 'spline', lineWidth: 2, marker: { enabled: false } },
+      { name: '5-Day Avg', data: movingAvg, color: c('chartAccentMuted'), type: 'spline', lineWidth: 2.5, marker: { enabled: false }, dashStyle: 'ShortDash' }
     ],
     legend: { enabled: true },
     credits: { enabled: false },
@@ -683,7 +723,7 @@ const renderChallengingChart = () => {
   })
   const strengths = sorted.map(p => ({
     y: Math.round(p.strength_score * 100),
-    color: STRENGTH_COLORS[strengthTier(p.strength_score)]
+    color: strengthColors()[strengthTier(p.strength_score)]
   }))
   const rowHeight = 35
   const chartHeight = Math.max(300, sorted.length * rowHeight)
@@ -697,7 +737,7 @@ const renderChallengingChart = () => {
     chart: { type: 'bar', height: chartHeight },
     title: { text: '' },
     xAxis: { categories: labels },
-    yAxis: { title: { text: 'Strength Score (%)' }, min: 0, max: 100, gridLineWidth: 1, gridLineColor: GRID_LINE_COLOR },
+    yAxis: { title: { text: 'Strength Score (%)' }, min: 0, max: 100, gridLineWidth: 1, gridLineColor: gridLineColor() },
     series: [{ name: 'Strength', data: strengths, colorByPoint: true }],
     legend: { enabled: false },
     credits: { enabled: false },
@@ -746,13 +786,13 @@ const renderCompositionChart = () => {
     chart: { type: 'areaspline' },
     title: { text: '' },
     xAxis: { categories: labels, tickInterval: Math.max(1, Math.floor(labels.length / 8)) },
-    yAxis: { title: { text: 'Composition (%)' }, min: 0, max: 100, stackLabels: { enabled: false }, gridLineWidth: 1, gridLineColor: GRID_LINE_COLOR },
+    yAxis: { title: { text: 'Composition (%)' }, min: 0, max: 100, stackLabels: { enabled: false }, gridLineWidth: 1, gridLineColor: gridLineColor() },
     plotOptions: { areaspline: { stacking: 'percent', lineWidth: 0, marker: { enabled: false }, dataLabels: { enabled: false } } },
     series: [
-      { name: 'Critical', data: critical, color: STRENGTH_COLORS.critical, type: 'areaspline' },
-      { name: 'Struggling', data: struggling, color: STRENGTH_COLORS.struggling, type: 'areaspline' },
-      { name: 'Good', data: good, color: STRENGTH_COLORS.good, type: 'areaspline' },
-      { name: 'Mastered', data: mastered, color: STRENGTH_COLORS.mastered, type: 'areaspline' }
+      { name: 'Critical', data: critical, color: strengthColors().critical, type: 'areaspline' },
+      { name: 'Struggling', data: struggling, color: strengthColors().struggling, type: 'areaspline' },
+      { name: 'Good', data: good, color: strengthColors().good, type: 'areaspline' },
+      { name: 'Mastered', data: mastered, color: strengthColors().mastered, type: 'areaspline' }
     ],
     legend: { enabled: true },
     credits: { enabled: false },
@@ -814,18 +854,18 @@ const renderDailyStrengthChart = () => {
       min: 0,
       max: 100,
       gridLineWidth: 1,
-      gridLineColor: GRID_LINE_COLOR,
+      gridLineColor: gridLineColor(),
       plotLines: [
-        { value: 25, color: '#FF9800', width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Struggling', align: 'right', x: -6, y: -6, style: { color: '#EF6C00', fontSize: '11px', fontWeight: '600' } } },
-        { value: 50, color: '#8BC34A', width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Good', align: 'right', x: -6, y: -6, style: { color: '#689F38', fontSize: '11px', fontWeight: '600' } } },
-        { value: 75, color: '#4CAF50', width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Mastered', align: 'right', x: -6, y: -6, style: { color: '#388E3C', fontSize: '11px', fontWeight: '600' } } }
+        { value: 25, color: c('scaleStruggling'), width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Struggling', align: 'right', x: -6, y: -6, style: { color: c('scaleStrugglingText'), fontSize: '11px', fontWeight: '600' } } },
+        { value: 50, color: c('scaleGood'), width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Good', align: 'right', x: -6, y: -6, style: { color: c('scaleGoodText'), fontSize: '11px', fontWeight: '600' } } },
+        { value: 75, color: c('scaleMastered'), width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Mastered', align: 'right', x: -6, y: -6, style: { color: c('scaleMasteredText'), fontSize: '11px', fontWeight: '600' } } }
       ]
     },
     series: [{
       name: 'Avg Strength',
       data: avgStrengths,
       type: 'areaspline',
-      color: '#1565C0',
+      color: c('chartPrimary'),
       fillColor: {
         linearGradient: { x1: 0, y1: 0, x2: 0, y2: 1 },
         stops: [
@@ -918,10 +958,10 @@ const renderStrengthScatterChart = () => {
       gridLineWidth: 0,
       tickPositions: [0, 25, 50, 75, 100],
       plotLines: [
-        { value: 0, color: '#F44336', width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Critical', align: 'right', x: -6, y: 14, style: { color: '#F44336', fontSize: '11px', fontWeight: '600' } } },
-        { value: 25, color: '#FF9800', width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Struggling', align: 'right', x: -6, y: 14, style: { color: '#EF6C00', fontSize: '11px', fontWeight: '600' } } },
-        { value: 50, color: '#8BC34A', width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Good', align: 'right', x: -6, y: 14, style: { color: '#689F38', fontSize: '11px', fontWeight: '600' } } },
-        { value: 75, color: '#4CAF50', width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Mastered', align: 'right', x: -6, y: 14, style: { color: '#388E3C', fontSize: '11px', fontWeight: '600' } } }
+        { value: 0, color: c('scaleCritical'), width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Critical', align: 'right', x: -6, y: 14, style: { color: c('scaleCriticalText'), fontSize: '11px', fontWeight: '600' } } },
+        { value: 25, color: c('scaleStruggling'), width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Struggling', align: 'right', x: -6, y: 14, style: { color: c('scaleStrugglingText'), fontSize: '11px', fontWeight: '600' } } },
+        { value: 50, color: c('scaleGood'), width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Good', align: 'right', x: -6, y: 14, style: { color: c('scaleGoodText'), fontSize: '11px', fontWeight: '600' } } },
+        { value: 75, color: c('scaleMastered'), width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Mastered', align: 'right', x: -6, y: 14, style: { color: c('scaleMasteredText'), fontSize: '11px', fontWeight: '600' } } }
       ]
     },
     series: [
@@ -938,7 +978,7 @@ const renderStrengthScatterChart = () => {
         name: 'Avg strength',
         type: 'spline',
         data: trend,
-        color: '#1565C0',
+        color: c('chartPrimary'),
         lineWidth: 3,
         marker: { enabled: false },
         enableMouseTracking: false,
@@ -952,7 +992,7 @@ const renderStrengthScatterChart = () => {
       formatter: function(this: any) {
         let s = `Attempt <b>${this.point.x}</b> · ~<b>${this.point.y}%</b> strength · <b>${this.point.z}</b> cards`
         if (showCardTitles.value && this.point.titleLabel) {
-          s += `<br/><span style="color:#666">${this.point.titleLabel}</span>`
+          s += `<br/><span style="color:${mutedTextColor()}">${this.point.titleLabel}</span>`
         }
         return s
       }
@@ -973,7 +1013,7 @@ const renderStudyHoursChart = () => {
   const peak = Math.max(...hourCounts)
   const data = hourCounts.map((count) => ({
     y: count,
-    color: count === peak && peak > 0 ? '#2196F3' : '#90CAF9'
+    color: count === peak && peak > 0 ? c('chartAccent') : c('chartAccentMuted')
   }))
   const categories = HOUR_LABELS
   if (chartInstances.studyHours) {
@@ -984,7 +1024,7 @@ const renderStudyHoursChart = () => {
     chart: { type: 'column' },
     title: { text: '' },
     xAxis: { categories, title: { text: 'Hour of Day' } },
-    yAxis: { title: { text: 'Attempts' }, min: 0, gridLineWidth: 1, gridLineColor: GRID_LINE_COLOR },
+    yAxis: { title: { text: 'Attempts' }, min: 0, gridLineWidth: 1, gridLineColor: gridLineColor() },
     series: [{ name: 'Attempts', data, colorByPoint: true, type: 'column' }],
     legend: { enabled: false },
     credits: { enabled: false },
@@ -1011,7 +1051,7 @@ const renderStudyDaysChart = () => {
   const peak = Math.max(...dayCounts)
   const data = dayCounts.map((count, i) => ({
     y: count,
-    color: count === peak && peak > 0 ? '#4CAF50' : '#A5D6A7',
+    color: count === peak && peak > 0 ? c('chartPositive') : c('chartPositiveMuted'),
     name: dayNames[i]
   }))
   if (chartInstances.studyDays) {
@@ -1022,7 +1062,7 @@ const renderStudyDaysChart = () => {
     chart: { type: 'column' },
     title: { text: '' },
     xAxis: { categories: dayNames, title: { text: 'Day of Week' } },
-    yAxis: { title: { text: 'Attempts' }, min: 0, gridLineWidth: 1, gridLineColor: GRID_LINE_COLOR },
+    yAxis: { title: { text: 'Attempts' }, min: 0, gridLineWidth: 1, gridLineColor: gridLineColor() },
     series: [{ name: 'Attempts', data, colorByPoint: true, type: 'column' }],
     legend: { enabled: false },
     credits: { enabled: false },
@@ -1079,7 +1119,7 @@ const renderStudyHeatmapChart = () => {
         useHTML: true,
         formatter: function(this: any) {
           return this.pos === 29
-            ? `<span style="color:#2196F3;font-weight:700">${this.value}</span>`
+            ? `<span style="color:${c('chartAccent')};font-weight:700">${this.value}</span>`
             : `${this.value}`
         }
       }
@@ -1089,17 +1129,17 @@ const renderStudyHeatmapChart = () => {
       min: 0,
       max: maxVal,
       stops: [
-        [0, '#FFFFFF'],
-        [0.01, '#BBDEFB'],
-        [0.4, '#42A5F5'],
-        [1, '#1565C0']
+        [0, c('heatMin')],
+        [0.01, c('heatLow')],
+        [0.4, c('heatMid')],
+        [1, c('heatHigh')]
       ]
     },
     series: [{
       name: 'Attempts',
       type: 'heatmap',
       borderWidth: 1,
-      borderColor: 'rgba(0,0,0,0.05)',
+      borderColor: 'rgba(var(--v-theme-on-surface),0.05)',
       data: heatData,
       dataLabels: { enabled: false }
     }],
@@ -1126,8 +1166,22 @@ const goBack = () => {
   router.push({ name: 'collections' })
 }
 
+// Chart colors are baked in at creation and the render functions reuse cached
+// instances via setData, so a theme switch has to tear the charts down rather
+// than just re-running the renders.
+watch(() => theme.global.name.value, () => {
+  Object.values(chartInstances).forEach(chart => chart.destroy())
+  chartInstances = {}
+  renderCharts()
+})
+
 onMounted(async () => {
   await loadData()
+})
+
+onUnmounted(() => {
+  Object.values(chartInstances).forEach(chart => chart.destroy())
+  chartInstances = {}
 })
 </script>
 
@@ -1143,8 +1197,8 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   padding: 20px;
-  background-color: rgba(255, 255, 255, 0.95);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background-color: rgb(var(--v-theme-surface));
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .progress-header h1 {
@@ -1162,13 +1216,13 @@ onMounted(async () => {
 .subtitle {
   margin: 4px 0 0;
   font-size: 0.85rem;
-  color: rgba(0, 0, 0, 0.5);
+  color: rgba(var(--v-theme-on-surface), 0.5);
 }
 
 .collection-filter-bar {
   padding: 12px 20px;
-  background: rgba(255, 255, 255, 0.9);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgb(var(--v-theme-surface));
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.06);
 }
 
 .collection-select {
@@ -1183,23 +1237,23 @@ onMounted(async () => {
 }
 
 .stat-card {
-  background: white;
+  background: rgb(var(--v-theme-surface));
   border-radius: 8px;
   padding: 20px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   text-align: center;
 }
 
 .stat-value {
   font-size: 2rem;
   font-weight: 700;
-  color: #2196F3;
+  color: rgb(var(--v-theme-chartAccent));
   margin-bottom: 8px;
 }
 
 .stat-label {
   font-size: 0.875rem;
-  color: rgba(0, 0, 0, 0.6);
+  color: rgba(var(--v-theme-on-surface), 0.6);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -1213,7 +1267,7 @@ onMounted(async () => {
   padding: 20px;
   border-radius: 16px;
   color: white;
-  background: linear-gradient(135deg, #1565C0 0%, #42A5F5 100%);
+  background: linear-gradient(135deg, rgb(var(--v-theme-gradientBlueFrom)) 0%, rgb(var(--v-theme-gradientBlueTo)) 100%);
   box-shadow: 0 8px 24px rgba(21, 101, 192, 0.28);
   position: relative;
   overflow: hidden;
@@ -1222,7 +1276,7 @@ onMounted(async () => {
 }
 
 .projection-card--alt {
-  background: linear-gradient(135deg, #6A1B9A 0%, #AB47BC 100%);
+  background: linear-gradient(135deg, rgb(var(--v-theme-gradientPurpleFrom)) 0%, rgb(var(--v-theme-gradientPurpleTo)) 100%);
   box-shadow: 0 8px 24px rgba(106, 27, 154, 0.28);
 }
 
@@ -1280,22 +1334,22 @@ onMounted(async () => {
 }
 
 .chart-wrapper {
-  background: white;
+  background: rgb(var(--v-theme-surface));
   border-radius: 8px;
   padding: 20px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .chart-wrapper h3 {
   margin: 0 0 4px;
   font-size: 1.1rem;
-  color: rgba(0, 0, 0, 0.87);
+  color: rgba(var(--v-theme-on-surface), 0.87);
 }
 
 .chart-subtitle {
   margin: 0 0 16px;
   font-size: 0.8rem;
-  color: rgba(0, 0, 0, 0.45);
+  color: rgba(var(--v-theme-on-surface), 0.45);
 }
 
 .chart-wrapper.full-width {

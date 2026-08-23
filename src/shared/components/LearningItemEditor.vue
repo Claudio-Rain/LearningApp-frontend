@@ -205,7 +205,7 @@ onBeforeUnmount(() => editor.destroy())
   margin-bottom: 12px;
   // padding: 6px 8px;
   // border-radius: 10px;
-  // background: rgba(0, 0, 0, 0.02);
+  // background: rgba(var(--v-theme-on-surface), 0.02);
 
   .editor-group {
     display: flex;
@@ -218,7 +218,7 @@ onBeforeUnmount(() => editor.destroy())
     width: 1px;
     align-self: stretch;
     margin: 2px 6px;
-    background: rgba(0, 0, 0, 0.1);
+    background: rgba(var(--v-theme-on-surface), 0.1);
   }
 
   .answer-btn {
@@ -227,18 +227,18 @@ onBeforeUnmount(() => editor.destroy())
   }
 
   .v-btn {
-    color: rgba(0, 0, 0, 0.7);
+    color: rgba(var(--v-theme-on-surface), 0.7);
     border-radius: 8px;
     transition: background-color 0.15s ease, color 0.15s ease;
-    border: 1px solid rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   
     &:hover {
-      background-color: rgba(0, 0, 0, 0.06);
+      background-color: rgba(var(--v-theme-on-surface), 0.06);
     }
 
     &.is-active {
       background-color: rgb(var(--v-theme-primary));
-      color: white;
+      color: rgb(var(--v-theme-on-primary));
     }
   }
 
@@ -252,18 +252,18 @@ onBeforeUnmount(() => editor.destroy())
     padding: 0 8px;
     border-radius: 8px;
     cursor: pointer;
-    color: rgba(0, 0, 0, 0.7);
+    color: rgba(var(--v-theme-on-surface), 0.7);
     transition: background-color 0.15s ease;
 
     &:hover {
-      background-color: rgba(0, 0, 0, 0.06);
+      background-color: rgba(var(--v-theme-on-surface), 0.06);
     }
 
     .color-swatch {
       width: 14px;
       height: 14px;
       border-radius: 3px;
-      border: 1px solid rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(var(--v-theme-on-surface), 0.2);
     }
 
     input[type='color'] {
@@ -336,7 +336,7 @@ onBeforeUnmount(() => editor.destroy())
 
     td,
     th {
-      border: 1px solid #d1d5db;
+      border: 1px solid rgba(var(--v-theme-on-surface), 0.18);
       box-sizing: border-box;
       min-width: 1em;
       padding: 6px 8px;
@@ -349,13 +349,13 @@ onBeforeUnmount(() => editor.destroy())
     }
 
     th {
-      background-color: #f3f4f6;
+      background-color: rgba(var(--v-theme-on-surface), 0.05);
       font-weight: bold;
       text-align: left;
     }
 
     .selectedCell:after {
-      background: #e5e7eb;
+      background: rgba(var(--v-theme-on-surface), 0.10);
       content: '';
       left: 0;
       right: 0;
@@ -367,7 +367,7 @@ onBeforeUnmount(() => editor.destroy())
     }
 
     .column-resize-handle {
-      background-color: #7c3aed;
+      background-color: rgb(var(--v-theme-primary));
       bottom: -2px;
       pointer-events: none;
       position: absolute;
@@ -379,7 +379,7 @@ onBeforeUnmount(() => editor.destroy())
 
   hr {
     border: none;
-    border-top: 1px solid #d1d5db;
+    border-top: 1px solid rgba(var(--v-theme-on-surface), 0.18);
     margin: 0.75rem 0;
   }
 
@@ -394,10 +394,10 @@ onBeforeUnmount(() => editor.destroy())
 
   // Inline code (`backticks`) — not inside a code block.
   code {
-    background: rgba(0, 0, 0, 0.04);
-    border: 1px solid rgba(0, 0, 0, 0.07);
+    background: rgba(var(--v-theme-on-surface), 0.04);
+    border: 1px solid rgba(var(--v-theme-on-surface), 0.07);
     border-radius: 0.35rem;
-    color: rgba(0, 0, 0, 0.75);
+    color: rgba(var(--v-theme-on-surface), 0.75);
     font-family: 'JetBrainsMono', monospace;
     font-size: 0.85em;
     font-weight: 400;
