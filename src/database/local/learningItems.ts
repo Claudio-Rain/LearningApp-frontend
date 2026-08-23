@@ -30,3 +30,19 @@ export async function updateLearningItemTitle(id: string, title: string): Promis
   const item = await db.get(LEARNING_ITEMS_STORE, id)
   await db.put(LEARNING_ITEMS_STORE, { ...item, title, lastModified: formatISO(new Date()) })
 }
+
+/**
+ * Merge label fields into one item, leaving `content` untouched. Every key in
+ * `patch` is written as given, so the caller drops the ones it isn't setting
+ * rather than passing `undefined` (which would erase an existing label).
+ * No-ops if the item is gone.
+ */
+export async function updateLearningItemLabels(
+  id: string,
+  patch: Partial<Pick<LearningItem, 'priority' | 'difficulty' | 'lastModified' | 'syncStatus'>>,
+): Promise<void> {
+  const db = await dbPromise
+  const item = await db.get(LEARNING_ITEMS_STORE, id)
+  if (!item) return
+  await db.put(LEARNING_ITEMS_STORE, { ...item, ...patch })
+}

@@ -1,4 +1,4 @@
-export type { Category, Collection, LearningItem, CardProgress, AttemptLog, ExcludedItem, ContentWidgetSettings } from './types'
+export type { Category, Collection, LearningItem, ItemLabels, CardProgress, AttemptLog, ExcludedItem, ContentWidgetSettings } from './types'
 export {
   startSyncEngine,
   syncAll,
@@ -24,6 +24,8 @@ export {
   removeCollection,
   createLearningItem,
   editLearningItem,
+  setLearningItemPriority,
+  setLearningItemDifficulty,
   removeLearningItem,
   createCardProgress,
   updateCardProgress,

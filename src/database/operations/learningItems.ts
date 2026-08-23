@@ -1,5 +1,5 @@
-import { isAfter, parseISO } from 'date-fns'
-import type { LearningItem } from '../types'
+import { formatISO, isAfter, parseISO } from 'date-fns'
+import type { ItemLabels, LearningItem } from '../types'
 import * as local from '../local'
 import * as remote from '../remote'
 
@@ -50,6 +50,45 @@ export async function editLearningItem(item: LearningItem) {
     await remote.setLearningItem(item)
     await local.updateLearningItem({ ...item, syncStatus: 'synced' })
   }
+}
+
+/**
+ * Shared write path for the label setters below. Unlike editLearningItem this
+ * never sends `content`: labeling runs over the whole library at once, so both
+ * sides are partial writes. On failure (or offline) the item is left `pending`
+ * and syncLearningItems() pushes it whole on the next run — heavier, but
+ * correct.
+ */
+async function writeLabel(id: string, patch: ItemLabels) {
+  // One timestamp for both writes, so a later pull doesn't see the remote copy
+  // as newer than the local one it was written from.
+  const lastModified = formatISO(new Date())
+
+  await local.updateLearningItemLabels(id, { ...patch, lastModified, syncStatus: 'pending' })
+  if (!navigator.onLine) return
+
+  try {
+    await remote.updateLearningItemLabels(id, { ...patch, lastModified })
+    await local.updateLearningItemLabels(id, { syncStatus: 'synced' })
+  } catch {
+    await local.updateLearningItemLabels(id, { syncStatus: 'error' })
+  }
+}
+
+/**
+ * Set how much this item matters to the user's current goal (1-5). Re-run over
+ * the whole library whenever that goal changes; see LearningItem.priority.
+ */
+export async function setLearningItemPriority(id: string, priority: number) {
+  await writeLabel(id, { priority })
+}
+
+/**
+ * Set how hard the card itself is (1-5), independent of the user's goal and of
+ * how well they know it. Only goes stale when the item's content is edited.
+ */
+export async function setLearningItemDifficulty(id: string, difficulty: number) {
+  await writeLabel(id, { difficulty })
 }
 
 export async function removeLearningItem(id: string) {

@@ -33,9 +33,19 @@ export interface LearningItem extends Syncable {
   collectionId: string
   title: string
   content?: JSONContent
+  // Labels on a 1-5 scale, absent until the item has been labeled. Both are
+  // independent of CardProgress.strength_score, which measures how well *you*
+  // know the item — these describe the card itself.
+  //
+  // `priority` is relative to the user's current goal ("my focus is work").
+  priority?: number
+  difficulty?: number
   dateCreated: string
   lastModified: string
 }
+
+/** The label fields alone, for partial writes that must not touch `content`. */
+export type ItemLabels = Pick<LearningItem, 'priority' | 'difficulty'>
 
 export interface CardProgress extends Syncable {
   id?: string
