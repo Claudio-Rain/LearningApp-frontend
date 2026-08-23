@@ -361,6 +361,19 @@
           </div>
         </div>
 
+        <!-- Shortcuts that move a card all the way in one rating, instead of
+             nudging it 0.10-0.15 at a time. -->
+        <div v-if="isFlipped" class="jump-row">
+          <v-btn color="grey-darken-1" variant="text" size="small" title="Reset strength to 0" @click="recordAttempt(-1)">
+            <v-icon start size="18">mdi-restart</v-icon>
+            Start over
+          </v-btn>
+          <v-btn color="success" variant="text" size="small" title="Mark as fully mastered" @click="recordAttempt(1)">
+            <v-icon start size="18">mdi-check-all</v-icon>
+            Learned
+          </v-btn>
+        </div>
+
         <!-- Progress Bar -->
         <div class="progress-container">
           <v-progress-linear :value="((currentIndex + 1) / studyQueue.length) * 100" color="primary" />
@@ -1199,6 +1212,18 @@ const deleteCurrentItem = async () => {
   }
 }
 
+// Number-key ratings on a flipped card. 1-4 mirror the rating buttons; 0 and 5
+// are the all-the-way jumps (reset to 0 / straight to mastered), which the
+// clamp in recordAttempt turns into an absolute set.
+const RATING_KEYS: Record<string, number> = {
+  '1': -0.15,
+  '2': -0.10,
+  '3': 0.10,
+  '4': 0.15,
+  '0': -1,
+  '5': 1
+}
+
 const handleKeydown = (e: KeyboardEvent) => {
   // Escape closes the chat from anywhere — before the input/textarea guard so
   // it works even while typing in the chat box.
@@ -1223,10 +1248,8 @@ const handleKeydown = (e: KeyboardEvent) => {
     e.preventDefault()
     skipToNext()
   } else if (isFlipped.value) {
-    if (e.key === '1') recordAttempt(-0.15)
-    else if (e.key === '2') recordAttempt(-0.10)
-    else if (e.key === '3') recordAttempt(0.10)
-    else if (e.key === '4') recordAttempt(0.15)
+    const ease = RATING_KEYS[e.key]
+    if (ease !== undefined) recordAttempt(ease)
   }
 }
 
@@ -1757,6 +1780,18 @@ onUnmounted(() => {
   .rating-buttons {
     grid-template-columns: repeat(4, 1fr);
   }
+}
+
+.jump-row {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.jump-row .v-btn {
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .progress-container {
