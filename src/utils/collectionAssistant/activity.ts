@@ -23,11 +23,15 @@ export interface ActivityFeed {
   failAll: (label: string) => void
 }
 
+// Ids must stay unique across turns, not just within one: the UI upserts steps
+// by id, so a per-feed counter would make turn 2's first step silently rewrite
+// turn 1's instead of showing up as a new line.
+let nextId = 0
+
 export const createActivityFeed = (
   emit: (activity: AssistantActivity) => void,
 ): ActivityFeed => {
   const open = new Map<number, AssistantActivity>()
-  let nextId = 0
 
   const push = (activity: AssistantActivity) => emit({ ...activity })
 
