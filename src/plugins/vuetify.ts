@@ -54,6 +54,15 @@ const light = {
   scaleGoodText: '#689F38',
   scaleMasteredText: '#388E3C',
 
+  // Item-label intensity ramp (1 calm → 5 hot), shared by priority and
+  // difficulty so a row of labels reads as one visual language. Keyed by level
+  // in `@/utils/itemLabels`; don't add a step here without adding it there.
+  labelLevel1: '#78909C',
+  labelLevel2: '#00897B',
+  labelLevel3: '#F9A825',
+  labelLevel4: '#EF6C00',
+  labelLevel5: '#C62828',
+
   // Chart series accents.
   chartPrimary: '#1565C0',
   chartSecondary: '#64B5F6',
@@ -105,6 +114,12 @@ const dark = {
   scaleFairText: '#FFB74D',
   scaleGoodText: '#C5E1A5',
   scaleMasteredText: '#A5D6A7',
+
+  labelLevel1: '#B0BEC5',
+  labelLevel2: '#4DB6AC',
+  labelLevel3: '#FDD835',
+  labelLevel4: '#FFB74D',
+  labelLevel5: '#EF9A9A',
 
   chartPrimary: '#64B5F6',
   chartSecondary: '#1E88E5',

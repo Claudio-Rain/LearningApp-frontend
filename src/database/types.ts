@@ -47,6 +47,13 @@ export interface LearningItem extends Syncable {
 /** The label fields alone, for partial writes that must not touch `content`. */
 export type ItemLabels = Pick<LearningItem, 'priority' | 'difficulty'>
 
+/**
+ * A label write. Omit a key to leave that label as it is; pass `null` to clear
+ * it back to unlabeled. `undefined` is not a value here — it means "not in this
+ * patch" — which is why clearing needs its own marker.
+ */
+export type ItemLabelPatch = { [K in keyof ItemLabels]?: ItemLabels[K] | null }
+
 export interface CardProgress extends Syncable {
   id?: string
   learning_item_id: string

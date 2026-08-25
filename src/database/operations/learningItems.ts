@@ -1,5 +1,5 @@
 import { formatISO, isAfter, parseISO } from 'date-fns'
-import type { ItemLabels, LearningItem } from '../types'
+import type { ItemLabelPatch, LearningItem } from '../types'
 import * as local from '../local'
 import * as remote from '../remote'
 
@@ -59,13 +59,13 @@ export async function editLearningItem(item: LearningItem) {
  * and syncLearningItems() pushes it whole on the next run — heavier, but
  * correct.
  */
-async function writeLabel(id: string, patch: ItemLabels) {
+async function writeLabel(id: string, patch: ItemLabelPatch): Promise<string> {
   // One timestamp for both writes, so a later pull doesn't see the remote copy
   // as newer than the local one it was written from.
   const lastModified = formatISO(new Date())
 
   await local.updateLearningItemLabels(id, { ...patch, lastModified, syncStatus: 'pending' })
-  if (!navigator.onLine) return
+  if (!navigator.onLine) return lastModified
 
   try {
     await remote.updateLearningItemLabels(id, { ...patch, lastModified })
@@ -73,6 +73,20 @@ async function writeLabel(id: string, patch: ItemLabels) {
   } catch {
     await local.updateLearningItemLabels(id, { syncStatus: 'error' })
   }
+  return lastModified
+}
+
+/**
+ * Set either label, or both at once. This is the single write path for labels —
+ * the editor's pickers and any future automated labeler (the collection
+ * assistant) go through here, so they can't drift on validation or syncing.
+ *
+ * Only the keys present in `patch` are written; omit a key to leave that label
+ * as it is. Pass `null` to clear one. Returns the `lastModified` stamp written,
+ * so callers can keep their in-memory copy of the item in step.
+ */
+export async function setLearningItemLabels(id: string, patch: ItemLabelPatch): Promise<string> {
+  return writeLabel(id, patch)
 }
 
 /**

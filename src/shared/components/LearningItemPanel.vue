@@ -11,6 +11,16 @@
       @update:model-value="handleTitleInput"
     />
 
+    <div class="label-row">
+      <ItemLabelPicker
+        v-for="kind in ITEM_LABEL_KINDS"
+        :key="kind"
+        :kind="kind"
+        :model-value="labelValues[kind]"
+        @update:model-value="value => setLabel(kind, value)"
+      />
+    </div>
+
     <LearningItemEditor
       class="editor-fill"
       :value="content"
@@ -26,10 +36,13 @@ import { ref, watch, toRaw, reactive, computed } from 'vue'
 import { formatISO } from 'date-fns'
 import type { JSONContent } from '@tiptap/vue-3'
 import { editLearningItem } from '../../database'
-import type { LearningItem } from '../../database/types'
+import type { ItemLabelPatch, LearningItem } from '../../database/types'
 import LearningItemEditor from './LearningItemEditor.vue'
+import ItemLabelPicker from './ItemLabelPicker.vue'
 import { streamAnswer, getApiKey, setApiKey, extractText } from '../../utils/claude'
 import { markdownToTiptap } from '../../utils/markdown'
+import { ITEM_LABEL_KINDS, type ItemLabelKind } from '../../utils/itemLabels'
+import { useItemLabels } from '../composables/useItemLabels'
 
 const props = defineProps<{
   item: LearningItem
@@ -38,7 +51,20 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:content', id: string, content: JSONContent, lastModified: string): void
   (e: 'update:title', id: string, title: string, lastModified: string): void
+  (e: 'update:labels', id: string, patch: ItemLabelPatch, lastModified: string): void
 }>()
+
+// Labels save themselves on click (no debounce — one click is the whole edit);
+// the emit only lets the list view mirror the change without a reload.
+const labels = useItemLabels(
+  computed(() => props.item),
+  (id, patch, lastModified) => emit('update:labels', id, patch, lastModified)
+)
+const labelValues = computed(() => ({
+  priority: labels.priority.value,
+  difficulty: labels.difficulty.value
+}))
+const setLabel = (kind: ItemLabelKind, value: number | null) => labels.set(kind, value)
 
 // Track which item ids are currently being answered, so each item's Answer
 // button locks independently. Switching to another item leaves its button
@@ -173,6 +199,16 @@ const handleTitleInput = () => {
 .editor-fill {
   flex: 1;
   min-height: 0;
+}
+
+/* Sits between the title and the editor toolbar: close enough to the title to
+   read as metadata about the item, not as part of the editing surface. */
+.label-row {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 2px 0 8px 16px;
 }
 
 /* Keep the title at its natural height so it doesn't stretch the column

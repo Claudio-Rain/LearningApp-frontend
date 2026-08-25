@@ -11,7 +11,7 @@ import {
   syncCollections,
   pullLearningItems
 } from '@/database'
-import type { Collection, LearningItem } from '@/database/types'
+import type { Collection, ItemLabelPatch, LearningItem } from '@/database/types'
 
 export type CollectionItems = ReturnType<typeof useCollectionItems>
 
@@ -109,10 +109,22 @@ export function useCollectionItems(collectionId: string, options: { onMissing: (
    * Patches an item that the editor already saved: the local copy is updated in
    * place (so the table reflects it without a reload) and only the collection's
    * timestamp needs persisting.
+   *
+   * A `null` label means "cleared", which in memory is the absence of the key —
+   * same shape a fresh read from the DB would produce.
    */
-  const applyLocalEdit = async (id: string, patch: Partial<LearningItem>, lastModified: string) => {
+  const applyLocalEdit = async (
+    id: string,
+    patch: Omit<Partial<LearningItem>, keyof ItemLabelPatch> & ItemLabelPatch,
+    lastModified: string
+  ) => {
     const item = learningItems.value.find(i => i.id === id)
-    if (item) Object.assign(item, patch, { lastModified })
+    if (item) {
+      Object.assign(item, patch, { lastModified })
+      for (const [key, value] of Object.entries(patch)) {
+        if (value === null) delete item[key as keyof LearningItem]
+      }
+    }
     await touchCollection(lastModified)
   }
 

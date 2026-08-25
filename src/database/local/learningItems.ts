@@ -1,5 +1,5 @@
 import { formatISO } from 'date-fns'
-import type { LearningItem } from '../types'
+import type { ItemLabelPatch, LearningItem } from '../types'
 import { dbPromise, LEARNING_ITEMS_STORE } from './db'
 
 export async function getLearningItems(collectionId: string): Promise<LearningItem[]> {
@@ -35,14 +35,21 @@ export async function updateLearningItemTitle(id: string, title: string): Promis
  * Merge label fields into one item, leaving `content` untouched. Every key in
  * `patch` is written as given, so the caller drops the ones it isn't setting
  * rather than passing `undefined` (which would erase an existing label).
+ * A `null` label is an explicit clear: the key is removed from the record, so a
+ * re-read reports the item as unlabeled rather than labeled `null`.
  * No-ops if the item is gone.
  */
 export async function updateLearningItemLabels(
   id: string,
-  patch: Partial<Pick<LearningItem, 'priority' | 'difficulty' | 'lastModified' | 'syncStatus'>>,
+  patch: ItemLabelPatch & Partial<Pick<LearningItem, 'lastModified' | 'syncStatus'>>,
 ): Promise<void> {
   const db = await dbPromise
   const item = await db.get(LEARNING_ITEMS_STORE, id)
   if (!item) return
-  await db.put(LEARNING_ITEMS_STORE, { ...item, ...patch })
+
+  const merged = { ...item, ...patch } as LearningItem & Record<string, unknown>
+  for (const [key, value] of Object.entries(patch)) {
+    if (value === null) delete merged[key]
+  }
+  await db.put(LEARNING_ITEMS_STORE, merged)
 }
