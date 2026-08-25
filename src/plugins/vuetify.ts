@@ -5,7 +5,7 @@ import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import { aliases, mdi } from 'vuetify/iconsets/mdi'
 import '@mdi/font/css/materialdesignicons.css'
-import { initialThemeName } from '../composables/useAppTheme'
+import { initialThemeName } from '@/shared/composables/useAppTheme'
 
 // Code blocks stay light-ink-on-dark-paper in BOTH themes, so this pair is
 // absolute rather than semantic: `darkColor` is always the dark ink, and

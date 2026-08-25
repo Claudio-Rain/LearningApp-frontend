@@ -456,9 +456,9 @@ import {
 import { getApiKey, setApiKey, generateAnswerMarkdown, streamCardChat, rewriteAsStandaloneQuestion, proposeCardSplit, type ChatMessage, type SplitProposal } from '../utils/claude'
 import { markdownToTiptap } from '../utils/markdown'
 import type { Collection, LearningItem, CardProgress } from '../database/types'
-import { useExcludedItems } from '../composables/useExcludedItems'
-import { useStudyViewCollection } from '../composables/useStudyViewCollection'
-import { useStudyTimer } from '../composables/useStudyTimer'
+import { useExcludedItems } from '@/shared/composables/useExcludedItems'
+import { useStudyViewCollection } from '@/shared/composables/useStudyViewCollection'
+import { useStudyTimer } from '@/shared/composables/useStudyTimer'
 
 interface StudyItem extends LearningItem {
   progress?: CardProgress

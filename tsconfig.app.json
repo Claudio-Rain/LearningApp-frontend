@@ -7,6 +7,12 @@
     ],
     "moduleResolution": "Bundler",
     "module": "ESNext",
+    /* Mirrors the `@` alias in vite.config.ts so vue-tsc resolves it too.
+       No "baseUrl" — it is deprecated in TS 7.0, and without it these paths
+       resolve relative to this tsconfig's own directory, which is what we want. */
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     /* Linting */
     "strict": true,
     "noUnusedLocals": true,

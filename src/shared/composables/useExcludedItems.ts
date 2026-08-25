@@ -2,9 +2,10 @@ import { ref } from 'vue'
 import {
   getAllExcludedItems,
   createExcludedItem,
-  removeExcludedItem
-} from '../database'
-import type { ExcludedItem } from '../database'
+  removeExcludedItem,
+  syncExcludedItems
+} from '@/database'
+import type { ExcludedItem } from '@/database'
 
 declare const chrome: any
 
@@ -53,7 +54,14 @@ function isExcluded(learningItemId: string): boolean {
   return excludedItemIds.value.has(learningItemId)
 }
 
+// Pull a fresh set from Firestore into the local DB, then re-hydrate the
+// reactive set that load() populated at setup from the stale cache.
+async function sync() {
+  await syncExcludedItems()
+  await load()
+}
+
 export function useExcludedItems() {
   if (!loaded) load()
-  return { excludedItemIds, load, toggleExclusion, isExcluded }
+  return { excludedItemIds, load, sync, toggleExclusion, isExcluded }
 }

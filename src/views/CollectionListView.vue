@@ -224,7 +224,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { formatISO } from 'date-fns'
 import { useRouter } from 'vue-router'
-import { useStudyViewCollection } from '../composables/useStudyViewCollection'
+import { useStudyViewCollection } from '@/shared/composables/useStudyViewCollection'
 import {
   getCollections,
   createCollection,

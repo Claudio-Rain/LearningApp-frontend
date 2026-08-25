@@ -76,8 +76,8 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useDisplay } from 'vuetify'
 import { useRouter, useRoute } from 'vue-router'
 import { getAllAttemptLogs, getCollections, getLearningItems } from '../database'
-import { useStudyViewCollection } from '../composables/useStudyViewCollection'
-import { useAppTheme } from '../composables/useAppTheme'
+import { useStudyViewCollection } from '@/shared/composables/useStudyViewCollection'
+import { useAppTheme } from '@/shared/composables/useAppTheme'
 
 const { isDark, toggle } = useAppTheme()
 const { mobile } = useDisplay()
