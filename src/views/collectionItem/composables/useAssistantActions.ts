@@ -1,6 +1,7 @@
 import { formatISO } from 'date-fns'
 import { editLearningItem } from '@/database'
 import { markdownToTiptap } from '@/utils/markdown'
+import type { ItemLabelPatch } from '@/database/types'
 import type { CollectionItems } from './useCollectionItems'
 
 /**
@@ -18,6 +19,8 @@ export function useAssistantActions(collectionItems: CollectionItems) {
         content: item.content ? markdownToTiptap(item.content) : undefined
       }))
     )
+
+  const applyLabels = async (id: string, patch: ItemLabelPatch) => collectionItems.setLabels(id, patch)
 
   const applyDelete = async (ids: string[]) => {
     if (!collectionItems.collection.value) return
@@ -38,5 +41,5 @@ export function useAssistantActions(collectionItems: CollectionItems) {
     await collectionItems.load()
   }
 
-  return { applyCreate, applyDelete, applyUpdate }
+  return { applyCreate, applyDelete, applyUpdate, applyLabels }
 }

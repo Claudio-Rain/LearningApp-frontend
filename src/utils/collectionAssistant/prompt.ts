@@ -2,7 +2,18 @@
 // and (for small collections) how every item's full content is embedded.
 
 import { extractText } from '../claude'
+import { ITEM_LABEL_DEFS, ITEM_LABEL_KINDS, LABEL_LEVELS, labelText } from '../itemLabels'
 import type { AssistantItem } from './types'
+
+// How the two label scales are explained to the model. Generated from the
+// vocabulary so the prompt, the tool enum and the UI can never disagree about
+// what the rungs are called.
+const labelRules = (): string =>
+  ITEM_LABEL_KINDS.map((kind) => {
+    const def = ITEM_LABEL_DEFS[kind]
+    const ladder = LABEL_LEVELS.map((level) => `${level} ${def.levels[level].label}`).join(', ')
+    return `- ${def.title}: ${def.description} Levels: ${ladder}. Unlabeled items show as null.`
+  }).join('\n')
 
 // When a collection's full text fits under this budget we embed every item
 // (id + title + full content) straight into the system prompt instead of making
@@ -62,6 +73,8 @@ export const renderItemsBlock = (items: AssistantItem[]): string =>
         `### Item ${i + 1}\n` +
         `id: ${it.id}\n` +
         `Title: ${it.title}\n` +
+        `Priority: ${it.priority === undefined ? 'null' : labelText('priority', it.priority)}\n` +
+        `Difficulty: ${it.difficulty === undefined ? 'null' : labelText('difficulty', it.difficulty)}\n` +
         `Content:\n${body || '(empty)'}`
       )
     })
@@ -82,9 +95,13 @@ export const buildSystem = (
   (collection.description ? `\nDescription: ${collection.description}` : '') +
   `\nIt currently has ${itemCount} learning item${itemCount === 1 ? '' : 's'}.\n\n` +
   `Each learning item is a flashcard with a title (the question/front) and content (the answer/back).\n\n` +
+  `Each item also carries two optional 1-5 labels the user can set, and you can read and propose:\n` +
+  labelRules() +
+  `\nNeither label says how well the user knows the item — that is tracked separately as study progress, which you cannot see. Judge difficulty from the card itself, not from how the user has performed.\n\n` +
   `You can:\n` +
   `- Answer questions about the collection and its items (hardest/best questions, summaries, study advice).\n` +
-  `- Add, edit, or delete items when asked.\n\n` +
+  `- Add, edit, or delete items when asked.\n` +
+  `- Label items by priority and difficulty when asked.\n\n` +
   `Rules:\n` +
   (itemsBlock
     ? `- The full collection is given below. Base every answer on the actual item content there — read it carefully rather than guessing from titles.\n`
@@ -92,6 +109,9 @@ export const buildSystem = (
   `- NEVER claim you created, edited, or deleted anything. The propose_* tools only show the user an approval card — the user makes the final change. After proposing, briefly tell the user to review the card.\n` +
   `- When the user asks for "N exercises/questions", propose exactly N with propose_create_items.\n` +
   `- Put every edit you are making into ONE propose_update_items call so the user approves them all at once — never call it repeatedly with a single item each. Cover the whole request in that one call whenever you can; the user approves the batch in one click, so a bigger batch is better for them, and splitting a request across messages costs them more. Only if a request touches more than ${maxProposals} items, do ${maxProposals} per message (more than that overruns the reply limit and the whole batch is lost), say how many are left, and continue when the user asks.\n` +
+  `- To set labels, use propose_label_items, NOT propose_update_items — it leaves the card's text alone, and the batch limit above does not apply to it, so label every item you mean to label in one call.\n` +
+  `- Priority is relative to a goal, and you may not know the user's. If they ask for priorities without saying what they are working toward, ask once what their focus is, then label against it.\n` +
+  `- Use the whole range when labeling a set of items. If nearly everything comes out the same level, the labels tell the user nothing.\n` +
   `- Keep chat replies concise and friendly. Use markdown.` +
   (itemsBlock
     ? `\n\n---\nFull collection (${itemCount} item${itemCount === 1 ? '' : 's'}):\n\n${itemsBlock}`

@@ -9,9 +9,11 @@ import {
   editCollection,
   syncLearningItems,
   syncCollections,
-  pullLearningItems
+  pullLearningItems,
+  setLearningItemLabels
 } from '@/database'
 import type { Collection, ItemLabelPatch, LearningItem } from '@/database/types'
+import { toLabelPatch } from '@/utils/itemLabels'
 
 export type CollectionItems = ReturnType<typeof useCollectionItems>
 
@@ -118,14 +120,34 @@ export function useCollectionItems(collectionId: string, options: { onMissing: (
     patch: Omit<Partial<LearningItem>, keyof ItemLabelPatch> & ItemLabelPatch,
     lastModified: string
   ) => {
-    const item = learningItems.value.find(i => i.id === id)
-    if (item) {
-      Object.assign(item, patch, { lastModified })
-      for (const [key, value] of Object.entries(patch)) {
-        if (value === null) delete item[key as keyof LearningItem]
-      }
-    }
+    mergeLocalItem(id, patch, lastModified)
     await touchCollection(lastModified)
+  }
+
+  const mergeLocalItem = (
+    id: string,
+    patch: Omit<Partial<LearningItem>, keyof ItemLabelPatch> & ItemLabelPatch,
+    lastModified: string
+  ) => {
+    const item = learningItems.value.find(i => i.id === id)
+    if (!item) return
+    Object.assign(item, patch, { lastModified })
+    for (const [key, value] of Object.entries(patch)) {
+      if (value === null) delete item[key as keyof LearningItem]
+    }
+  }
+
+  /**
+   * Write one item's labels. Unlike a title or content edit this leaves the
+   * collection's own timestamp alone: labels are item-level, and a labeling run
+   * covers many items at once, so touching (and re-syncing) the collection per
+   * item would be a write storm for nothing.
+   */
+  const setLabels = async (id: string, patch: ItemLabelPatch) => {
+    const clean = toLabelPatch(patch)
+    if (Object.keys(clean).length === 0) return
+    const lastModified = await setLearningItemLabels(id, clean)
+    mergeLocalItem(id, clean, lastModified)
   }
 
   const pull = async () => {
@@ -152,6 +174,7 @@ export function useCollectionItems(collectionId: string, options: { onMissing: (
     addItems,
     deleteItems,
     applyLocalEdit,
+    setLabels,
     touchCollection,
     pull
   }

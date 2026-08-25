@@ -40,6 +40,7 @@
       :apply-create="applyCreate"
       :apply-delete="applyDelete"
       :apply-update="applyUpdate"
+      :apply-labels="applyLabels"
     />
   </div>
 </template>
@@ -69,7 +70,7 @@ const collectionItems = useCollectionItems(collectionId, {
   onMissing: () => router.push({ name: 'collections' })
 })
 const { collection, learningItems, selectedItem, isPulling, pull, applyLocalEdit } = collectionItems
-const { applyCreate, applyDelete, applyUpdate } = useAssistantActions(collectionItems)
+const { applyCreate, applyDelete, applyUpdate, applyLabels } = useAssistantActions(collectionItems)
 const { isClearing, progress: clearProgress, clear: clearStudyHistory } =
   useStudyHistoryReset(collection, learningItems)
 const { leftWidth, isDragging, startDrag } = useSplitPane()

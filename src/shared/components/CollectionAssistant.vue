@@ -111,6 +111,36 @@
               </ul>
             </template>
 
+            <!-- Labels -->
+            <template v-else-if="m.proposal.kind === 'label'">
+              <div class="proposal-head">
+                <v-icon size="16" color="primary">mdi-label-outline</v-icon>
+                Label {{ selectedCount(m) }} item{{ selectedCount(m) === 1 ? '' : 's' }}
+              </div>
+              <ul class="proposal-list">
+                <li v-for="it in m.proposal.items" :key="it.id">
+                  <input
+                    type="checkbox" :checked="m.selected[it.id]"
+                    :disabled="m.status !== 'pending'"
+                    @change="toggle(m, it.id)"
+                  />
+                  <div class="proposal-item-text">
+                    <div class="proposal-item-title">{{ it.title }}</div>
+                    <!-- Before → after, so the user judges the change itself -->
+                    <div class="label-changes">
+                      <span v-for="change in labelChanges(it)" :key="change.kind" class="label-change">
+                        {{ change.title }}:
+                        <span class="label-was">{{ change.from }}</span>
+                        <v-icon size="12">mdi-arrow-right</v-icon>
+                        <span :style="{ color: change.color }">{{ change.to }}</span>
+                      </span>
+                    </div>
+                    <div v-if="it.reason" class="proposal-item-body">{{ it.reason }}</div>
+                  </div>
+                </li>
+              </ul>
+            </template>
+
             <!-- Update -->
             <template v-else>
               <div class="proposal-head">
@@ -195,13 +225,18 @@ import { ref, computed, nextTick } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import type Anthropic from '@anthropic-ai/sdk'
-import type { Collection, LearningItem } from '../../database/types'
+import type { Collection, ItemLabelPatch, LearningItem } from '../../database/types'
 import { getApiKey, setApiKey } from '../../utils/claude'
+import { ITEM_LABEL_DEFS, ITEM_LABEL_KINDS, labelMeta, labelText } from '../../utils/itemLabels'
 import {
   runAssistantTurn,
   type Proposal,
   type AssistantItem,
   type AssistantActivity,
+  type CreateProposalItem,
+  type DeleteProposalItem,
+  type UpdateProposalItem,
+  type LabelProposalItem,
 } from '../../utils/collectionAssistant'
 
 const props = defineProps<{
@@ -210,7 +245,22 @@ const props = defineProps<{
   applyCreate: (items: { title: string; content: string }[]) => Promise<void>
   applyDelete: (ids: string[]) => Promise<void>
   applyUpdate: (id: string, patch: { title?: string; content?: string }) => Promise<void>
+  applyLabels: (id: string, patch: ItemLabelPatch) => Promise<void>
 }>()
+
+// The one-line before → after for each label this proposal changes.
+const labelChanges = (it: LabelProposalItem) =>
+  ITEM_LABEL_KINDS.filter((kind) => it[kind] !== undefined).map((kind) => {
+    const to = it[kind] ?? null
+    const meta = labelMeta(kind, to)
+    return {
+      kind,
+      title: ITEM_LABEL_DEFS[kind].title,
+      from: labelText(kind, kind === 'priority' ? it.currentPriority : it.currentDifficulty),
+      to: labelText(kind, to),
+      color: meta ? `rgb(var(--v-theme-${meta.color}))` : undefined,
+    }
+  })
 
 type ProposalMessage = {
   role: 'proposal'
@@ -241,6 +291,7 @@ const suggestions = [
   'Summarize this collection',
   'What are the 5 hardest questions?',
   'Suggest 5 items to remove',
+  'Rate these by difficulty',
 ]
 
 const renderMarkdown = (text: string): string =>
@@ -273,6 +324,7 @@ const applyLabel = (m: ProposalMessage): string => {
   const n = selectedCount(m)
   if (m.proposal.kind === 'delete') return `Delete selected (${n})`
   if (m.proposal.kind === 'update') return `Save selected (${n})`
+  if (m.proposal.kind === 'label') return `Apply labels (${n})`
   return `Add selected (${n})`
 }
 
@@ -288,7 +340,13 @@ const toggleAll = (m: ProposalMessage) => {
 const getItems = (): AssistantItem[] =>
   props.items
     .filter((i) => i.id)
-    .map((i) => ({ id: i.id!, title: i.title, content: i.content }))
+    .map((i) => ({
+      id: i.id!,
+      title: i.title,
+      content: i.content,
+      priority: i.priority,
+      difficulty: i.difficulty,
+    }))
 
 // Append streamed text to the trailing assistant bubble, or start a new one.
 const appendText = (chunk: string) => {
@@ -364,27 +422,55 @@ const send = async (preset?: string) => {
   }
 }
 
+const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`
+
+// Each of these runs one approved batch and returns what to show on the card.
+// The write loops are sequential on purpose: they hit the same collection, and
+// a failure partway through should leave the earlier writes saved.
+const runCreate = async (items: CreateProposalItem[]) => {
+  await props.applyCreate(items)
+  return `Added ${count(items.length, 'item')}`
+}
+
+const runDelete = async (items: DeleteProposalItem[]) => {
+  await props.applyDelete(items.map((it) => it.id))
+  return `Deleted ${count(items.length, 'item')}`
+}
+
+const runUpdate = async (items: UpdateProposalItem[]) => {
+  for (const it of items) {
+    await props.applyUpdate(it.id, { title: it.title, content: it.content })
+  }
+  return `Saved ${count(items.length, 'edit')}`
+}
+
+const runLabel = async (items: LabelProposalItem[]) => {
+  for (const it of items) {
+    const patch: ItemLabelPatch = {}
+    for (const kind of ITEM_LABEL_KINDS) {
+      if (it[kind] !== undefined) patch[kind] = it[kind]
+    }
+    await props.applyLabels(it.id, patch)
+  }
+  return `Labeled ${count(items.length, 'item')}`
+}
+
+const runProposal = async (m: ProposalMessage): Promise<string> => {
+  // Create items have no id, so their checkbox key is their index.
+  if (m.proposal.kind === 'create') {
+    return runCreate(m.proposal.items.filter((_, j) => m.selected[String(j)]))
+  }
+  const chosen = m.proposal.items.filter((it) => m.selected[it.id])
+  if (m.proposal.kind === 'delete') return runDelete(chosen as DeleteProposalItem[])
+  if (m.proposal.kind === 'label') return runLabel(chosen as LabelProposalItem[])
+  return runUpdate(chosen as UpdateProposalItem[])
+}
+
 const apply = async (m: ProposalMessage) => {
   applying.value = true
   error.value = ''
   try {
-    if (m.proposal.kind === 'create') {
-      const chosen = m.proposal.items.filter((_, j) => m.selected[String(j)])
-      await props.applyCreate(chosen)
-      m.result = `Added ${chosen.length} item${chosen.length === 1 ? '' : 's'}`
-    } else if (m.proposal.kind === 'delete') {
-      const ids = m.proposal.items.filter((it) => m.selected[it.id]).map((it) => it.id)
-      await props.applyDelete(ids)
-      m.result = `Deleted ${ids.length} item${ids.length === 1 ? '' : 's'}`
-    } else {
-      const chosen = m.proposal.items.filter((it) => m.selected[it.id])
-      // Sequential: applyUpdate writes to the same collection, and a failure
-      // partway through should leave the earlier edits saved.
-      for (const it of chosen) {
-        await props.applyUpdate(it.id, { title: it.title, content: it.content })
-      }
-      m.result = `Saved ${chosen.length} edit${chosen.length === 1 ? '' : 's'}`
-    }
+    m.result = await runProposal(m)
     m.status = 'applied'
   } catch (err) {
     console.error('Failed to apply proposal:', err)
@@ -640,6 +726,28 @@ const clearChat = () => {
   color: rgba(var(--v-theme-on-surface), 0.55);
   line-height: 1.35;
   margin-top: 2px;
+}
+
+.label-changes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  margin-top: 3px;
+  font-size: 0.72rem;
+}
+
+.label-change {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: rgba(var(--v-theme-on-surface), 0.55);
+}
+
+/* The old value is context, not the point — keep it recessive so the eye lands
+   on what the label is becoming. */
+.label-was {
+  opacity: 0.7;
+  text-decoration: line-through;
 }
 
 .proposal-update {

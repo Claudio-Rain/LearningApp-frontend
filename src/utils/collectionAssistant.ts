@@ -24,6 +24,7 @@ export type {
   CreateProposalItem,
   DeleteProposalItem,
   UpdateProposalItem,
+  LabelProposalItem,
   Proposal,
   AssistantActivity,
   AssistantHandlers,

@@ -1,10 +1,14 @@
 import type { JSONContent } from '@tiptap/vue-3'
+import type { LabelLevel } from '../itemLabels'
 
 /** One learning item as the assistant sees it. */
 export interface AssistantItem {
   id: string
   title: string
   content?: JSONContent
+  /** 1-5, absent when unlabeled. See `@/utils/itemLabels`. */
+  priority?: number
+  difficulty?: number
 }
 
 export interface CreateProposalItem {
@@ -27,11 +31,32 @@ export interface UpdateProposalItem {
   content?: string
 }
 
+/**
+ * One item's proposed labels. Separate from UpdateProposalItem because a
+ * labeling pass is a different kind of edit: it never touches the card's text,
+ * it usually covers the whole collection at once, and the user judges it by
+ * comparing old value to new rather than by reading a rewritten body.
+ *
+ * A key is absent when the model isn't changing that label; `null` means clear
+ * it back to unlabeled. `current*` is what the item holds today, for the
+ * before → after the approval card shows.
+ */
+export interface LabelProposalItem {
+  id: string
+  title: string
+  priority?: LabelLevel | null
+  difficulty?: LabelLevel | null
+  currentPriority?: number
+  currentDifficulty?: number
+  reason?: string
+}
+
 /** A pending write the user must approve before it runs. */
 export type Proposal =
   | { kind: 'create'; items: CreateProposalItem[] }
   | { kind: 'delete'; items: DeleteProposalItem[] }
   | { kind: 'update'; items: UpdateProposalItem[] }
+  | { kind: 'label'; items: LabelProposalItem[] }
 
 /**
  * One step of work the assistant is doing, so a long silent turn still shows
