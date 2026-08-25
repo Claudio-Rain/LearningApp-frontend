@@ -103,10 +103,10 @@
             <v-chip
               size="small"
               label
-              :color="strengthInfo(item.strengthScore).color"
+              :color="strengthMeta(item.strengthScore).scale"
               variant="flat"
             >
-              {{ strengthInfo(item.strengthScore).label }}
+              {{ strengthMeta(item.strengthScore).label }}
             </v-chip>
           </td>
         </tr>
@@ -120,7 +120,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { strengthInfo } from '@/utils/strength'
+import { strengthMeta } from '@/utils/strength'
 import { useCollectionCatalog } from '../composables/useCollectionCatalog'
 import { useExclusionTable } from '../composables/useExclusionTable'
 import { useStudyViewForm } from '../composables/useStudyViewForm'

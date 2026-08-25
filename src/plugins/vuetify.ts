@@ -21,7 +21,9 @@ const inkPaper = {
 // The mastery scale is one concept rendered three ways — as badge text, as
 // muted distribution-bar fills, and as chart series — and each rendering needs
 // its own lightness ramp. Hence parallel token families rather than one set
-// reused at different opacities.
+// reused at different opacities. The families are keyed by the tier names in
+// `@/utils/strength` (new/weak/fair/good/mastered), which maps each tier to its
+// token in all three; don't add a step here without adding it there.
 const light = {
   ...inkPaper,
 
@@ -41,14 +43,14 @@ const light = {
 
   // Score scale shared by the Highcharts plot lines and Study Options chips.
   scaleNew: '#BDBDBD',
-  scaleCritical: '#F44336',
-  scaleStruggling: '#FF9800',
+  scaleWeak: '#F44336',
+  scaleFair: '#FF9800',
   scaleGood: '#8BC34A',
   scaleMastered: '#4CAF50',
 
   // Plot-line label text, a notch darker than the line it annotates.
-  scaleCriticalText: '#F44336',
-  scaleStrugglingText: '#EF6C00',
+  scaleWeakText: '#F44336',
+  scaleFairText: '#EF6C00',
   scaleGoodText: '#689F38',
   scaleMasteredText: '#388E3C',
 
@@ -94,13 +96,13 @@ const dark = {
   barMastered: '#8a6896',
 
   scaleNew: '#757575',
-  scaleCritical: '#E57373',
-  scaleStruggling: '#FFB74D',
+  scaleWeak: '#E57373',
+  scaleFair: '#FFB74D',
   scaleGood: '#AED581',
   scaleMastered: '#81C784',
 
-  scaleCriticalText: '#EF9A9A',
-  scaleStrugglingText: '#FFB74D',
+  scaleWeakText: '#EF9A9A',
+  scaleFairText: '#FFB74D',
   scaleGoodText: '#C5E1A5',
   scaleMasteredText: '#A5D6A7',
 

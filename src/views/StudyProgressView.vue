@@ -209,6 +209,16 @@ import {
 } from '../database'
 import type { AttemptLog, CardProgress, LearningItem, Collection, Category } from '../database/types'
 import CollectionMultiSelect from '../shared/components/CollectionMultiSelect.vue'
+import {
+  SCORED_TIERS,
+  STRENGTH_TIER_META,
+  STRENGTH_TIER_FLOORS,
+  strengthTier,
+  isAtLeastTier,
+  clampStrength,
+  type ScoredTier,
+  type StrengthTier
+} from '@/utils/strength'
 
 const STORAGE_KEY = 'studyProgress_selectedCollections'
 
@@ -259,10 +269,6 @@ let timelineDates: string[] = []
 
 // ── domain constants & helpers ─────────────────────────────────────────────
 
-// Strength tiers, ordered low→high. Scores are 0–1; a card accumulates strength
-// by summing ease_score, clamped to [0, 1].
-type StrengthTier = 'critical' | 'struggling' | 'good' | 'mastered'
-
 // Highcharts renders SVG presentation attributes, which do not resolve CSS
 // custom properties — passing `var(--v-theme-*)` through to a chart option
 // silently yields no color. So every chart color is read out of the active
@@ -275,13 +281,47 @@ const alpha = (token: string, a: number) => {
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`
 }
 
-const strengthColors = (): Record<StrengthTier | 'new', string> => ({
-  critical: c('scaleCritical'),
-  struggling: c('scaleStruggling'),
-  good: c('scaleGood'),
-  mastered: c('scaleMastered'),
-  new: c('scaleNew')
-})
+// Chart color for a strength tier, resolved from the shared tier table.
+const tierColor = (tier: StrengthTier) => c(STRENGTH_TIER_META[tier].scale)
+
+// Tier color for a 0–100 percentage.
+const tierColorForPct = (pct: number) => tierColor(strengthTier(pct / 100))
+
+// An empty count for every scored tier, ready to be incremented.
+const emptyTierCounts = (): Record<ScoredTier, number> =>
+  Object.fromEntries(SCORED_TIERS.map(t => [t, 0])) as Record<ScoredTier, number>
+
+// Charts read the scale low→high and put never-studied cards last, rather than
+// leading with them as STRENGTH_TIERS does for the distribution bar.
+const CHART_TIER_ORDER: StrengthTier[] = [...SCORED_TIERS, 'new']
+
+const tierCountsWithNew = (
+  buckets: Record<ScoredTier, number>,
+  newCards: number
+): Record<StrengthTier, number> => ({ ...buckets, new: newCards })
+
+/**
+ * Dashed lines marking where each strength tier begins, labelled with the tier
+ * name. `from` skips the lower tiers — a y-axis starting at 0 does not need a
+ * line drawn on its own baseline.
+ */
+const tierPlotLines = (opts: { from?: ScoredTier; labelY: number }) => {
+  const start = opts.from ? SCORED_TIERS.indexOf(opts.from) : 0
+  return SCORED_TIERS.slice(start).map(tier => ({
+    value: STRENGTH_TIER_FLOORS[tier],
+    color: tierColor(tier),
+    width: 1,
+    dashStyle: 'Dash',
+    zIndex: 3,
+    label: {
+      text: STRENGTH_TIER_META[tier].label,
+      align: 'right',
+      x: -6,
+      y: opts.labelY,
+      style: { color: c(STRENGTH_TIER_META[tier].scaleText), fontSize: '11px', fontWeight: '600' }
+    }
+  }))
+}
 
 const gridLineColor = () => alpha('on-surface', 0.08)
 const axisLineColor = () => alpha('on-surface', 0.2)
@@ -297,15 +337,6 @@ const HOUR_LABELS = Array.from({ length: 24 }, (_, h) => {
 // Chronological comparator for anything carrying a created_at ISO timestamp.
 const byCreatedAt = (a: { created_at: string }, b: { created_at: string }) =>
   parseISO(a.created_at).getTime() - parseISO(b.created_at).getTime()
-
-const clampStrength = (s: number) => Math.min(1, Math.max(0, s))
-
-// Strength tier for a 0–1 score.
-const strengthTier = (score: number): StrengthTier =>
-  score < 0.25 ? 'critical' : score < 0.5 ? 'struggling' : score < 0.75 ? 'good' : 'mastered'
-
-// Tier color for a 0–100 percentage.
-const strengthColorFor = (pct: number) => strengthColors()[strengthTier(pct / 100)]
 
 // Group attempt logs by their card (learning item) id.
 const groupLogsByCard = (logs: AttemptLog[]) => {
@@ -389,10 +420,11 @@ const loadData = async () => {
 
 const updateStats = () => {
   totalAttempts.value = filteredAttemptLogs.value.length
-  cardsLearned.value = filteredCardProgress.value.filter(p => p.strength_score >= 0.5).length
+  // "Learned" = out of the weak tiers, i.e. 'good' or better.
+  cardsLearned.value = filteredCardProgress.value.filter(p => isAtLeastTier(p.strength_score, 'good')).length
 
-  // Avg revisions to master: for each card, simulate cumulative strength from logs
-  // sorted by date and count how many attempts until it first reaches >= 0.75.
+  // Avg revisions to master: for each card, simulate cumulative strength from
+  // logs sorted by date and count how many attempts until it first masters.
   const logsByCard = groupLogsByCard(filteredAttemptLogs.value)
   const masteredCounts: number[] = []
   for (const logs of logsByCard.values()) {
@@ -400,7 +432,7 @@ const updateStats = () => {
     let strength = 0
     for (let i = 0; i < sorted.length; i++) {
       strength = clampStrength(strength + sorted[i]!.ease_score)
-      if (strength >= 0.75) { masteredCounts.push(i + 1); break }
+      if (isAtLeastTier(strength, 'mastered')) { masteredCounts.push(i + 1); break }
     }
   }
   avgRevisionsToMaster.value = masteredCounts.length > 0
@@ -409,7 +441,7 @@ const updateStats = () => {
 
   // Projection: how much work remains to master every card.
   totalCards.value = filteredLearningItems.value.length
-  const masteredCards = filteredCardProgress.value.filter(p => p.strength_score >= 0.75).length
+  const masteredCards = filteredCardProgress.value.filter(p => isAtLeastTier(p.strength_score, 'mastered')).length
   const remainingCards = Math.max(0, totalCards.value - masteredCards)
   projectedAttemptsToFinish.value = Math.round(remainingCards * avgRevisionsToMaster.value)
 }
@@ -425,8 +457,9 @@ watch([timelineStartDate, timelineEndDate], () => renderTimelineChart())
 // ── chart helpers ──────────────────────────────────────────────────────────
 
 const computeStrengthBuckets = () => {
-  const buckets = { critical: 0, struggling: 0, good: 0, mastered: 0 }
-  for (const p of filteredCardProgress.value) buckets[strengthTier(p.strength_score)]++
+  const buckets = emptyTierCounts()
+  // Every card here has a progress row, so no score lands in the 'new' tier.
+  for (const p of filteredCardProgress.value) buckets[strengthTier(p.strength_score) as ScoredTier]++
   return buckets
 }
 
@@ -488,7 +521,7 @@ const renderCollectionOverviewChart = () => {
 
   for (const collection of visibleCollections) {
     const m = metricsMap.get(collection.id!)!
-    strengthData.push({ y: m.strength, color: strengthColorFor(m.strength) })
+    strengthData.push({ y: m.strength, color: tierColorForPct(m.strength) })
     revisionsData.push(m.revisions)
     revisedData.push(m.revised)
     notRevisedData.push(m.notRevised)
@@ -598,22 +631,21 @@ const renderCharts = () => {
 
 const renderAccuracyChart = () => {
   if (!accuracyChartRef.value) return
-  const { critical, struggling, good, mastered } = computeStrengthBuckets()
+  const buckets = computeStrengthBuckets()
   const newCards = computeNewCardCount()
-  const weakCards = critical + struggling
-  const strongCards = good + mastered
+  const weakCards = buckets.weak + buckets.fair
+  const strongCards = buckets.good + buckets.mastered
   const total = filteredCardProgress.value.length + newCards
   const weakPct = total > 0 ? Math.round((weakCards / total) * 100) : 0
   const strongPct = total > 0 ? Math.round((strongCards / total) * 100) : 0
   const newPct = total > 0 ? Math.round((newCards / total) * 100) : 0
   const subtitle = `${weakPct}% weak · ${strongPct}% strong · ${newPct}% new`
-  const data = [
-    { name: 'Critical', y: critical, color: strengthColors().critical },
-    { name: 'Struggling', y: struggling, color: strengthColors().struggling },
-    { name: 'Good', y: good, color: strengthColors().good },
-    { name: 'Mastered', y: mastered, color: strengthColors().mastered },
-    { name: 'New', y: newCards, color: strengthColors().new }
-  ]
+  const counts = tierCountsWithNew(buckets, newCards)
+  const data = CHART_TIER_ORDER.map(tier => ({
+    name: STRENGTH_TIER_META[tier].label,
+    y: counts[tier],
+    color: tierColor(tier)
+  }))
   if (chartInstances.accuracy) {
     chartInstances.accuracy.series[0]?.setData(data, true, { duration: 300 })
     chartInstances.accuracy.setTitle(null as any, { text: subtitle })
@@ -633,9 +665,8 @@ const renderAccuracyChart = () => {
 
 const renderStrengthChart = () => {
   if (!strengthChartRef.value) return
-  const { critical, struggling, good, mastered } = computeStrengthBuckets()
-  const newCards = computeNewCardCount()
-  const data = [critical, struggling, good, mastered, newCards]
+  const counts = tierCountsWithNew(computeStrengthBuckets(), computeNewCardCount())
+  const data = CHART_TIER_ORDER.map(tier => counts[tier])
   if (chartInstances.strength) {
     chartInstances.strength.series[0]?.setData(data, true, { duration: 300 })
     return
@@ -643,9 +674,9 @@ const renderStrengthChart = () => {
   createChart('strength', strengthChartRef.value, {
     chart: { type: 'column' },
     title: { text: '' },
-    xAxis: { categories: ['Critical', 'Struggling', 'Good', 'Mastered', 'New'], crosshair: true },
+    xAxis: { categories: CHART_TIER_ORDER.map(t => STRENGTH_TIER_META[t].label), crosshair: true },
     yAxis: { title: { text: 'Number of Cards' }, min: 0, gridLineWidth: 1, gridLineColor: gridLineColor() },
-    series: [{ name: 'Cards', data, colorByPoint: true, colors: Object.values(strengthColors()), type: 'column' }],
+    series: [{ name: 'Cards', data, colorByPoint: true, colors: CHART_TIER_ORDER.map(tierColor), type: 'column' }],
     legend: { enabled: false },
     credits: { enabled: false },
     tooltip: { pointFormat: '<b>{point.y}</b> cards' }
@@ -715,7 +746,8 @@ const renderTimelineChart = () => {
 const renderChallengingChart = () => {
   if (!challengingChartRef.value) return
   const sorted = [...filteredCardProgress.value]
-    .filter(p => p.strength_score < 0.5 && filteredLearningItems.value.some(i => i.id === p.learning_item_id))
+    // Challenging = not yet learned, i.e. still below the 'good' tier.
+    .filter(p => !isAtLeastTier(p.strength_score, 'good') && filteredLearningItems.value.some(i => i.id === p.learning_item_id))
     .sort((a, b) => a.strength_score - b.strength_score)
   const labels = sorted.map(p => {
     const item = filteredLearningItems.value.find(i => i.id === p.learning_item_id)
@@ -723,7 +755,7 @@ const renderChallengingChart = () => {
   })
   const strengths = sorted.map(p => ({
     y: Math.round(p.strength_score * 100),
-    color: strengthColors()[strengthTier(p.strength_score)]
+    color: tierColor(strengthTier(p.strength_score))
   }))
   const rowHeight = 35
   const chartHeight = Math.max(300, sorted.length * rowHeight)
@@ -750,7 +782,7 @@ const renderCompositionChart = () => {
   if (!compositionChartRef.value || filteredAttemptLogs.value.length === 0) return
   const sortedLogs = [...filteredAttemptLogs.value].sort(byCreatedAt)
   const runningStrength = new Map<string, number>()
-  const compositionSnapshots: Array<Record<StrengthTier, number>> = []
+  const compositionSnapshots: Array<Record<ScoredTier, number>> = []
   const labels: string[] = []
   const seenCards = new Set<string>()
 
@@ -759,27 +791,26 @@ const renderCompositionChart = () => {
     const prev = runningStrength.get(log.learning_item_id) ?? 0
     runningStrength.set(log.learning_item_id, clampStrength(prev + log.ease_score))
     if ((index + 1) % 5 === 0) {
-      const buckets: Record<StrengthTier, number> = { critical: 0, struggling: 0, good: 0, mastered: 0 }
-      seenCards.forEach(id => buckets[strengthTier(runningStrength.get(id) ?? 0)]++)
+      const buckets = emptyTierCounts()
+      // Every seen card has been revised at least once, so none is 'new'.
+      seenCards.forEach(id => buckets[strengthTier(runningStrength.get(id) ?? 0) as ScoredTier]++)
       compositionSnapshots.push(buckets)
       labels.push(`After ${index + 1} attempts`)
     }
   })
 
-  const pct = (snapshot: Record<StrengthTier, number>, key: StrengthTier) => {
-    const total = snapshot.critical + snapshot.struggling + snapshot.good + snapshot.mastered
+  const pct = (snapshot: Record<ScoredTier, number>, key: ScoredTier) => {
+    const total = SCORED_TIERS.reduce((sum, t) => sum + snapshot[t], 0)
     return total > 0 ? Math.round((snapshot[key] / total) * 100) : 0
   }
-  const critical = compositionSnapshots.map(s => pct(s, 'critical'))
-  const struggling = compositionSnapshots.map(s => pct(s, 'struggling'))
-  const good = compositionSnapshots.map(s => pct(s, 'good'))
-  const mastered = compositionSnapshots.map(s => pct(s, 'mastered'))
+  // One stacked band per scored tier, low→high.
+  const tierSeries = SCORED_TIERS.map(tier => compositionSnapshots.map(s => pct(s, tier)))
   if (chartInstances.composition) {
     chartInstances.composition.xAxis[0]?.setCategories(labels, false)
-    chartInstances.composition.series[0]?.setData(critical, false)
-    chartInstances.composition.series[1]?.setData(struggling, false)
-    chartInstances.composition.series[2]?.setData(good, false)
-    chartInstances.composition.series[3]?.setData(mastered, true, { duration: 300 })
+    tierSeries.forEach((data, i) => {
+      const isLast = i === tierSeries.length - 1
+      chartInstances.composition?.series[i]?.setData(data, isLast, isLast ? { duration: 300 } : undefined)
+    })
     return
   }
   createChart('composition', compositionChartRef.value, {
@@ -788,12 +819,12 @@ const renderCompositionChart = () => {
     xAxis: { categories: labels, tickInterval: Math.max(1, Math.floor(labels.length / 8)) },
     yAxis: { title: { text: 'Composition (%)' }, min: 0, max: 100, stackLabels: { enabled: false }, gridLineWidth: 1, gridLineColor: gridLineColor() },
     plotOptions: { areaspline: { stacking: 'percent', lineWidth: 0, marker: { enabled: false }, dataLabels: { enabled: false } } },
-    series: [
-      { name: 'Critical', data: critical, color: strengthColors().critical, type: 'areaspline' },
-      { name: 'Struggling', data: struggling, color: strengthColors().struggling, type: 'areaspline' },
-      { name: 'Good', data: good, color: strengthColors().good, type: 'areaspline' },
-      { name: 'Mastered', data: mastered, color: strengthColors().mastered, type: 'areaspline' }
-    ],
+    series: SCORED_TIERS.map((tier, i) => ({
+      name: STRENGTH_TIER_META[tier].label,
+      data: tierSeries[i],
+      color: tierColor(tier),
+      type: 'areaspline'
+    })),
     legend: { enabled: true },
     credits: { enabled: false },
     tooltip: { pointFormat: '<b>{point.percentage:.0f}%</b> {series.name}' }
@@ -855,11 +886,8 @@ const renderDailyStrengthChart = () => {
       max: 100,
       gridLineWidth: 1,
       gridLineColor: gridLineColor(),
-      plotLines: [
-        { value: 25, color: c('scaleStruggling'), width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Struggling', align: 'right', x: -6, y: -6, style: { color: c('scaleStrugglingText'), fontSize: '11px', fontWeight: '600' } } },
-        { value: 50, color: c('scaleGood'), width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Good', align: 'right', x: -6, y: -6, style: { color: c('scaleGoodText'), fontSize: '11px', fontWeight: '600' } } },
-        { value: 75, color: c('scaleMastered'), width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Mastered', align: 'right', x: -6, y: -6, style: { color: c('scaleMasteredText'), fontSize: '11px', fontWeight: '600' } } }
-      ]
+      // Starts at 'fair' — the weak tier's floor is the axis baseline.
+      plotLines: tierPlotLines({ from: 'fair', labelY: -6 })
     },
     series: [{
       name: 'Avg Strength',
@@ -956,13 +984,9 @@ const renderStrengthScatterChart = () => {
       min: 0,
       max: 100,
       gridLineWidth: 0,
-      tickPositions: [0, 25, 50, 75, 100],
-      plotLines: [
-        { value: 0, color: c('scaleCritical'), width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Critical', align: 'right', x: -6, y: 14, style: { color: c('scaleCriticalText'), fontSize: '11px', fontWeight: '600' } } },
-        { value: 25, color: c('scaleStruggling'), width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Struggling', align: 'right', x: -6, y: 14, style: { color: c('scaleStrugglingText'), fontSize: '11px', fontWeight: '600' } } },
-        { value: 50, color: c('scaleGood'), width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Good', align: 'right', x: -6, y: 14, style: { color: c('scaleGoodText'), fontSize: '11px', fontWeight: '600' } } },
-        { value: 75, color: c('scaleMastered'), width: 1, dashStyle: 'Dash', zIndex: 3, label: { text: 'Mastered', align: 'right', x: -6, y: 14, style: { color: c('scaleMasteredText'), fontSize: '11px', fontWeight: '600' } } }
-      ]
+      tickPositions: [0, ...SCORED_TIERS.slice(1).map(t => STRENGTH_TIER_FLOORS[t]), 100],
+      // Every tier, weak included — the labels double as the axis legend here.
+      plotLines: tierPlotLines({ labelY: 14 })
     },
     series: [
       {

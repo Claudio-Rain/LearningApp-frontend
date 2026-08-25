@@ -68,7 +68,7 @@
             <v-icon size="14">mdi-history</v-icon>{{ totalRevisions }} revisions / {{ learningItems.length }} cards · avg {{ avgRevisions }}
           </span>
         </div>
-        <div class="dist-bar" title="Strength distribution — new / weak / struggling / good / mastered">
+        <div class="dist-bar" title="Strength distribution — new / weak / fair / good / mastered">
           <template v-for="seg in strengthDistribution" :key="seg.label">
             <div
               v-if="seg.count > 0"
@@ -455,6 +455,7 @@ import {
 } from '../database'
 import { getApiKey, setApiKey, generateAnswerMarkdown, streamCardChat, rewriteAsStandaloneQuestion, proposeCardSplit, type ChatMessage, type SplitProposal } from '../utils/claude'
 import { markdownToTiptap } from '../utils/markdown'
+import { strengthTier, STRENGTH_TIERS, STRENGTH_TIER_META, type StrengthTier } from '@/utils/strength'
 import type { Collection, LearningItem, CardProgress } from '../database/types'
 import { useExcludedItems } from '@/shared/composables/useExcludedItems'
 import { useStudyViewCollection } from '@/shared/composables/useStudyViewCollection'
@@ -785,23 +786,11 @@ const revisedCards = computed(() => {
   return count
 })
 
-const currentStrengthLabel = computed(() => {
-  const score = currentItem.value?.progress?.strength_score
-  if (score === undefined || score === null) return 'New'
-  if (score < 0.25) return 'Weak'
-  if (score < 0.5) return 'Fair'
-  if (score < 0.75) return 'Good'
-  return 'Mastered'
-})
-
-const currentStrengthClass = computed(() => {
-  const score = currentItem.value?.progress?.strength_score
-  if (score === undefined || score === null) return 'strength-new'
-  if (score < 0.25) return 'strength-weak'
-  if (score < 0.5) return 'strength-fair'
-  if (score < 0.75) return 'strength-good'
-  return 'strength-mastered'
-})
+const currentStrengthTier = computed(() =>
+  strengthTier(currentItem.value?.progress?.strength_score)
+)
+const currentStrengthLabel = computed(() => STRENGTH_TIER_META[currentStrengthTier.value].label)
+const currentStrengthClass = computed(() => `strength-${currentStrengthTier.value}`)
 
 const isCurrentCardNew = computed(() => {
   if (!currentItem.value) return false
@@ -841,25 +830,21 @@ const avgRevisions = computed(() => {
   return count ? (totalRevisions.value / count).toFixed(1) : '0'
 })
 
-// Strength buckets across the items being studied. New (never attempted) cards
-// get their own grey segment so the colored ones only compare revised cards.
+// Strength buckets across the items being studied. New cards — here meaning
+// never attempted — get their own grey segment so the colored ones only compare
+// revised cards.
 const strengthDistribution = computed(() => {
-  const buckets = { new: 0, weak: 0, struggling: 0, good: 0, mastered: 0 }
+  const counts: Record<StrengthTier, number> = { new: 0, weak: 0, fair: 0, good: 0, mastered: 0 }
   learningItems.value.forEach(item => {
     const progress = cardProgressMap.value.get(item.id!)
-    if (!progress || progress.total_attempts === 0) buckets.new++
-    else if (progress.strength_score < 0.25) buckets.weak++
-    else if (progress.strength_score < 0.5) buckets.struggling++
-    else if (progress.strength_score < 0.75) buckets.good++
-    else buckets.mastered++
+    const score = !progress || progress.total_attempts === 0 ? null : progress.strength_score
+    counts[strengthTier(score)]++
   })
-  return [
-    { label: 'New', cls: 'dist-new', count: buckets.new },
-    { label: 'Weak', cls: 'dist-weak', count: buckets.weak },
-    { label: 'Struggling', cls: 'dist-struggling', count: buckets.struggling },
-    { label: 'Good', cls: 'dist-good', count: buckets.good },
-    { label: 'Mastered', cls: 'dist-mastered', count: buckets.mastered }
-  ]
+  return STRENGTH_TIERS.map(tier => ({
+    label: STRENGTH_TIER_META[tier].label,
+    cls: `dist-${tier}`,
+    count: counts[tier]
+  }))
 })
 
 const startTimer = () => {
@@ -1955,7 +1940,7 @@ onUnmounted(() => {
   background: rgb(var(--v-theme-barWeak));
 }
 
-.dist-struggling {
+.dist-fair {
   background: rgb(var(--v-theme-barFair));
 }
 
