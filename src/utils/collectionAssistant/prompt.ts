@@ -12,12 +12,45 @@ import type { AssistantItem } from './types'
 // character proxy for tokens (~4 chars/token → ~12k tokens), well within budget.
 export const MAX_EMBED_CHARS = 48_000
 
-// How many item edits the model may write in one message. They all land on a
-// single approval card, so this is not about clicks — it is the output budget:
-// each rewritten card body runs to hundreds of tokens, and a batch that
-// overruns MAX_TOKENS in ./run loses the proposal it was mid-way through.
-// Sized to sit comfortably inside that budget with room for the reply text.
-const MAX_PROPOSALS_PER_MESSAGE = 25
+// Rough output cost of proposing one edit: a 36-char UUID tokenizes to about
+// 20, title and body land near a token per 4 characters, and the JSON wrapper
+// adds a few. The body the model writes tracks the one it replaces, so the
+// current card is the estimate — padded, since a rewrite usually comes back
+// longer than the original.
+const REWRITE_GROWTH = 1.5
+
+const editTokens = (item: AssistantItem): number =>
+  30 + Math.ceil(((item.title.length + extractText(item.content).length) / 4) * REWRITE_GROWTH)
+
+/**
+ * The largest number of edits that is safe to ask for in one message, given
+ * `outputBudget` tokens of room. There is no fixed cap: a batch is limited only
+ * by what fits, so short collections go in a single message and long ones split
+ * only as far as they must. Every extra message re-sends the whole prompt, so
+ * splitting further than necessary costs real money.
+ *
+ * Counts the largest items first, so the answer holds whichever items the model
+ * actually picks — not just an average-sized batch.
+ */
+export const maxProposalsPerMessage = (
+  items: AssistantItem[],
+  outputBudget: number,
+): number => {
+  // Leave the model room to write its reply alongside the proposal.
+  const budget = outputBudget * 0.85
+  const costs = items.map(editTokens).sort((a, b) => b - a)
+
+  let used = 0
+  let fits = 0
+  for (const cost of costs) {
+    if (used + cost > budget) break
+    used += cost
+    fits++
+  }
+  // One oversized card must still be proposable on its own; it either fits the
+  // response or gets cut short, and refusing to try helps nobody.
+  return Math.max(1, fits)
+}
 
 // Render every item's id, title, and full content as a block for the system
 // prompt. Used only when the whole collection fits under MAX_EMBED_CHARS.
@@ -41,6 +74,8 @@ export const buildSystem = (
   // reads items straight from here and has no read tools. When null, the model
   // must fetch items through list_items / read_item.
   itemsBlock: string | null,
+  // Derived from the collection's own card sizes — see maxProposalsPerMessage.
+  maxProposals: number,
 ): string =>
   `You are a study assistant embedded in a flashcard app, helping the user work with one collection of learning items (flashcards).\n\n` +
   `Collection: "${collection.title}"` +
@@ -56,7 +91,7 @@ export const buildSystem = (
     : `- Use list_items to see the collection before reasoning about it as a whole. The list only has short previews, so before you judge difficulty, compare, or answer questions about what an item actually says, call read_item to get its full content.\n`) +
   `- NEVER claim you created, edited, or deleted anything. The propose_* tools only show the user an approval card — the user makes the final change. After proposing, briefly tell the user to review the card.\n` +
   `- When the user asks for "N exercises/questions", propose exactly N with propose_create_items.\n` +
-  `- Put every edit you are making into ONE propose_update_items call so the user approves them all at once — never call it repeatedly with a single item each. If a request touches more than ${MAX_PROPOSALS_PER_MESSAGE} items, do ${MAX_PROPOSALS_PER_MESSAGE} per message (more than that overruns the reply limit and the whole batch is lost), say how many are left, and continue when the user asks.\n` +
+  `- Put every edit you are making into ONE propose_update_items call so the user approves them all at once — never call it repeatedly with a single item each. Cover the whole request in that one call whenever you can; the user approves the batch in one click, so a bigger batch is better for them, and splitting a request across messages costs them more. Only if a request touches more than ${maxProposals} items, do ${maxProposals} per message (more than that overruns the reply limit and the whole batch is lost), say how many are left, and continue when the user asks.\n` +
   `- Keep chat replies concise and friendly. Use markdown.` +
   (itemsBlock
     ? `\n\n---\nFull collection (${itemCount} item${itemCount === 1 ? '' : 's'}):\n\n${itemsBlock}`

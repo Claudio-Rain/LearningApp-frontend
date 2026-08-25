@@ -3,7 +3,12 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import { MODEL, createClient } from '../claude'
 import { READ_TOOLS, WRITE_TOOLS } from './tools'
-import { buildSystem, renderItemsBlock, MAX_EMBED_CHARS } from './prompt'
+import {
+  buildSystem,
+  renderItemsBlock,
+  maxProposalsPerMessage,
+  MAX_EMBED_CHARS,
+} from './prompt'
 import { handleToolUses } from './toolHandlers'
 import { createActivityFeed, activityForTool, type ActivityFeed } from './activity'
 import type { AssistantHandlers } from './types'
@@ -51,8 +56,23 @@ export const runAssistantTurn = async (
   const items = handlers.getItems()
   const itemsBlock = renderItemsBlock(items)
   const embed = itemsBlock.length <= MAX_EMBED_CHARS
-  const system = buildSystem(collection, items.length, embed ? itemsBlock : null)
   const tools = embed ? WRITE_TOOLS : [...READ_TOOLS, ...WRITE_TOOLS]
+
+  // The whole collection rides in the system prompt and the loop below re-sends
+  // it on every step, so cache it. Render order is tools -> system -> messages,
+  // which means this one breakpoint covers the tool schemas too.
+  const system: Anthropic.TextBlockParam[] = [
+    {
+      type: 'text',
+      text: buildSystem(
+        collection,
+        items.length,
+        embed ? itemsBlock : null,
+        maxProposalsPerMessage(items, MAX_TOKENS),
+      ),
+      cache_control: { type: 'ephemeral' },
+    },
+  ]
 
   const feed = createActivityFeed(handlers.onActivity)
 
@@ -64,12 +84,20 @@ export const runAssistantTurn = async (
         max_tokens: MAX_TOKENS,
         system,
         tools,
-        messages,
+        messages: withConversationBreakpoint(messages),
       })
 
       const activityFor = await consumeStream(stream, handlers, feed)
 
       const message = await stream.finalMessage()
+      // Cache reads bill at a fraction of full input. If `read` stays 0 across
+      // steps, something in the prefix is changing per request.
+      console.debug('[assistant] tokens', {
+        cacheRead: message.usage.cache_read_input_tokens,
+        cacheWrite: message.usage.cache_creation_input_tokens,
+        uncached: message.usage.input_tokens,
+        output: message.usage.output_tokens,
+      })
       messages.push({ role: 'assistant', content: message.content })
 
       // Only the block the model was mid-way through can be truncated; every
@@ -106,6 +134,40 @@ export const runAssistantTurn = async (
     feed.failAll("Didn't finish")
     throw err
   }
+}
+
+// Thinking blocks are the content types that can't carry a breakpoint; marking
+// one is a 400.
+type CacheableBlock = Exclude<
+  Anthropic.ContentBlockParam,
+  { type: 'thinking' } | { type: 'redacted_thinking' }
+>
+
+const isCacheable = (block: Anthropic.ContentBlockParam): block is CacheableBlock =>
+  block.type !== 'thinking' && block.type !== 'redacted_thinking'
+
+/**
+ * Put a cache breakpoint on the conversation's final content block, so the next
+ * request reads the whole history back instead of re-sending it at full price.
+ * Copies only the message it touches — leaving the caller's history unmarked is
+ * what keeps a long turn under the four-breakpoint-per-request cap.
+ */
+const withConversationBreakpoint = (
+  messages: Anthropic.MessageParam[],
+): Anthropic.MessageParam[] => {
+  const last = messages[messages.length - 1]
+  if (!last) return messages
+
+  const blocks: Anthropic.ContentBlockParam[] =
+    typeof last.content === 'string'
+      ? [{ type: 'text', text: last.content }]
+      : [...last.content]
+
+  const tail = blocks[blocks.length - 1]
+  if (!tail || !isCacheable(tail)) return messages
+
+  blocks[blocks.length - 1] = { ...tail, cache_control: { type: 'ephemeral' } }
+  return [...messages.slice(0, -1), { ...last, content: blocks }]
 }
 
 const formatChars = (n: number): string =>
