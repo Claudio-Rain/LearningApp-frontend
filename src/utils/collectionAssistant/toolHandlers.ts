@@ -8,8 +8,8 @@
 // model so it can recover, and shows up as a failed step rather than a silent
 // success.
 
-import type Anthropic from '@anthropic-ai/sdk'
 import { extractText } from '../claude'
+import type { ToolOutcome } from '../assistantLoop'
 import { ITEM_LABEL_KINDS, labelText, parseLabelLevel } from '../itemLabels'
 import { CLEAR_LABEL_VALUE } from './tools'
 import type {
@@ -29,13 +29,6 @@ const labelsFor = (item: AssistantItem) => ({
   priority: item.priority === undefined ? null : labelText('priority', item.priority),
   difficulty: item.difficulty === undefined ? null : labelText('difficulty', item.difficulty),
 })
-
-/** What one tool call did: `result` for the model, `label`/`ok` for the user. */
-interface ToolOutcome {
-  result: string
-  label: string
-  ok: boolean
-}
 
 const ok = (result: string, label: string): ToolOutcome => ({ result, label, ok: true })
 const failed = (result: string, label: string): ToolOutcome => ({ result, label, ok: false })
@@ -216,46 +209,18 @@ const runWriteTool = (name: string, input: any, handlers: AssistantHandlers): To
   }
 }
 
-// A call cut off by the output limit has half-written arguments, so it must not
-// run. Telling the model exactly why lets it retry with a smaller batch instead
-// of repeating the same oversized message.
-const truncatedOutcome = (): ToolOutcome =>
-  failed(
-    'This tool call was cut off: the message hit the output limit before the ' +
-      'arguments were finished, so it did not run. Propose fewer items in one ' +
-      'message — a few at a time — and continue from where you left off.',
-    'Cut short — too much in one message',
-  )
-
-// Execute every tool_use block in an assistant message and return the matching
-// tool_result blocks. Reads run and feed data back; writes raise a proposal.
-// `onDone` reports each call's outcome, for the progress steps. `truncatedId`
-// names a call the model never finished writing; every other call is complete
-// and runs normally.
-export const handleToolUses = (
-  content: Anthropic.ContentBlock[],
+/**
+ * Run one tool call for the collection assistant. Reads execute against the
+ * live collection and feed data back; writes raise an approval card. The shared
+ * agentic loop turns the outcome into a tool_result and a progress step.
+ */
+export const runToolCall = (
+  name: string,
+  input: unknown,
   handlers: AssistantHandlers,
-  onDone?: (toolUseId: string, label: string, ok: boolean) => void,
-  truncatedId?: string,
-): Anthropic.ToolResultBlockParam[] => {
-  const results: Anthropic.ToolResultBlockParam[] = []
-  for (const block of content) {
-    if (block.type !== 'tool_use') continue
-    const isRead = block.name === 'list_items' || block.name === 'read_item'
-    const outcome =
-      block.id === truncatedId
-        ? truncatedOutcome()
-        : isRead
-          ? runReadTool(block.name, block.input, handlers.getItems)
-          : runWriteTool(block.name, block.input, handlers)
-    onDone?.(block.id, outcome.label, outcome.ok)
-    results.push({
-      type: 'tool_result',
-      tool_use_id: block.id,
-      content: outcome.result,
-      // Let the model see the call didn't work so it can correct course.
-      is_error: !outcome.ok,
-    })
-  }
-  return results
+): ToolOutcome => {
+  const isRead = name === 'list_items' || name === 'read_item'
+  return isRead
+    ? runReadTool(name, input, handlers.getItems)
+    : runWriteTool(name, input, handlers)
 }

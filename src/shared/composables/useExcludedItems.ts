@@ -2,7 +2,9 @@ import { ref } from 'vue'
 import {
   getAllExcludedItems,
   createExcludedItem,
+  createExcludedItems,
   removeExcludedItem,
+  removeExcludedItems,
   syncExcludedItems
 } from '@/database'
 import type { ExcludedItem } from '@/database'
@@ -54,6 +56,50 @@ function isExcluded(learningItemId: string): boolean {
   return excludedItemIds.value.has(learningItemId)
 }
 
+/**
+ * Exclude many items in one write — what building a study set does to
+ * everything the set filtered out. Returns how many were newly excluded (ids
+ * already excluded are skipped, so re-running a set is not a duplicate).
+ */
+async function excludeMany(learningItemIds: string[]): Promise<number> {
+  const rows = await createExcludedItems(learningItemIds)
+  if (rows.length === 0) return 0
+
+  const nextIds = new Set(excludedItemIds.value)
+  const nextRecords = new Map(excludedRecordMap.value)
+  for (const row of rows) {
+    nextIds.add(row.learningItemId)
+    if (row.id) nextRecords.set(row.learningItemId, row.id)
+  }
+  excludedItemIds.value = nextIds
+  excludedRecordMap.value = nextRecords
+
+  persistToChromeStorage()
+  return rows.length
+}
+
+/** Drop many exclusions in one go — clearing a set before building the next. */
+async function includeMany(learningItemIds: string[]): Promise<number> {
+  const recordIds = learningItemIds
+    .map(id => excludedRecordMap.value.get(id))
+    .filter((id): id is string => !!id)
+  if (recordIds.length === 0) return 0
+
+  await removeExcludedItems(recordIds)
+
+  const nextIds = new Set(excludedItemIds.value)
+  const nextRecords = new Map(excludedRecordMap.value)
+  for (const id of learningItemIds) {
+    nextIds.delete(id)
+    nextRecords.delete(id)
+  }
+  excludedItemIds.value = nextIds
+  excludedRecordMap.value = nextRecords
+
+  persistToChromeStorage()
+  return recordIds.length
+}
+
 // Pull a fresh set from Firestore into the local DB, then re-hydrate the
 // reactive set that load() populated at setup from the stale cache.
 async function sync() {
@@ -63,5 +109,5 @@ async function sync() {
 
 export function useExcludedItems() {
   if (!loaded) load()
-  return { excludedItemIds, load, sync, toggleExclusion, isExcluded }
+  return { excludedItemIds, load, sync, toggleExclusion, excludeMany, includeMany, isExcluded }
 }

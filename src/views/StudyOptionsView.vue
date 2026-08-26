@@ -26,6 +26,8 @@
     <v-btn color="primary" block :loading="saving" @click="saveSettings">
       Save Settings
     </v-btn>
+
+    <StudySetAssistant />
   </div>
 </template>
 
@@ -35,6 +37,7 @@ import StudyViewSection from './studyOptions/components/StudyViewSection.vue'
 import ContentWidgetSection from './studyOptions/components/ContentWidgetSection.vue'
 import NotificationSection from './studyOptions/components/NotificationSection.vue'
 import ExcludedItemsSection from './studyOptions/components/ExcludedItemsSection.vue'
+import StudySetAssistant from './studyOptions/components/StudySetAssistant.vue'
 import { useCollectionCatalog } from './studyOptions/composables/useCollectionCatalog'
 import { useStudyViewForm } from './studyOptions/composables/useStudyViewForm'
 import { useContentWidgetForm } from './studyOptions/composables/useContentWidgetForm'

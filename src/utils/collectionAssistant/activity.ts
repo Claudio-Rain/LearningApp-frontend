@@ -80,6 +80,8 @@ export const TOOL_ACTIVITY: Record<string, { icon: string; label: string }> = {
   propose_delete_items: { icon: 'mdi-delete-outline', label: 'Picking items to remove' },
   propose_update_items: { icon: 'mdi-pencil-outline', label: 'Writing edits' },
   propose_label_items: { icon: 'mdi-label-outline', label: 'Judging priority and difficulty' },
+  propose_study_set: { icon: 'mdi-playlist-check', label: 'Putting a study set together' },
+  propose_study_view_collections: { icon: 'mdi-book-multiple-outline', label: 'Choosing collections' },
 }
 
 export const activityForTool = (name: string) =>

@@ -41,14 +41,17 @@ export async function pullExcludedItems() {
 export async function pushExcludedItems() {
   const items = await local.getAllExcludedItems()
   const pending = items.filter(i => i.syncStatus === 'pending' || i.syncStatus === 'error')
+  if (pending.length === 0) return
 
-  for (const item of pending) {
-    try {
-      await remote.setExcludedItem(item)
-      await local.updateExcludedItem({ ...item, syncStatus: 'synced' })
-    } catch {
-      await local.updateExcludedItem({ ...item, syncStatus: 'error' })
-    }
+  // Batched: one round trip per 500 rows rather than one per row. Building a
+  // study set can leave hundreds pending at once, and the per-row loop this
+  // replaces took that many sequential requests to drain.
+  try {
+    await remote.setExcludedItems(pending)
+    await local.updateExcludedItems(pending.map(i => ({ ...i, syncStatus: 'synced' as const })))
+  } catch {
+    // A failed batch wrote none of its rows; leave them for the next sync.
+    await local.updateExcludedItems(pending.map(i => ({ ...i, syncStatus: 'error' as const })))
   }
 }
 
@@ -83,6 +86,55 @@ export async function createExcludedItem(learningItemId: string) {
   }
 
   return id
+}
+
+/**
+ * Exclude many items at once — the write path behind building a study set,
+ * which excludes everything the set filtered out.
+ *
+ * Local-first and deliberately so: the rows land in one IndexedDB transaction
+ * and the function returns, so the set is usable immediately. The remote push
+ * is batched (one round trip per 500) and its failure is not the caller's
+ * problem — anything unsent stays `pending` and the next sync drains it.
+ *
+ * Ids already excluded are skipped, so re-running a set is not a duplicate.
+ */
+export async function createExcludedItems(learningItemIds: string[]): Promise<ExcludedItem[]> {
+  const existing = await local.getAllExcludedItems()
+  const alreadyExcluded = new Set(existing.map(i => i.learningItemId))
+  const toAdd = [...new Set(learningItemIds)].filter(id => id && !alreadyExcluded.has(id))
+  if (toAdd.length === 0) return []
+
+  const now = formatISO(new Date())
+  const rows = await local.addExcludedItems(
+    toAdd.map(learningItemId => ({
+      learningItemId,
+      dateCreated: now,
+      lastModified: now,
+      syncStatus: 'pending'
+    }) as ExcludedItem)
+  )
+
+  if (navigator.onLine) {
+    try {
+      await remote.setExcludedItems(rows)
+      await local.updateExcludedItems(rows.map(r => ({ ...r, syncStatus: 'synced' as const })))
+    } catch {
+      // Stays pending; syncExcludedItems() retries.
+    }
+  }
+
+  return rows
+}
+
+/** Remove many exclusions at once. Mirrors createExcludedItems. */
+export async function removeExcludedItems(ids: string[]): Promise<void> {
+  for (const id of ids) {
+    await local.deleteExcludedItem(id)
+  }
+  if (navigator.onLine) {
+    await Promise.allSettled(ids.map(id => remote.deleteExcludedItem(id)))
+  }
 }
 
 export async function removeExcludedItem(id: string) {
