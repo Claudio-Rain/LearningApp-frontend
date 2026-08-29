@@ -95,6 +95,13 @@ describe('matchesFilter', () => {
     expect(matchesFilter(weak, { onlyNew: true })).toBe(false)
     expect(matchesFilter(fresh, { onlyNew: false })).toBe(false)
   })
+
+  it('drops ids in excludeIds however well they match', () => {
+    expect(matchesFilter(easyEssential, { excludeIds: new Set(['a']) })).toBe(false)
+    expect(matchesFilter(easyEssential, { excludeIds: new Set(['other']) })).toBe(true)
+    // A studied card is only ever dropped because it was named, never on its own.
+    expect(matchesFilter(easyEssential, {})).toBe(true)
+  })
 })
 
 describe('resolveStudySet', () => {
@@ -271,6 +278,65 @@ describe('resolveStudySet', () => {
 
       expect(plan.items.every(i => i.collectionId === 'grammar')).toBe(true)
       expect(plan.items).toHaveLength(15)
+    })
+  })
+
+  describe('the next batch', () => {
+    it('never re-offers a card the user is already studying', () => {
+      const items = pool('a', 50, { priority: 5, difficulty: 1 })
+      const current = resolveStudySet(items, { collectionIds: ['a'], total: 30 })
+      const currentIds = new Set(current.items.map(i => i.id))
+
+      const next = resolveStudySet(items, {
+        collectionIds: ['a'],
+        total: 30,
+        filter: { excludeIds: currentIds }
+      })
+
+      expect(next.items).toHaveLength(20)
+      expect(next.items.some(i => currentIds.has(i.id))).toBe(false)
+      expect(next.shortfall).toMatch(/Only 20 cards match/)
+    })
+
+    it('keeps study order within the batch, so the best of what is left comes first', () => {
+      const items = [
+        ...pool('a', 5, { priority: 5, difficulty: 1 }),
+        ...pool('a', 5, { priority: 3, difficulty: 3 })
+      ]
+      const first = resolveStudySet(items, { collectionIds: ['a'], total: 5 })
+      expect(first.items.every(i => i.priority === 5)).toBe(true)
+
+      const next = resolveStudySet(items, {
+        collectionIds: ['a'],
+        filter: { excludeIds: new Set(first.items.map(i => i.id)) }
+      })
+      expect(next.items).toHaveLength(5)
+      expect(next.items.every(i => i.priority === 3)).toBe(true)
+    })
+
+    it('reports the pool after the exclusion, not before', () => {
+      const items = pool('a', 10, { priority: 4 })
+      const plan = resolveStudySet(items, {
+        collectionIds: ['a'],
+        filter: { excludeIds: new Set(items.slice(0, 6).map(i => i.id)) }
+      })
+
+      expect(plan.allocations[0]!.pool).toBe(4)
+      expect(plan.allocations[0]!.taken).toBe(4)
+    })
+
+    it('leaves the excluded cards out of the set without hiding them again', () => {
+      // leftOutIds drives what gets excluded on apply, and it is scoped to the
+      // chosen collections — so the previous batch does land back in it.
+      const items = pool('a', 10, { priority: 4 })
+      const previous = new Set(items.slice(0, 6).map(i => i.id))
+      const plan = resolveStudySet(items, {
+        collectionIds: ['a'],
+        filter: { excludeIds: previous }
+      })
+
+      expect(plan.leftOutIds).toHaveLength(6)
+      expect(plan.leftOutIds.every(id => previous.has(id))).toBe(true)
     })
   })
 

@@ -93,6 +93,12 @@
 
               <div class="set-criteria">{{ describeFilter(m.proposal.spec) }}</div>
               <div v-if="m.proposal.reason" class="proposal-item-body">{{ m.proposal.reason }}</div>
+              <!-- A next batch swaps out what they were on. Say it before they
+                   approve, or the cards they were studying vanish unannounced. -->
+              <div v-if="m.proposal.spec.filter?.excludeIds" class="set-shortfall">
+                <v-icon size="13">mdi-information-outline</v-icon>
+                A fresh batch — approving replaces the set you're studying now.
+              </div>
               <div v-if="m.proposal.plan.shortfall" class="set-shortfall">
                 <v-icon size="13">mdi-information-outline</v-icon>
                 {{ m.proposal.plan.shortfall }}
@@ -230,6 +236,7 @@ const apiMessages: Anthropic.MessageParam[] = []
 
 const suggestions = [
   'The easy, essential cards from all my collections',
+  "I've finished these — give me the next 30",
   'Put my content widget collections into Study View',
   'A 30-card set of what I know least well',
 ]
@@ -262,6 +269,7 @@ const describeFilter = (spec: StudySetSpec): string => {
     parts.push(`mastery at or below ${Math.round(spec.filter.maxStrength * 100)}%`)
   }
   if (spec.filter?.includeUnlabeled) parts.push('unlabeled cards included')
+  if (spec.filter?.excludeIds) parts.push('none from your current set')
 
   return parts.length > 0 ? parts.join(' · ') : 'every card in the selected collections'
 }

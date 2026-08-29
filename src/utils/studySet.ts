@@ -42,6 +42,16 @@ export interface StudySetFilter {
   /** Cards never studied. `true` = only new cards, `false` = only seen ones. */
   onlyNew?: boolean
   includeUnlabeled?: boolean
+  /**
+   * Ids to leave out whatever else they match — how "the next batch" is
+   * expressed: hand in the set the user is studying now and what comes back is
+   * everything else, ranked in the same study order.
+   *
+   * Deliberately a raw id set rather than a rule, because the caller already
+   * knows exactly which cards it means and no filter could restate it. It is
+   * never applied unless a caller passes it.
+   */
+  excludeIds?: ReadonlySet<string>
 }
 
 /**
@@ -121,6 +131,7 @@ const inRange = (value: number | undefined, range: Range | undefined, includeUnl
 export function matchesFilter(item: StudySetItem, filter: StudySetFilter = {}): boolean {
   const includeUnlabeled = filter.includeUnlabeled ?? false
 
+  if (filter.excludeIds?.has(item.id)) return false
   if (!inRange(item.priority, filter.priority, includeUnlabeled)) return false
   if (!inRange(item.difficulty, filter.difficulty, includeUnlabeled)) return false
 

@@ -14,7 +14,7 @@
 import type Anthropic from '@anthropic-ai/sdk'
 import { runAgentTurn, type ToolOutcome } from './assistantLoop'
 import { ITEM_LABEL_DEFS, LABEL_LEVELS, labelText, parseLabelLevel } from './itemLabels'
-import { resolveStudySet, type BalanceMode, type StudySetItem, type StudySetPlan, type StudySetSpec } from './studySet'
+import { resolveStudySet, type BalanceMode, type StudySetFilter, type StudySetItem, type StudySetPlan, type StudySetSpec } from './studySet'
 import type { AssistantActivity } from './collectionAssistant/types'
 
 export interface StudySetCollection {
@@ -143,6 +143,12 @@ export const STUDY_SET_TOOLS: Anthropic.Tool[] = [
           type: 'boolean',
           description: 'true = only never-studied cards; false = only cards already seen.',
         },
+        exclude_current_set: {
+          type: 'boolean',
+          description:
+            'Leave out every card the user is studying right now, so the proposal is the NEXT batch instead of the one they just finished. Set it when they ask for "the next chunk", "more", "what comes after these". ' +
+            'Defaults to false, and it is never right to set it just because a card has been studied — if the user asks for something that overlaps what they are on, give them the overlap.',
+        },
         balance: {
           type: 'string',
           enum: ['balanced', 'proportional', 'equal'],
@@ -207,41 +213,60 @@ const asBalance = (raw: unknown): BalanceMode =>
     ? (raw as BalanceMode)
     : 'balanced'
 
-/**
- * Turn the model's flat tool input into a spec the resolver understands.
- * Every field is validated rather than trusted: an unknown collection id, a
- * level name that isn't on the ladder, or a non-numeric total is dropped, so a
- * malformed call degrades into a broader set instead of throwing.
- */
-export function toStudySetSpec(input: any, known: StudySetCollection[]): StudySetSpec {
-  const knownIds = new Set(known.map(c => c.id))
-  const total = asNumber(input?.total)
+/** Which cards qualify, from the model's flat input. Every field is validated. */
+const toFilter = (input: any, activeSetIds?: ReadonlySet<string>): StudySetFilter => ({
+  priority: range(asLevel('priority', input?.priority_min), asLevel('priority', input?.priority_max)),
+  difficulty: range(asLevel('difficulty', input?.difficulty_min), asLevel('difficulty', input?.difficulty_max)),
+  maxStrength: asNumber(input?.max_strength),
+  onlyNew: asBoolean(input?.only_new),
+  includeUnlabeled: input?.include_unlabeled === true,
+  // Only ever honoured on request: a card the user has studied is never dropped
+  // behind their back, only when they asked for what comes next.
+  excludeIds:
+    input?.exclude_current_set === true && activeSetIds && activeSetIds.size > 0
+      ? activeSetIds
+      : undefined,
+})
 
+/** Per-collection ceilings, keeping only the ones naming a real collection. */
+const toLimits = (input: any, knownIds: Set<string>): Record<string, number> | undefined => {
   const limits: Record<string, number> = {}
   for (const entry of input?.collection_limits ?? []) {
     const id = String(entry?.collection_id ?? '')
     const max = asNumber(entry?.max)
     if (knownIds.has(id) && max !== undefined && max >= 0) limits[id] = Math.floor(max)
   }
+  return Object.keys(limits).length > 0 ? limits : undefined
+}
+
+/**
+ * Turn the model's flat tool input into a spec the resolver understands.
+ * Every field is validated rather than trusted: an unknown collection id, a
+ * level name that isn't on the ladder, or a non-numeric total is dropped, so a
+ * malformed call degrades into a broader set instead of throwing.
+ */
+export function toStudySetSpec(
+  input: any,
+  known: StudySetCollection[],
+  activeSetIds?: ReadonlySet<string>
+): StudySetSpec {
+  const knownIds = new Set(known.map(c => c.id))
+  const total = asNumber(input?.total)
 
   return {
     collectionIds: (input?.collection_ids ?? []).map(String).filter((id: string) => knownIds.has(id)),
     total: total !== undefined && total > 0 ? Math.floor(total) : undefined,
     balance: asBalance(input?.balance),
-    limits: Object.keys(limits).length > 0 ? limits : undefined,
-    filter: {
-      priority: range(asLevel('priority', input?.priority_min), asLevel('priority', input?.priority_max)),
-      difficulty: range(asLevel('difficulty', input?.difficulty_min), asLevel('difficulty', input?.difficulty_max)),
-      maxStrength: asNumber(input?.max_strength),
-      onlyNew: asBoolean(input?.only_new),
-      includeUnlabeled: input?.include_unlabeled === true,
-    },
+    limits: toLimits(input, knownIds),
+    filter: toFilter(input, activeSetIds),
   }
 }
 
 const runProposeStudySet = (input: any, handlers: StudySetHandlers): ToolOutcome => {
   const collections = handlers.getCollections()
-  const spec = toStudySetSpec(input, collections)
+  const settings = handlers.getSettings()
+  const activeIds = new Set(activeSetItems(settings, handlers.getItems()).map(i => i.id))
+  const spec = toStudySetSpec(input, collections, activeIds)
 
   if (spec.collectionIds.length === 0) {
     return {
@@ -257,9 +282,14 @@ const runProposeStudySet = (input: any, handlers: StudySetHandlers): ToolOutcome
   const titleFor = (id: string) => collections.find(c => c.id === id)?.title ?? id
 
   if (plan.items.length === 0) {
+    // Say which lever emptied it. "Nothing matched" sends the model off
+    // loosening labels when the real cause is that the batch is the last one.
+    const nextBatchNote = spec.filter?.excludeIds
+      ? ' Note that exclude_current_set was on, so everything they are already studying was left out — there may be no cards left after this batch.'
+      : ''
     return {
       ok: false,
-      result: `That filter matches no cards. ${plan.shortfall ?? ''} Try loosening it, or allow unlabeled cards.`.trim(),
+      result: `That filter matches no cards. ${plan.shortfall ?? ''}${nextBatchNote} Try loosening it, or allow unlabeled cards.`.trim(),
       label: 'Nothing matched that filter',
     }
   }
@@ -283,6 +313,7 @@ const runProposeStudySet = (input: any, handlers: StudySetHandlers): ToolOutcome
     ok: true,
     result:
       `Showed the user an approval card for a ${plan.items.length}-card set. Split — ${split}.` +
+      (spec.filter?.excludeIds ? ' Every card in it is one they are NOT currently studying.' : '') +
       (plan.shortfall ? ` Note: ${plan.shortfall}` : '') +
       ' Awaiting their review; tell them briefly what the split is.',
     label: `Proposed a ${plan.items.length}-card set`,
@@ -353,31 +384,103 @@ const runProposeCollections = (input: any, handlers: StudySetHandlers): ToolOutc
  * before promising 30 — while costing a few hundred tokens regardless of
  * library size.
  */
+const tally = (items: StudySetItem[], kind: 'priority' | 'difficulty'): string => {
+  const counts = LABEL_LEVELS.map(level => {
+    const n = items.filter(i => i[kind] === level).length
+    return n > 0 ? `${labelText(kind, level)} ${n}` : null
+  }).filter(Boolean)
+  return counts.length > 0 ? counts.join(', ') : 'none labeled'
+}
+
 export function renderDistribution(collections: StudySetCollection[], items: StudySetItem[]): string {
   return collections
     .map(c => {
       const own = items.filter(i => i.collectionId === c.id)
       if (own.length === 0) return `- ${c.title} (id: ${c.id}): empty`
 
-      const tally = (kind: 'priority' | 'difficulty') => {
-        const counts = LABEL_LEVELS.map(level => {
-          const n = own.filter(i => i[kind] === level).length
-          return n > 0 ? `${labelText(kind, level)} ${n}` : null
-        }).filter(Boolean)
-        return counts.length > 0 ? counts.join(', ') : 'none labeled'
-      }
-
       const unlabeled = own.filter(i => i.priority === undefined && i.difficulty === undefined).length
       const unstudied = own.filter(i => i.strength === undefined).length
 
       return (
         `- ${c.title} (id: ${c.id}): ${own.length} cards\n` +
-        `  priority — ${tally('priority')}\n` +
-        `  difficulty — ${tally('difficulty')}\n` +
+        `  priority — ${tally(own, 'priority')}\n` +
+        `  difficulty — ${tally(own, 'difficulty')}\n` +
         `  ${unlabeled} unlabeled, ${unstudied} never studied`
       )
     })
     .join('\n')
+}
+
+/**
+ * The cards the user is studying right now: everything in the Study View
+ * collections that an earlier set didn't exclude.
+ *
+ * This is the whole definition of an active set — there is no stored set object
+ * (see `useStudySet`), so "what am I studying" is only ever this subtraction.
+ */
+export function activeSetItems(settings: StudySetSettings, items: StudySetItem[]): StudySetItem[] {
+  return items.filter(
+    i => settings.studyViewCollectionIds.includes(i.collectionId) && !settings.excludedItemIds.has(i.id)
+  )
+}
+
+/**
+ * What the user is studying *right now*, described the same way the library is.
+ *
+ * This is what makes "give me the next batch" answerable. Knowing only that 37
+ * cards are excluded, the model can't tell that the 30 in play are all easy
+ * essentials and that the tier is spent; with the tally in front of it, it can
+ * step down to the next band and say why.
+ *
+ * Counts and averages, never ids — the model still never names a card, so this
+ * costs a fixed handful of tokens no matter how big the set is.
+ */
+export function renderActiveSet(
+  settings: StudySetSettings,
+  collections: StudySetCollection[],
+  items: StudySetItem[]
+): string {
+  if (settings.studyViewCollectionIds.length === 0) {
+    return 'No collections are selected for Study View, so there is no active set.'
+  }
+
+  const active = activeSetItems(settings, items)
+  if (active.length === 0) {
+    return 'Every card in the selected collections is excluded — the active set is empty.'
+  }
+
+  const studied = active.filter(i => i.strength !== undefined)
+  const mastery =
+    studied.length === 0
+      ? 'none of them studied yet'
+      : `${studied.length} studied (average mastery ${Math.round(
+          (studied.reduce((sum, i) => sum + (i.strength ?? 0), 0) / studied.length) * 100
+        )}%), ${active.length - studied.length} never studied`
+
+  const from = settings.studyViewCollectionIds
+    .map(id => ({
+      title: collections.find(c => c.id === id)?.title ?? id,
+      n: active.filter(i => i.collectionId === id).length,
+    }))
+    .filter(c => c.n > 0)
+    .map(c => `${c.title} ${c.n}`)
+    .join(', ')
+
+  // Whether a set was ever applied changes what "the next batch" can mean: with
+  // no exclusions the user is studying whole collections, so there is nothing
+  // "after" the current set except the rest of the library.
+  const shape =
+    settings.excludedItemIds.size > 0
+      ? 'a filtered set is active'
+      : 'no filtering — these are the selected collections in full'
+
+  return (
+    `- ${active.length} cards in play (${shape})\n` +
+    `  priority — ${tally(active, 'priority')}\n` +
+    `  difficulty — ${tally(active, 'difficulty')}\n` +
+    `  ${mastery}\n` +
+    `  from: ${from}`
+  )
 }
 
 /**
@@ -423,11 +526,16 @@ export function buildStudySetSystem(
     `- Mastery is 0 to 1, measuring how well the user knows the card. A card with no mastery has never been studied.\n\n` +
     `Their library:\n${renderDistribution(collections, items)}\n\n` +
     `What they have set up on this page right now:\n${renderSettings(settings, collections)}\n\n` +
+    `What they are studying right now:\n${renderActiveSet(settings, collections, items)}\n\n` +
     `Rules:\n` +
     `- The settings above are live — that IS what the user currently has selected on the page, so answer questions about their selection directly instead of saying you can't see it. It refreshes each time they message you, so if they change a selector and ask again, you will see the new value.\n` +
     `- When they say "the ones I selected", "these collections", or don't name any, use the Study View selection above. If that is empty, ask which collections rather than guessing.\n` +
     `- You CAN change the Study View selection: propose_study_view_collections does exactly that. Use it when they want whole collections (including copying the content widget's selection across); use propose_study_set when they want a filtered slice. Never tell the user to go and change the selector by hand.\n` +
     `- propose_study_view_collections REPLACES the selection rather than adding to it, so when the user says "also add these", include the collections already selected alongside the new ones.\n` +
+    `- The active set above is live too, and it is what "these", "the ones I'm on", and "what I've been studying" refer to. You can see its size, its label mix and its mastery — use them; never say you cannot see what they are studying.\n` +
+    `- "Give me the next batch/chunk/20 more" means: a fresh set of cards they are NOT currently studying. Set exclude_current_set: true, keep the same collections unless they say otherwise, and set total to the size they asked for. Approving REPLACES their current set, so say that plainly — the batch they just finished stops being in Study View.\n` +
+    `- Size the next batch by reading the distribution and the active set together. If they are on 30 easy essentials and want 30 more, check how many easy essentials are left; when that tier is spent, widen to the next band (medium, or important rather than essential) to fill the batch, and tell them you did and why. A batch that steps down a tier is normal progress, not a problem.\n` +
+    `- Mastery and study history are there for you to REASON with, never to overrule the user. If they ask for cards they have already studied, or already know well, or that are in their current set, give them exactly that. Do not quietly filter it out, do not argue, do not propose something different from what they asked for. Only set exclude_current_set, only_new or max_strength when their request actually calls for it.\n` +
     `- You do NOT choose individual cards, and you never see or name card ids. You describe the criteria; the app picks the cards, splits the total across collections, and guarantees the counts are exact. Trust the numbers it returns and quote them back to the user.\n` +
     `- NEVER claim you built or saved a set. propose_study_set only shows an approval card — the user confirms it. After proposing, say briefly what the split is and let them review.\n` +
     `- Read the distribution above before promising a number. If a collection has only 8 cards matching what they asked for, say so rather than proposing a set that quietly under-delivers.\n` +
