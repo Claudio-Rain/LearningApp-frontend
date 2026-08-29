@@ -84,7 +84,9 @@
                     <div class="split-bar">
                       <div class="split-fill" :style="{ width: sharePercent(m.proposal, a.taken) + '%' }" />
                     </div>
-                    <div class="proposal-item-body">{{ a.pool }} matched this filter</div>
+                    <div class="proposal-item-body">
+                      {{ a.pool }} matched this filter<template v-if="a.cap !== undefined"> · capped at {{ a.cap }}</template>
+                    </div>
                   </div>
                 </li>
               </ul>

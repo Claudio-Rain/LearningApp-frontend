@@ -109,7 +109,21 @@ export const STUDY_SET_TOOLS: Anthropic.Tool[] = [
         total: {
           type: 'integer',
           description:
-            'How many cards the set should hold. Omit to take every card that qualifies.',
+            'How many cards the set should hold IN TOTAL, across all the collections. Omit to take every card that qualifies — which is usually right when the user is capping individual collections rather than sizing the whole set.',
+        },
+        collection_limits: {
+          type: 'array',
+          description:
+            'Hard per-collection ceilings. Each entry caps ONE collection; collections not listed are untouched. This is how you honour "at most 10 from X" or "less of Y" — set a limit for that collection and omit `total`, and every other collection stays exactly as it was. A cap always holds, whatever the balance mode.',
+          items: {
+            type: 'object',
+            properties: {
+              collection_id: { type: 'string', description: 'The collection to cap.' },
+              max: { type: 'integer', description: 'Most cards this collection may contribute. 0 drops it entirely.' },
+            },
+            required: ['collection_id', 'max'],
+            additionalProperties: false,
+          },
         },
         priority_min: levelBound('priority', 'Lowest'),
         priority_max: levelBound('priority', 'Highest'),
@@ -203,10 +217,18 @@ export function toStudySetSpec(input: any, known: StudySetCollection[]): StudySe
   const knownIds = new Set(known.map(c => c.id))
   const total = asNumber(input?.total)
 
+  const limits: Record<string, number> = {}
+  for (const entry of input?.collection_limits ?? []) {
+    const id = String(entry?.collection_id ?? '')
+    const max = asNumber(entry?.max)
+    if (knownIds.has(id) && max !== undefined && max >= 0) limits[id] = Math.floor(max)
+  }
+
   return {
     collectionIds: (input?.collection_ids ?? []).map(String).filter((id: string) => knownIds.has(id)),
     total: total !== undefined && total > 0 ? Math.floor(total) : undefined,
     balance: asBalance(input?.balance),
+    limits: Object.keys(limits).length > 0 ? limits : undefined,
     filter: {
       priority: range(asLevel('priority', input?.priority_min), asLevel('priority', input?.priority_max)),
       difficulty: range(asLevel('difficulty', input?.difficulty_min), asLevel('difficulty', input?.difficulty_max)),
@@ -251,7 +273,10 @@ const runProposeStudySet = (input: any, handlers: StudySetHandlers): ToolOutcome
   })
 
   const split = plan.allocations
-    .map(a => `${titleFor(a.collectionId)}: ${a.taken} of ${a.pool} available`)
+    .map(a => {
+      const capped = a.cap !== undefined && a.cap < a.pool ? `, capped at ${a.cap}` : ''
+      return `${titleFor(a.collectionId)}: ${a.taken} of ${a.pool} available${capped}`
+    })
     .join('; ')
 
   return {
@@ -406,6 +431,8 @@ export function buildStudySetSystem(
     `- You do NOT choose individual cards, and you never see or name card ids. You describe the criteria; the app picks the cards, splits the total across collections, and guarantees the counts are exact. Trust the numbers it returns and quote them back to the user.\n` +
     `- NEVER claim you built or saved a set. propose_study_set only shows an approval card — the user confirms it. After proposing, say briefly what the split is and let them review.\n` +
     `- Read the distribution above before promising a number. If a collection has only 8 cards matching what they asked for, say so rather than proposing a set that quietly under-delivers.\n` +
+    `- To limit ONE collection without disturbing the others ("max 10 phrasal verbs", "less of X"), set collection_limits for that collection and DO NOT set total. A cap is a hard ceiling applied before any splitting, so the other collections keep every card that qualifies. Do not try to achieve a per-collection cap by computing a clever total — totals are split across all collections and cannot express a per-collection limit.\n` +
+    `- Set total only when the user asks for a specific size of set overall ("a 30-card set"). If you set both a total and limits, the total is still divided across collections and a capped collection simply never exceeds its cap.\n` +
     `- "Balanced" is the default split and is almost always what someone means by "divided between these": it splits by size but guarantees every collection a share. Only use "proportional" or "equal" if the user clearly asks for that.\n` +
     `- Unlabeled cards are excluded from a label filter by default. If that would leave the set thin, say so and offer to include them.\n` +
     `- Ask a question only when the answer would genuinely change the set. A vague "I want to practice these" is enough to propose something sensible — propose it, say what you assumed, and let them adjust.\n` +

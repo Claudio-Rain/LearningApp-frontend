@@ -188,6 +188,92 @@ describe('resolveStudySet', () => {
     expect(plan.items.map(i => i.id)).toEqual(['best', 'mid'])
   })
 
+  // The case that motivated per-collection limits: one oversized collection
+  // dominating a set the user wanted mostly untouched.
+  describe('per-collection limits', () => {
+    const library = [
+      ...pool('grammar', 15, { priority: 4 }),
+      ...pool('tenses', 17, { priority: 4 }),
+      ...pool('phrasal', 124, { priority: 4 })
+    ]
+
+    it('caps one collection and leaves the others whole', () => {
+      const plan = resolveStudySet(library, {
+        collectionIds: ['grammar', 'tenses', 'phrasal'],
+        limits: { phrasal: 10 }
+      })
+
+      const taken = Object.fromEntries(plan.allocations.map(a => [a.collectionId, a.taken]))
+      expect(taken).toEqual({ grammar: 15, tenses: 17, phrasal: 10 })
+      expect(plan.items).toHaveLength(42)
+      expect(plan.shortfall).toBeUndefined()
+    })
+
+    it('reports the collection\'s real match count alongside the cap', () => {
+      const plan = resolveStudySet(library, {
+        collectionIds: ['phrasal'],
+        limits: { phrasal: 10 }
+      })
+      const phrasal = plan.allocations[0]!
+
+      expect(phrasal.taken).toBe(10)
+      expect(phrasal.pool).toBe(124) // what matched, not what was allowed
+      expect(phrasal.cap).toBe(10)
+    })
+
+    it('holds the cap regardless of balance mode', () => {
+      for (const balance of ['balanced', 'proportional', 'equal'] as const) {
+        const plan = resolveStudySet(library, {
+          collectionIds: ['grammar', 'tenses', 'phrasal'],
+          total: 100,
+          balance,
+          limits: { phrasal: 10 }
+        })
+        const phrasal = plan.allocations.find(a => a.collectionId === 'phrasal')!
+        expect(phrasal.taken).toBeLessThanOrEqual(10)
+      }
+    })
+
+    it('keeps the best cards in a capped collection', () => {
+      const mixed = [
+        item({ id: 'top', collectionId: 'c', priority: 5, difficulty: 1 }),
+        item({ id: 'mid', collectionId: 'c', priority: 3, difficulty: 3 }),
+        item({ id: 'low', collectionId: 'c', priority: 1, difficulty: 5 })
+      ]
+      const plan = resolveStudySet(mixed, { collectionIds: ['c'], limits: { c: 1 } })
+
+      expect(plan.items.map(i => i.id)).toEqual(['top'])
+      expect(plan.leftOutIds).toHaveLength(2)
+    })
+
+    it('blames the cap, not the filter, when the total cannot be met', () => {
+      const plan = resolveStudySet(library, {
+        collectionIds: ['grammar', 'phrasal'],
+        total: 100,
+        limits: { phrasal: 10 }
+      })
+
+      expect(plan.items).toHaveLength(25)
+      expect(plan.shortfall).toMatch(/capped/)
+      expect(plan.shortfall).not.toMatch(/match that filter/)
+    })
+
+    it('ignores a cap above what the collection holds', () => {
+      const plan = resolveStudySet(library, { collectionIds: ['grammar'], limits: { grammar: 999 } })
+      expect(plan.items).toHaveLength(15)
+    })
+
+    it('treats a zero cap as excluding the collection', () => {
+      const plan = resolveStudySet(library, {
+        collectionIds: ['grammar', 'phrasal'],
+        limits: { phrasal: 0 }
+      })
+
+      expect(plan.items.every(i => i.collectionId === 'grammar')).toBe(true)
+      expect(plan.items).toHaveLength(15)
+    })
+  })
+
   it('is deterministic', () => {
     const items = [...pool('a', 30, { priority: 4, difficulty: 2 }), ...pool('b', 17, { priority: 5, difficulty: 1 })]
     const spec = { collectionIds: ['a', 'b'], total: 25 }

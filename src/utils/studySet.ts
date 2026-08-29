@@ -63,6 +63,15 @@ export interface StudySetSpec {
   filter?: StudySetFilter
   balance?: BalanceMode
   /**
+   * Per-collection ceilings, keyed by collection id. A capped collection
+   * contributes at most this many cards; uncapped ones are untouched.
+   *
+   * This is what expresses "at most 10 from this one, leave the rest alone":
+   * set a limit and omit `total`. Caps apply before the split, so they hold
+   * regardless of balance mode — a cap is a hard ceiling, not a weight.
+   */
+  limits?: Record<string, number>
+  /**
    * Fraction of the fair share every collection is guaranteed, 0..1, for
    * `balanced` only. 0.5 means no collection gets less than half of what an
    * even split would give it — as long as it has the cards.
@@ -72,10 +81,12 @@ export interface StudySetSpec {
 
 export interface CollectionAllocation {
   collectionId: string
-  /** How many cards in this collection passed the filter. */
+  /** How many cards in this collection passed the filter, before any cap. */
   pool: number
   /** How many the set actually takes. */
   taken: number
+  /** The ceiling that was set for this collection, if any. */
+  cap?: number
 }
 
 export interface StudySetPlan {
@@ -93,6 +104,10 @@ export interface StudySetPlan {
 }
 
 const DEFAULT_FLOOR_RATIO = 0.5
+
+/** A cap is only meaningful as a non-negative whole number; anything else is no cap. */
+const normalizeCap = (cap: number | undefined): number | undefined =>
+  cap === undefined || !Number.isFinite(cap) || cap < 0 ? undefined : Math.floor(cap)
 
 const inRange = (value: number | undefined, range: Range | undefined, includeUnlabeled: boolean): boolean => {
   if (!range || (range.min === undefined && range.max === undefined)) return true
@@ -234,7 +249,14 @@ export function resolveStudySet(items: StudySetItem[], spec: StudySetSpec): Stud
   }
   for (const list of qualifying.values()) list.sort(byStudyOrder)
 
-  const pools = collectionIds.map(id => qualifying.get(id)!.length)
+  // What each collection *could* contribute, and what it is allowed to. A cap
+  // is applied before the split, so it holds no matter how the split works out
+  // — and because the list is already in study order, a capped collection keeps
+  // its best cards rather than an arbitrary slice.
+  const matched = collectionIds.map(id => qualifying.get(id)!.length)
+  const caps = collectionIds.map(id => normalizeCap(spec.limits?.[id]))
+  const pools = matched.map((n, i) => (caps[i] === undefined ? n : Math.min(n, caps[i]!)))
+
   const available = pools.reduce((sum, n) => sum + n, 0)
   const total = spec.total ?? available
 
@@ -243,7 +265,7 @@ export function resolveStudySet(items: StudySetItem[], spec: StudySetSpec): Stud
   const chosen: StudySetItem[] = []
   const allocations: CollectionAllocation[] = collectionIds.map((collectionId, i) => {
     chosen.push(...qualifying.get(collectionId)!.slice(0, taken[i]!))
-    return { collectionId, pool: pools[i]!, taken: taken[i]! }
+    return { collectionId, pool: matched[i]!, taken: taken[i]!, cap: caps[i] }
   })
 
   const chosenIds = new Set(chosen.map(i => i.id))
@@ -268,6 +290,14 @@ function describeShortfall(
   if (available === 0) {
     return 'No cards match that filter in the selected collections.'
   }
+
+  // A cap is a deliberate ceiling, not a shortage — saying "only N cards match"
+  // would blame the filter for a limit the user asked for.
+  const capped = allocations.filter(a => a.cap !== undefined && a.cap < a.pool)
+  if (capped.length > 0) {
+    return `The set has ${chosenCount} instead of ${requested}: ${capped.length} collection${capped.length === 1 ? ' is' : 's are'} capped, and the rest don't have enough matching cards to make up the difference.`
+  }
+
   const base = `Only ${available} card${available === 1 ? '' : 's'} match that filter, so the set has ${chosenCount} instead of ${requested}.`
   return empty > 0
     ? `${base} ${empty} of the collections have no matching cards at all.`
