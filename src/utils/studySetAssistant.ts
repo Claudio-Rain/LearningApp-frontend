@@ -375,15 +375,6 @@ const runProposeCollections = (input: any, handlers: StudySetHandlers): ToolOutc
   }
 }
 
-/**
- * A compact picture of what the user has to work with: per collection, how many
- * cards sit at each priority and difficulty level, and how many are unlabeled.
- *
- * Counts, never cards. This is what lets the model propose a set that can
- * actually be filled — it can see that a collection has only 8 easy essentials
- * before promising 30 — while costing a few hundred tokens regardless of
- * library size.
- */
 const tally = (items: StudySetItem[], kind: 'priority' | 'difficulty'): string => {
   const counts = LABEL_LEVELS.map(level => {
     const n = items.filter(i => i[kind] === level).length
@@ -392,6 +383,45 @@ const tally = (items: StudySetItem[], kind: 'priority' | 'difficulty'): string =
   return counts.length > 0 ? counts.join(', ') : 'none labeled'
 }
 
+/**
+ * How well the user knows a group of cards, in one clause.
+ *
+ * Studied and never-studied are reported side by side on purpose: a mastery
+ * average alone is misleading, because "82%" over four cards out of ninety says
+ * something very different from "82%" over all ninety. The model needs both
+ * numbers to tell "you know this" apart from "you have barely started it".
+ *
+ * An average, never a per-card score — the model never learns that one
+ * particular card is weak, so it cannot quietly drop it. Strength is here to be
+ * talked about, not to select with.
+ */
+export function masterySummary(items: StudySetItem[]): string {
+  const studied = items.filter(i => i.strength !== undefined)
+  if (studied.length === 0) return `none of these studied yet (${items.length} never studied)`
+
+  const average = Math.round(
+    (studied.reduce((sum, i) => sum + (i.strength ?? 0), 0) / studied.length) * 100
+  )
+  const untouched = items.length - studied.length
+  return untouched === 0
+    ? `all ${studied.length} studied (average mastery ${average}%)`
+    : `${studied.length} studied (average mastery ${average}%), ${untouched} never studied`
+}
+
+/**
+ * A compact picture of what the user has to work with: per collection, how many
+ * cards sit at each priority and difficulty level, how many are unlabeled, and
+ * how well they know the ones they have seen.
+ *
+ * Counts, never cards. This is what lets the model propose a set that can
+ * actually be filled — it can see that a collection has only 8 easy essentials
+ * before promising 30 — while costing a few hundred tokens regardless of
+ * library size.
+ *
+ * Mastery is per collection rather than library-wide because that is the grain
+ * decisions get made at: "you have not touched your idioms" is actionable in a
+ * way that an average across everything is not.
+ */
 export function renderDistribution(collections: StudySetCollection[], items: StudySetItem[]): string {
   return collections
     .map(c => {
@@ -399,13 +429,12 @@ export function renderDistribution(collections: StudySetCollection[], items: Stu
       if (own.length === 0) return `- ${c.title} (id: ${c.id}): empty`
 
       const unlabeled = own.filter(i => i.priority === undefined && i.difficulty === undefined).length
-      const unstudied = own.filter(i => i.strength === undefined).length
 
       return (
         `- ${c.title} (id: ${c.id}): ${own.length} cards\n` +
         `  priority — ${tally(own, 'priority')}\n` +
         `  difficulty — ${tally(own, 'difficulty')}\n` +
-        `  ${unlabeled} unlabeled, ${unstudied} never studied`
+        `  ${unlabeled} unlabeled · ${masterySummary(own)}`
       )
     })
     .join('\n')
@@ -449,14 +478,6 @@ export function renderActiveSet(
     return 'Every card in the selected collections is excluded — the active set is empty.'
   }
 
-  const studied = active.filter(i => i.strength !== undefined)
-  const mastery =
-    studied.length === 0
-      ? 'none of them studied yet'
-      : `${studied.length} studied (average mastery ${Math.round(
-          (studied.reduce((sum, i) => sum + (i.strength ?? 0), 0) / studied.length) * 100
-        )}%), ${active.length - studied.length} never studied`
-
   const from = settings.studyViewCollectionIds
     .map(id => ({
       title: collections.find(c => c.id === id)?.title ?? id,
@@ -478,7 +499,7 @@ export function renderActiveSet(
     `- ${active.length} cards in play (${shape})\n` +
     `  priority — ${tally(active, 'priority')}\n` +
     `  difficulty — ${tally(active, 'difficulty')}\n` +
-    `  ${mastery}\n` +
+    `  ${masterySummary(active)}\n` +
     `  from: ${from}`
   )
 }
@@ -535,6 +556,7 @@ export function buildStudySetSystem(
     `- The active set above is live too, and it is what "these", "the ones I'm on", and "what I've been studying" refer to. You can see its size, its label mix and its mastery — use them; never say you cannot see what they are studying.\n` +
     `- "Give me the next batch/chunk/20 more" means: a fresh set of cards they are NOT currently studying. Set exclude_current_set: true, keep the same collections unless they say otherwise, and set total to the size they asked for. Approving REPLACES their current set, so say that plainly — the batch they just finished stops being in Study View.\n` +
     `- Size the next batch by reading the distribution and the active set together. If they are on 30 easy essentials and want 30 more, check how many easy essentials are left; when that tier is spent, widen to the next band (medium, or important rather than essential) to fill the batch, and tell them you did and why. A batch that steps down a tier is normal progress, not a problem.\n` +
+    `- When they ask where they stand, what is left, or whether there is anything else worth studying, answer from the mastery and never-studied counts above — per collection and for the active set. "You have 40 easy essentials left in Idioms and have not touched Phrasal Verbs at all" is the kind of answer to give. Then offer a set; do not make them ask twice.\n` +
     `- Mastery and study history are there for you to REASON with, never to overrule the user. If they ask for cards they have already studied, or already know well, or that are in their current set, give them exactly that. Do not quietly filter it out, do not argue, do not propose something different from what they asked for. Only set exclude_current_set, only_new or max_strength when their request actually calls for it.\n` +
     `- You do NOT choose individual cards, and you never see or name card ids. You describe the criteria; the app picks the cards, splits the total across collections, and guarantees the counts are exact. Trust the numbers it returns and quote them back to the user.\n` +
     `- NEVER claim you built or saved a set. propose_study_set only shows an approval card — the user confirms it. After proposing, say briefly what the split is and let them review.\n` +
