@@ -364,11 +364,11 @@
         <!-- Shortcuts that move a card all the way in one rating, instead of
              nudging it 0.10-0.15 at a time. -->
         <div v-if="isFlipped" class="jump-row">
-          <v-btn color="grey-darken-1" variant="text" size="small" title="Reset strength to 0" @click="recordAttempt(-1)">
+          <v-btn color="grey-darken-1" variant="text" size="small" title="Reset strength to 0 (press 0)" @click="recordAttempt(-1)">
             <v-icon start size="18">mdi-restart</v-icon>
             Start over
           </v-btn>
-          <v-btn color="success" variant="text" size="small" title="Mark as fully mastered" @click="recordAttempt(1)">
+          <v-btn color="success" variant="text" size="small" title="Mark as fully mastered (press 9)" @click="recordAttempt(1)">
             <v-icon start size="18">mdi-check-all</v-icon>
             Learned
           </v-btn>
@@ -1197,16 +1197,20 @@ const deleteCurrentItem = async () => {
   }
 }
 
-// Number-key ratings on a flipped card. 1-4 mirror the rating buttons; 0 and 5
-// are the all-the-way jumps (reset to 0 / straight to mastered), which the
+// Number-key ratings on a flipped card. 1-4 mirror the rating buttons and nudge
+// the score; 0 and 9 are the all-the-way jumps (start over / learned), which the
 // clamp in recordAttempt turns into an absolute set.
+//
+// They sit at the two ends of the number row on purpose: neighbours on the
+// keyboard, opposites in effect, and far enough from 1-4 that a slipped finger
+// costs a nudge rather than a whole card's history.
 const RATING_KEYS: Record<string, number> = {
   '1': -0.15,
   '2': -0.10,
   '3': 0.10,
   '4': 0.15,
   '0': -1,
-  '5': 1
+  '9': 1
 }
 
 const handleKeydown = (e: KeyboardEvent) => {
