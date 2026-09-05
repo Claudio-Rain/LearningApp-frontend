@@ -34,10 +34,10 @@ export function useExclusionTable() {
     const excluded = excludedItemIds.value // always track as dependency
     return collections.value.map(c => {
       const ids = collectionItemIds.value.get(c.id)
-      if (!ids) return { id: c.id, title: c.title }
+      if (!ids) return { id: c.id, title: c.title, categoryId: c.categoryId }
       const excludedCount = [...ids].filter(id => excluded.has(id)).length
       const label = excludedCount > 0 ? `${c.title} (${excludedCount} excluded)` : c.title
-      return { id: c.id, title: label }
+      return { id: c.id, title: label, categoryId: c.categoryId }
     })
   })
 

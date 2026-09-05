@@ -13,34 +13,13 @@
       Items checked here are hidden from Study View, content widget, and notifications.
       Click a row to toggle it; shift-click to toggle a range.
     </p>
-    <v-select
+    <CollectionMultiSelect
       v-model="selectedCollectionIds"
-      :items="collectionOptions"
-      item-title="title"
-      item-value="id"
+      :collections="collectionOptions"
+      :categories="categories"
       label="Filter by collections"
-      variant="outlined"
-      density="comfortable"
-      multiple
-      chips
-      closable-chips
       :loading="loadingCollections"
-      no-data-text="No collections found"
-    >
-      <template #prepend-item>
-        <v-list-item title="Select all" @click="selectAllCollections">
-          <template #prepend>
-            <v-checkbox-btn
-              :model-value="allCollectionsSelected"
-              :indeterminate="someCollectionsSelected"
-              color="primary"
-              readonly
-            />
-          </template>
-        </v-list-item>
-        <v-divider />
-      </template>
-    </v-select>
+    />
     <v-text-field
       v-if="selectedCollectionIds.length"
       v-model="titleSearch"
@@ -119,13 +98,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { onMounted } from 'vue'
+import CollectionMultiSelect from '@/shared/components/CollectionMultiSelect.vue'
 import { strengthMeta } from '@/utils/strength'
 import { useCollectionCatalog } from '../composables/useCollectionCatalog'
 import { useExclusionTable } from '../composables/useExclusionTable'
 import { useStudyViewForm } from '../composables/useStudyViewForm'
 
-const { loadingCollections, load: loadCatalog } = useCollectionCatalog()
+const { categories, loadingCollections, load: loadCatalog } = useCollectionCatalog()
 const { studyViewCollectionIds } = useStudyViewForm()
 const {
   selectedCollectionIds,
@@ -148,17 +128,6 @@ const headers = [
   { title: 'Collection', key: 'collectionTitle' },
   { title: 'Strength', key: 'strengthScore' },
 ] as const
-
-const allCollectionsSelected = computed(
-  () => selectedCollectionIds.value.length === collectionOptions.value.length
-)
-const someCollectionsSelected = computed(
-  () => selectedCollectionIds.value.length > 0 && !allCollectionsSelected.value
-)
-
-function selectAllCollections() {
-  selectedCollectionIds.value = collectionOptions.value.map(c => c.id)
-}
 
 onMounted(async () => {
   // Wait for the shared data load (deduped with the shell's) so items resolve
