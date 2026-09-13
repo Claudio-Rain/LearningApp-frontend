@@ -71,6 +71,7 @@ const light = {
   chartNeutral: '#BDBDBD',
   chartPositive: '#4CAF50',
   chartPositiveMuted: '#A5D6A7',
+  chartRed: '#E53935',
 
   // Heatmap ramp, cold to hot.
   heatMin: '#FFFFFF',
@@ -128,6 +129,7 @@ const dark = {
   chartNeutral: '#616161',
   chartPositive: '#81C784',
   chartPositiveMuted: '#4C7A4F',
+  chartRed: '#EF5350',
 
   heatMin: '#1E1E1E',
   heatLow: '#1A3A5C',

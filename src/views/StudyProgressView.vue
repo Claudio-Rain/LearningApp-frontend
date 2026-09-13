@@ -47,14 +47,14 @@
 
       <ChartCard
         title="Peak Study Hours"
-        subtitle="Which hours of the day you study the most (last 30 days)"
+        subtitle="Average attempts in each hour of the day (last 30 days)"
       >
         <div ref="studyHoursChartRef" class="chart"></div>
       </ChartCard>
 
       <ChartCard
         title="Most Active Days"
-        subtitle="Which days of the week you study the most (last 30 days)"
+        subtitle="Average attempts on each day of the week (last 30 days)"
       >
         <div ref="studyDaysChartRef" class="chart"></div>
       </ChartCard>

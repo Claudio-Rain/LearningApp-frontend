@@ -1,14 +1,22 @@
-import { format, parseISO, subDays } from 'date-fns'
+import { format, parseISO, startOfDay, subDays } from 'date-fns'
 import { HOUR_LABELS, recentLogs } from '../aggregation'
 import type { ChartContext, ProgressChartData } from './chartRegistry'
 
-// All three activity charts look at the same trailing window.
+// All three activity charts look at the same trailing window. It starts at
+// midnight so the window is exactly WINDOW_DAYS whole days — the averages below
+// divide by that, and a partial first day would skew them.
 const WINDOW_DAYS = 30
-const windowStart = () => subDays(new Date(), WINDOW_DAYS - 1)
+const windowStart = () => startOfDay(subDays(new Date(), WINDOW_DAYS - 1))
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
-/** Attempts per hour of day, peak hour highlighted. */
+/** Monday-first weekday index, matching `DAY_NAMES`. */
+const weekdayIndex = (d: Date) => (d.getDay() === 0 ? 6 : d.getDay() - 1)
+
+/** One decimal place — averages here are small, and 0.05 reads as "barely ever". */
+const round1 = (n: number) => Math.round(n * 10) / 10
+
+/** Average attempts in each hour of day, peak hour highlighted. */
 export function renderStudyHoursChart(
   { registry, palette }: ChartContext,
   el: HTMLElement,
@@ -18,10 +26,12 @@ export function renderStudyHoursChart(
   recentLogs(logs, windowStart()).forEach(log => {
     hourCounts[parseISO(log.created_at).getHours()]++
   })
-  const peak = Math.max(...hourCounts)
-  const data = hourCounts.map(count => ({
-    y: count,
-    color: count === peak && peak > 0 ? palette.color('chartAccent') : palette.color('chartAccentMuted')
+  // Every hour of day comes around once per day, so they all share a divisor.
+  const hourAvgs = hourCounts.map(count => round1(count / WINDOW_DAYS))
+  const peak = Math.max(...hourAvgs)
+  const data = hourAvgs.map(avg => ({
+    y: avg,
+    color: avg === peak && peak > 0 ? palette.color('chartAccent') : palette.color('chartAccentMuted')
   }))
 
   const existing = registry.get('studyHours')
@@ -35,37 +45,45 @@ export function renderStudyHoursChart(
     title: { text: '' },
     xAxis: { categories: HOUR_LABELS, title: { text: 'Hour of Day' } },
     yAxis: {
-      title: { text: 'Attempts' },
+      title: { text: 'Avg Attempts' },
       min: 0,
       gridLineWidth: 1,
       gridLineColor: palette.gridLine()
     },
-    series: [{ name: 'Attempts', data, colorByPoint: true, type: 'column' }],
+    series: [{ name: 'Avg Attempts', data, colorByPoint: true, type: 'column' }],
     legend: { enabled: false },
     credits: { enabled: false },
     tooltip: {
       formatter: function(this: any) {
-        return `<b>${HOUR_LABELS[this.point.index]}</b><br/><b>${this.y}</b> attempts`
+        return `<b>${HOUR_LABELS[this.point.index]}</b><br/><b>${this.y}</b> attempts/day on average`
       }
     }
   })
 }
 
-/** Attempts per weekday (Monday first), peak day highlighted. */
+/** Average attempts per weekday (Monday first), peak day highlighted. */
 export function renderStudyDaysChart(
   { registry, palette }: ChartContext,
   el: HTMLElement,
   { logs }: ProgressChartData
 ): void {
+  const start = windowStart()
+
   const dayCounts = Array(7).fill(0)
-  recentLogs(logs, windowStart()).forEach(log => {
-    const jsDay = parseISO(log.created_at).getDay() // 0=Sun, 1=Mon, ..., 6=Sat
-    dayCounts[jsDay === 0 ? 6 : jsDay - 1]++
+  recentLogs(logs, start).forEach(log => {
+    dayCounts[weekdayIndex(parseISO(log.created_at))]++
   })
-  const peak = Math.max(...dayCounts)
-  const data = dayCounts.map((count, i) => ({
-    y: count,
-    color: count === peak && peak > 0 ? palette.color('chartPositive') : palette.color('chartPositiveMuted'),
+
+  // A 30-day window holds 5 of some weekdays and 4 of others, so each weekday
+  // is divided by how many times it actually came around.
+  const occurrences = Array(7).fill(0)
+  for (let i = 0; i < WINDOW_DAYS; i++) occurrences[weekdayIndex(subDays(start, -i))]++
+
+  const dayAvgs = dayCounts.map((count, i) => round1(count / occurrences[i]))
+  const peak = Math.max(...dayAvgs)
+  const data = dayAvgs.map((avg, i) => ({
+    y: avg,
+    color: avg === peak && peak > 0 ? palette.color('chartPositive') : palette.color('chartPositiveMuted'),
     name: DAY_NAMES[i]
   }))
 
@@ -80,15 +98,15 @@ export function renderStudyDaysChart(
     title: { text: '' },
     xAxis: { categories: DAY_NAMES, title: { text: 'Day of Week' } },
     yAxis: {
-      title: { text: 'Attempts' },
+      title: { text: 'Avg Attempts' },
       min: 0,
       gridLineWidth: 1,
       gridLineColor: palette.gridLine()
     },
-    series: [{ name: 'Attempts', data, colorByPoint: true, type: 'column' }],
+    series: [{ name: 'Avg Attempts', data, colorByPoint: true, type: 'column' }],
     legend: { enabled: false },
     credits: { enabled: false },
-    tooltip: { pointFormat: '<b>{point.y}</b> attempts' }
+    tooltip: { pointFormat: '<b>{point.y}</b> attempts on an average {point.name}' }
   })
 }
 
