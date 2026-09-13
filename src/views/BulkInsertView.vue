@@ -27,6 +27,13 @@ v-if="collectionMode === 'existing'" v-model="selectedCollectionId" :items="coll
         <v-text-field
 v-else v-model="newCollectionTitle" label="New collection name" variant="outlined"
           density="compact" :rules="[v => !!v || 'Enter a name']" />
+
+        <v-combobox
+v-model="standardCategory" :items="categoryTitles" label="Category (optional)" variant="outlined"
+          density="compact" clearable hide-details />
+        <div class="text-caption text-medium-emphasis mt-1">
+          Pick an existing category or type a new name — it will be created and assigned to the collection.
+        </div>
       </v-card>
 
       <!-- Bulk text input -->
@@ -88,6 +95,8 @@ v-model="rawInput" variant="outlined" :placeholder="placeholder" rows="14" auto-
           Define everything as text. Start a collection with <code>- Collection name</code> on its own line, then list
           its <code>question:</code>{{ answerWithAI ? '' : ' / ' }}<code v-if="!answerWithAI">answer:</code> items below
           it. Existing collections with a matching name are reused; others are created.
+          Optionally group collections under a category with <code># Category name</code> — every collection below it
+          gets that category, until the next <code>#</code> line.
         </div>
 
         <v-checkbox
@@ -114,6 +123,11 @@ v-model="fullText" variant="outlined" :placeholder="fullTextPlaceholder" rows="2
                 <span class="font-weight-medium">{{ col.title }}</span>
                 <v-chip size="x-small" class="ml-2" :color="col.isNew ? 'primary' : 'default'" label>
                   {{ col.isNew ? 'new' : 'existing' }}
+                </v-chip>
+                <v-chip
+v-if="col.categoryTitle" size="x-small" class="ml-2" variant="tonal" label
+                  prepend-icon="mdi-tag-outline">
+                  {{ col.categoryTitle }}
                 </v-chip>
                 <span class="text-caption text-medium-emphasis ml-2">
                   {{ col.items.filter(i => i.valid).length }} / {{ col.items.length }}
@@ -175,16 +189,21 @@ import {
   createCollection,
   createLearningItem,
   editCollection,
+  getCategories,
+  createCategory,
 } from '../database'
-import type { Collection } from '../database/types'
+import type { Category, Collection } from '../database/types'
 import { generateAnswerMarkdown, getApiKey, setApiKey } from '../utils/claude'
 import { markdownToTiptap } from '../utils/markdown'
 
 // ── State ───────────────────────────────────────────────
 const collections = ref<Collection[]>([])
+const categories = ref<Category[]>([])
 const inputMode = ref<'standard' | 'fulltext'>('standard')
 const collectionMode = ref<'existing' | 'new'>('existing')
 const selectedCollectionId = ref<string | null>(null)
+// Free text: an existing category title, a new one to create, or empty for none.
+const standardCategory = ref<string | null>(null)
 const newCollectionTitle = ref('')
 const rawInput = ref('')
 const fullText = ref('')
@@ -213,7 +232,11 @@ question: What is the event loop?
 answer: A mechanism that processes the call stack and callback queue, enabling non-blocking I/O in JavaScript.`
 )
 
-const fullTextPlaceholder = `- L0 Framework - styling
+const categoryTitles = computed(() => categories.value.map(c => c.title))
+
+const fullTextPlaceholder = `# Frontend
+
+- L0 Framework - styling
 
 question: How do you use scoped styles in vuejs?
 question: What are inline styles in vuejs?
@@ -277,20 +300,62 @@ const validItems = computed(() => parsedItems.value.filter(i => i.valid))
 interface ParsedCollection {
   title: string
   isNew: boolean
+  // null when no "# Category" header is in effect for this collection.
+  categoryTitle: string | null
   items: ParsedItem[]
+}
+
+type FullTextLine =
+  | { kind: 'skip' }
+  | { kind: 'category'; title: string | null }
+  | { kind: 'collection'; title: string }
+  | { kind: 'question'; text: string }
+  | { kind: 'answer'; text: string }
+  | { kind: 'continuation'; text: string }
+
+/** Flag items as valid once their (possibly multi-line) answers are assembled. */
+const markValidity = (cols: ParsedCollection[]) => {
+  for (const col of cols) {
+    for (const item of col.items) {
+      item.valid = item.question.length > 0 && (answerWithAI.value || item.answer.length > 0)
+    }
+  }
+}
+
+/** Classify one trimmed line of the full-text input. */
+const classifyLine = (line: string): FullTextLine => {
+  // Blank, or a divider like "----" / "---- JUNIOR ----" (two or more dashes).
+  if (!line || /^-{2,}/.test(line)) return { kind: 'skip' }
+
+  // Category header: "# Name". A bare "#" clears the current category.
+  const cat = line.match(/^#+\s*(.*)/)
+  if (cat?.[1] !== undefined) return { kind: 'category', title: cat[1].trim() || null }
+
+  // Collection header: a single leading dash followed by a title.
+  const col = line.match(/^-\s+(.+)/)
+  if (col?.[1] !== undefined) return { kind: 'collection', title: col[1].trim() }
+
+  const q = line.match(/^question:\s*(.*)/i)
+  if (q?.[1] !== undefined) return { kind: 'question', text: q[1].trim() }
+
+  const a = line.match(/^answer:\s*(.*)/i)
+  if (a?.[1] !== undefined) return { kind: 'answer', text: a[1].trim() }
+
+  return { kind: 'continuation', text: line }
 }
 
 /**
  * Parse the full-text input into a list of collections, each with its items.
- * A line starting with a single "- " begins a new collection. Lines made up
- * only of dashes (e.g. "---- JUNIOR ----") are treated as separators and
- * ignored. "question:"/"answer:" lines are attached to the current collection.
+ * A "# Category" line applies to every collection below it, a "- Title" line
+ * begins a collection, and "question:"/"answer:" lines are attached to the
+ * current collection.
  */
 const parsedCollections = computed<ParsedCollection[]>(() => {
   if (!fullText.value.trim()) return []
 
   const result: ParsedCollection[] = []
   let current: ParsedCollection | null = null
+  let currentCategory: string | null = null
   let capturingAnswer = false
 
   const existingTitles = new Set(
@@ -298,60 +363,42 @@ const parsedCollections = computed<ParsedCollection[]>(() => {
   )
 
   for (const rawLine of fullText.value.split('\n')) {
-    const line = rawLine.trim()
-    if (!line) {
-      capturingAnswer = false
-      continue
-    }
-
-    // Divider like "----", "---- JUNIOR ----": starts with two or more dashes.
-    if (/^-{2,}/.test(line)) {
-      capturingAnswer = false
-      continue
-    }
-
-    // Collection header: a single leading dash followed by a title.
-    const colMatch = line.match(/^-\s+(.+)/)
-    if (colMatch?.[1] !== undefined) {
-      const title = colMatch[1].trim()
-      current = {
-        title,
-        isNew: !existingTitles.has(title.toLowerCase()),
-        items: []
-      }
-      result.push(current)
-      capturingAnswer = false
-      continue
-    }
-
-    const qMatch = line.match(/^question:\s*(.*)/i)
-    if (qMatch?.[1] !== undefined) {
-      current?.items.push({ question: qMatch[1].trim(), answer: '', valid: false })
-      capturingAnswer = false
-      continue
-    }
-
-    const aMatch = line.match(/^answer:\s*(.*)/i)
+    const parsed = classifyLine(rawLine.trim())
     const lastItem = current?.items[current.items.length - 1]
-    if (aMatch?.[1] !== undefined) {
-      if (lastItem) lastItem.answer = aMatch[1].trim()
-      capturingAnswer = true
-      continue
-    }
 
-    // Continuation of a multi-line answer.
-    if (capturingAnswer && lastItem) {
-      lastItem.answer += ' ' + line
+    switch (parsed.kind) {
+      case 'category':
+        currentCategory = parsed.title
+        capturingAnswer = false
+        break
+      case 'collection':
+        current = {
+          title: parsed.title,
+          isNew: !existingTitles.has(parsed.title.toLowerCase()),
+          categoryTitle: currentCategory,
+          items: []
+        }
+        result.push(current)
+        capturingAnswer = false
+        break
+      case 'question':
+        current?.items.push({ question: parsed.text, answer: '', valid: false })
+        capturingAnswer = false
+        break
+      case 'answer':
+        if (lastItem) lastItem.answer = parsed.text
+        capturingAnswer = true
+        break
+      case 'continuation':
+        // Continuation of a multi-line answer.
+        if (capturingAnswer && lastItem) lastItem.answer += ' ' + parsed.text
+        break
+      default:
+        capturingAnswer = false
     }
   }
 
-  // Compute validity now that answers are fully assembled.
-  for (const col of result) {
-    for (const item of col.items) {
-      item.valid = item.question.length > 0 && (answerWithAI.value || item.answer.length > 0)
-    }
-  }
-
+  markValidity(result)
   return result
 })
 
@@ -374,6 +421,7 @@ const canInsert = computed(() => {
 // ── Load collections ─────────────────────────────────────
 onMounted(async () => {
   collections.value = await getCollections()
+  categories.value = await getCategories()
 })
 
 /** Build the Tiptap content for an item, optionally answering with Claude. */
@@ -431,22 +479,89 @@ const insertItems = async (
   }
 }
 
-/** Find an existing collection by title (case-insensitive) or create a new one. */
-const resolveCollection = async (title: string): Promise<string> => {
-  const existing = collections.value.find(
-    c => c.title.trim().toLowerCase() === title.trim().toLowerCase()
+// Same swatches the collections view offers; new categories get one by position
+// so they don't all come out the same color.
+const colorSwatches = ['#1976D2', '#388E3C', '#D32F2F', '#F57C00', '#7B1FA2', '#0097A7', '#C2185B', '#5D4037']
+
+/** Find an existing category by title (case-insensitive) or create a new one. */
+const resolveCategory = async (title: string | null): Promise<string | null> => {
+  const name = title?.trim()
+  if (!name) return null
+
+  const existing = categories.value.find(
+    c => c.title.trim().toLowerCase() === name.toLowerCase()
   )
   if (existing?.id) return existing.id
 
   const now = formatISO(new Date())
+  const id = (await createCategory({
+    title: name,
+    color: colorSwatches[categories.value.length % colorSwatches.length],
+    parentId: null,
+    dateCreated: now,
+    lastModified: now
+  })) as string
+  categories.value = await getCategories()
+  return id
+}
+
+/**
+ * Find an existing collection by title (case-insensitive) or create a new one.
+ * When a category is given it is applied in both cases, so re-running a bulk
+ * insert can also re-file existing collections.
+ */
+const resolveCollection = async (title: string, categoryId: string | null): Promise<string> => {
+  const existing = collections.value.find(
+    c => c.title.trim().toLowerCase() === title.trim().toLowerCase()
+  )
+  if (existing?.id) {
+    if (categoryId && existing.categoryId !== categoryId) {
+      await editCollection({ ...existing, categoryId, lastModified: formatISO(new Date()) })
+      collections.value = await getCollections()
+    }
+    return existing.id
+  }
+
+  const now = formatISO(new Date())
   const id = (await createCollection({
     title: title.trim(),
+    categoryId,
     dateCreated: now,
     lastModified: now,
     numberOfItems: 0
   })) as string
   collections.value = await getCollections()
   return id
+}
+
+/** Standard mode: one collection, optionally (re)filed under the chosen category. */
+const insertStandard = async (progress: { done: number; total: number }) => {
+  const categoryId = await resolveCategory(standardCategory.value)
+
+  if (collectionMode.value === 'new') {
+    const id = await resolveCollection(newCollectionTitle.value, categoryId)
+    await insertItems(id, validItems.value, progress)
+    return
+  }
+
+  const id = selectedCollectionId.value!
+  const existing = collections.value.find(c => c.id === id)
+  if (categoryId && existing && existing.categoryId !== categoryId) {
+    await editCollection({ ...existing, categoryId, lastModified: formatISO(new Date()) })
+    // Refresh so the item-count update in insertItems doesn't write back the old category.
+    collections.value = await getCollections()
+  }
+  await insertItems(id, validItems.value, progress)
+}
+
+/** Full text mode: resolve each collection (and its "# Category") in turn. */
+const insertFullText = async (progress: { done: number; total: number }) => {
+  for (const col of parsedCollections.value) {
+    if (col.items.every(i => !i.valid)) continue
+    const categoryId = await resolveCategory(col.categoryTitle)
+    const collectionId = await resolveCollection(col.title, categoryId)
+    await insertItems(collectionId, col.items, progress)
+  }
 }
 
 // ── Bulk Insert ──────────────────────────────────────────
@@ -468,19 +583,9 @@ const handleBulkInsert = async () => {
     const progress = { done: 0, total: totalValidCount.value }
 
     if (inputMode.value === 'standard') {
-      let collectionId: string
-      if (collectionMode.value === 'new') {
-        collectionId = await resolveCollection(newCollectionTitle.value)
-      } else {
-        collectionId = selectedCollectionId.value!
-      }
-      await insertItems(collectionId, validItems.value, progress)
+      await insertStandard(progress)
     } else {
-      for (const col of parsedCollections.value) {
-        if (col.items.every(i => !i.valid)) continue
-        const collectionId = await resolveCollection(col.title)
-        await insertItems(collectionId, col.items, progress)
-      }
+      await insertFullText(progress)
     }
 
     collections.value = await getCollections()
@@ -500,6 +605,7 @@ const reset = () => {
   rawInput.value = ''
   fullText.value = ''
   newCollectionTitle.value = ''
+  standardCategory.value = null
 }
 </script>
 
