@@ -57,7 +57,11 @@ export const ITEM_LABEL_DEFS: Record<ItemLabelKind, ItemLabelDef> = {
     // to them, not a queue of incidents: "Someday" is a kind parking spot and
     // "Essential" is the top without implying anything is on fire. Keep any
     // future rename on that footing — urgency words don't belong on this scale.
-    levels: levels(['Someday', 'Minor', 'Normal', 'Important', 'Essential'])
+    //
+    // Every level also has to read as *mattering*, never as effort: a generic
+    // middle word like "Normal" gets mistaken for difficulty's "Moderate", so
+    // the midpoint says what it's worth instead.
+    levels: levels(['Someday', 'Minor', 'Useful', 'Important', 'Essential'])
   },
   difficulty: {
     kind: 'difficulty',

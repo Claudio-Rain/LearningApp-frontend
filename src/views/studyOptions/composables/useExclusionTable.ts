@@ -2,11 +2,35 @@ import { ref, computed, watch } from 'vue'
 import { getLearningItems } from '@/database'
 import type { LearningItem } from '@/database'
 import { useExcludedItems } from '@/shared/composables/useExcludedItems'
+import { ITEM_LABEL_DEFS, LABEL_LEVELS, toLabelLevel } from '@/utils/itemLabels'
+import type { ItemLabelKind } from '@/utils/itemLabels'
+import { STRENGTH_TIERS, STRENGTH_TIER_META, strengthTier } from '@/utils/strength'
+import type { StrengthTier } from '@/utils/strength'
 import { useCollectionCatalog } from './useCollectionCatalog'
 
 export type ExclusionItem = LearningItem & { collectionTitle: string; strengthScore: number }
 
 export type SortSpec = { key: string; order: 'asc' | 'desc' }
+
+/** Filter value standing in for "this item has never been labeled". */
+export const UNLABELED = 0
+
+/** Options for a label filter: every level, plus the unlabeled bucket. */
+export function labelFilterOptions(kind: ItemLabelKind) {
+  const def = ITEM_LABEL_DEFS[kind]
+  return [
+    ...LABEL_LEVELS.map(level => ({ value: level as number, title: `${level} · ${def.levels[level].label}` })),
+    { value: UNLABELED, title: def.unsetLabel }
+  ]
+}
+
+/**
+ * Options for the strength filter — the whole ladder, 'new' included, since an
+ * unstudied card is a thing you'd want to filter *to*, not an absent value.
+ */
+export function strengthFilterOptions() {
+  return STRENGTH_TIERS.map(tier => ({ value: tier, title: STRENGTH_TIER_META[tier].label }))
+}
 
 /**
  * Backing state for the Excluded Items table: which collections it draws from,
@@ -25,6 +49,10 @@ export function useExclusionTable() {
   const items = ref<ExclusionItem[]>([])
   const loadingItems = ref(false)
   const titleSearch = ref('')
+  // Empty = no filter. UNLABELED selects items that carry no value for the kind.
+  const priorityFilter = ref<number[]>([])
+  const difficultyFilter = ref<number[]>([])
+  const strengthFilter = ref<StrengthTier[]>([])
   const sortBy = ref<SortSpec[]>([{ key: 'title', order: 'asc' }])
   const anchorIndex = ref<number | null>(null)
 
@@ -41,29 +69,48 @@ export function useExclusionTable() {
     })
   })
 
-  // Prefix match on title (case-insensitive): typing "L1" shows titles starting with "L1".
+  // A label matches when its level is selected, or when it is unlabeled and the
+  // unlabeled bucket is selected.
+  const matchesLabel = (value: number | undefined, selected: number[]) => {
+    if (!selected.length) return true
+    const level = toLabelLevel(value)
+    return selected.includes(level ?? UNLABELED)
+  }
+
+  // Prefix match on title (case-insensitive): typing "L1" shows titles starting
+  // with "L1". Combined with the label filters, which are ANDed with it.
   const filteredItems = computed(() => {
     const q = titleSearch.value.trim().toLowerCase()
-    if (!q) return items.value
-    return items.value.filter(i => i.title.toLowerCase().startsWith(q))
+    return items.value.filter(i =>
+      (!q || i.title.toLowerCase().startsWith(q)) &&
+      matchesLabel(i.priority, priorityFilter.value) &&
+      matchesLabel(i.difficulty, difficultyFilter.value) &&
+      (!strengthFilter.value.length || strengthFilter.value.includes(strengthTier(i.strengthScore)))
+    )
   })
 
-  // Mirror the data-table's display order so shift-click ranges follow what the
-  // user actually sees after filtering and sorting.
+  // Unlabeled sorts below level 1 rather than falling through to a string
+  // compare on "undefined".
+  const sortValue = (item: ExclusionItem, key: string): string | number => {
+    if (key === 'priority' || key === 'difficulty') return toLabelLevel(item[key]) ?? 0
+    const raw = (item as unknown as Record<string, unknown>)[key]
+    return typeof raw === 'number' ? raw : String(raw ?? '')
+  }
+
+  // The table's only sort: it renders this order as given (see the server-table
+  // note in ExcludedItemsSection), so shift-click ranges follow what the user
+  // actually sees.
   const sortedItems = computed(() => {
-    const sorts = sortBy.value
+    const sort = sortBy.value[0]
     const arr = [...filteredItems.value]
-    if (!sorts.length) return arr
+    if (!sort) return arr
     return arr.sort((a, b) => {
-      for (const sort of sorts) {
-        const av = (a as Record<string, unknown>)[sort.key]
-        const bv = (b as Record<string, unknown>)[sort.key]
-        const cmp = typeof av === 'number' && typeof bv === 'number'
-          ? av - bv
-          : String(av ?? '').localeCompare(String(bv ?? ''))
-        if (cmp !== 0) return cmp * (sort.order === 'desc' ? -1 : 1)
-      }
-      return 0
+      const av = sortValue(a, sort.key)
+      const bv = sortValue(b, sort.key)
+      const cmp = typeof av === 'number' && typeof bv === 'number'
+        ? av - bv
+        : String(av).localeCompare(String(bv))
+      return cmp * (sort.order === 'desc' ? -1 : 1)
     })
   })
 
@@ -129,6 +176,9 @@ export function useExclusionTable() {
     items,
     loadingItems,
     titleSearch,
+    priorityFilter,
+    difficultyFilter,
+    strengthFilter,
     sortBy,
     sortedItems,
     excludedItemIds,

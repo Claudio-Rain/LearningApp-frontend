@@ -20,17 +20,60 @@
       label="Filter by collections"
       :loading="loadingCollections"
     />
-    <v-text-field
-      v-if="selectedCollectionIds.length"
-      v-model="titleSearch"
-      label="Search by title (starts with)"
-      variant="outlined"
-      density="compact"
-      clearable
-      hide-details
-      prepend-inner-icon="mdi-magnify"
-      class="mb-2"
-    />
+    <template v-if="selectedCollectionIds.length">
+      <v-text-field
+        v-model="titleSearch"
+        label="Search by title (starts with)"
+        variant="outlined"
+        density="compact"
+        clearable
+        hide-details
+        prepend-inner-icon="mdi-magnify"
+        class="mb-2"
+      />
+      <!-- Three filters side by side get tight; let them wrap on narrow layouts. -->
+      <div class="d-flex flex-wrap ga-2 mb-2">
+        <v-select
+          v-model="strengthFilter"
+          :items="strengthOptions"
+          label="Filter by strength"
+          prepend-inner-icon="mdi-chart-line"
+          variant="outlined"
+          density="compact"
+          multiple
+          chips
+          closable-chips
+          clearable
+          hide-details
+        />
+        <v-select
+          v-model="priorityFilter"
+          :items="priorityOptions"
+          :label="`Filter by ${ITEM_LABEL_DEFS.priority.title.toLowerCase()}`"
+          :prepend-inner-icon="ITEM_LABEL_DEFS.priority.icon"
+          variant="outlined"
+          density="compact"
+          multiple
+          chips
+          closable-chips
+          clearable
+          hide-details
+        />
+        <v-select
+          v-model="difficultyFilter"
+          :items="difficultyOptions"
+          :label="`Filter by ${ITEM_LABEL_DEFS.difficulty.title.toLowerCase()}`"
+          :prepend-inner-icon="ITEM_LABEL_DEFS.difficulty.icon"
+          variant="outlined"
+          density="compact"
+          multiple
+          chips
+          closable-chips
+          clearable
+          hide-details
+        />
+      </div>
+    </template>
     <div v-if="loadingItems" class="text-caption text-medium-emphasis py-2">
       Loading items…
     </div>
@@ -40,17 +83,22 @@
     >
       No items in the selected collections.
     </div>
-    <v-data-table
+    <!--
+      The server table, deliberately: it renders `items` in the order given
+      instead of sorting them again, so the composable's sort is the only one.
+      Header clicks still drive it through `sort-by`.
+    -->
+    <v-data-table-server
       v-else-if="selectedCollectionIds.length"
       v-model:sort-by="sortBy"
       :headers="headers"
       :items="sortedItems"
+      :items-length="sortedItems.length"
       item-value="id"
       density="compact"
       class="exclusion-table"
       :items-per-page="-1"
       hide-default-footer
-      multi-sort
     >
       <template #item="{ item, index }">
         <tr
@@ -88,9 +136,21 @@
               {{ strengthMeta(item.strengthScore).label }}
             </v-chip>
           </td>
+          <td v-for="kind in ITEM_LABEL_KINDS" :key="kind">
+            <v-chip
+              v-if="labelMeta(kind, item[kind])"
+              size="small"
+              label
+              :color="labelMeta(kind, item[kind])!.color"
+              variant="flat"
+            >
+              {{ labelMeta(kind, item[kind])!.label }}
+            </v-chip>
+            <span v-else class="text-caption text-disabled">—</span>
+          </td>
         </tr>
       </template>
-    </v-data-table>
+    </v-data-table-server>
     <div v-if="selectedCollectionIds.length" class="text-caption text-medium-emphasis mt-2">
       {{ excludedCount }} excluded / {{ items.length }} total
     </div>
@@ -100,9 +160,14 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import CollectionMultiSelect from '@/shared/components/CollectionMultiSelect.vue'
+import { ITEM_LABEL_DEFS, ITEM_LABEL_KINDS, labelMeta } from '@/utils/itemLabels'
 import { strengthMeta } from '@/utils/strength'
 import { useCollectionCatalog } from '../composables/useCollectionCatalog'
-import { useExclusionTable } from '../composables/useExclusionTable'
+import {
+  labelFilterOptions,
+  strengthFilterOptions,
+  useExclusionTable,
+} from '../composables/useExclusionTable'
 import { useStudyViewForm } from '../composables/useStudyViewForm'
 
 const { categories, loadingCollections, load: loadCatalog } = useCollectionCatalog()
@@ -113,6 +178,9 @@ const {
   items,
   loadingItems,
   titleSearch,
+  priorityFilter,
+  difficultyFilter,
+  strengthFilter,
   sortBy,
   sortedItems,
   excludedItemIds,
@@ -121,13 +189,18 @@ const {
   handleRowClick,
 } = useExclusionTable()
 
+const priorityOptions = labelFilterOptions('priority')
+const difficultyOptions = labelFilterOptions('difficulty')
+const strengthOptions = strengthFilterOptions()
+
 const headers = [
   { title: '', key: 'excluded', sortable: false, width: 56 },
   { title: '#', key: 'rowIndex', sortable: false, width: 48 },
   { title: 'Item', key: 'title' },
   { title: 'Collection', key: 'collectionTitle' },
   { title: 'Strength', key: 'strengthScore' },
-] as const
+  ...ITEM_LABEL_KINDS.map(kind => ({ title: ITEM_LABEL_DEFS[kind].title, key: kind })),
+]
 
 onMounted(async () => {
   // Wait for the shared data load (deduped with the shell's) so items resolve
