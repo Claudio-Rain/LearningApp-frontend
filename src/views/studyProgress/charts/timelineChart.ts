@@ -26,16 +26,17 @@ function cumulativeAverage(logs: AttemptLog[], dates: string[]): (number | null)
     perDay.set(d, (perDay.get(d) ?? 0) + 1)
   })
 
-  const logDates = Array.from(perDay.keys()).sort()
-  if (!logDates.length) return dates.map(() => null)
-  const firstDate = parseISO(logDates[0])
+  const logDays = Array.from(perDay.entries()).sort(([a], [b]) => a.localeCompare(b))
+  const first = logDays[0]
+  if (!first) return dates.map(() => null)
+  const firstDate = parseISO(first[0])
 
   // Both lists are ascending, so one pass over the log days keeps the running
   // total in step with the range days.
   let next = 0
   let total = 0
   return dates.map(date => {
-    while (next < logDates.length && logDates[next] <= date) total += perDay.get(logDates[next++])!
+    for (let day = logDays[next]; day && day[0] <= date; day = logDays[++next]) total += day[1]
     const days = differenceInCalendarDays(parseISO(date), firstDate) + 1
     if (days < 1) return null // before any attempt was ever logged
     return Math.round((total / days) * 10) / 10
