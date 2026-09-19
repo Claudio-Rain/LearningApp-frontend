@@ -1,6 +1,7 @@
 import { formatISO } from 'date-fns'
 import { editLearningItem } from '@/database'
 import { markdownToTiptap } from '@/utils/markdown'
+import { applyTitleDoc, plainTitleDoc } from '@/utils/itemTitle'
 import type { ItemLabelPatch } from '@/database/types'
 import type { CollectionItems } from './useCollectionItems'
 
@@ -31,12 +32,17 @@ export function useAssistantActions(collectionItems: CollectionItems) {
     const item = collectionItems.learningItems.value.find(i => i.id === id)
     if (!item) return
     const lastModified = formatISO(new Date())
-    await editLearningItem({
+    const next = {
       ...item,
-      title: patch.title ?? item.title,
       content: patch.content !== undefined ? markdownToTiptap(patch.content) : item.content,
       lastModified
-    })
+    }
+    // The assistant writes plain text, so a title it rewrites stops being rich —
+    // going through applyTitleDoc drops any code block the old title had rather
+    // than leaving one that contradicts the new `title`.
+    await editLearningItem(
+      patch.title !== undefined ? applyTitleDoc(next, plainTitleDoc(patch.title)) : next
+    )
     await collectionItems.touchCollection(lastModified)
     await collectionItems.load()
   }

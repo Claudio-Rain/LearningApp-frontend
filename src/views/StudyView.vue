@@ -327,7 +327,12 @@
           <!-- Front (Question) -->
           <div class="card-side front">
             <div class="card-content">
-              <h2 class="title-display">{{ currentItem.title }}</h2>
+              <TiptapDisplay
+                v-if="currentItem.titleContent"
+                class="title-display title-display--rich"
+                :content="currentItem.titleContent"
+              />
+              <h2 v-else class="title-display">{{ currentItem.title }}</h2>
             </div>
           </div>
 
@@ -751,8 +756,13 @@ const editableItem = computed<LearningItem | null>(() => {
   return item as LearningItem
 })
 
-const onEditTitle = (_id: string, title: string) => {
-  if (currentItem.value) currentItem.value.title = title
+const onEditTitle = (_id: string, title: string, _lastModified: string, titleContent: JSONContent | null) => {
+  if (!currentItem.value) return
+  currentItem.value.title = title
+  // Drop the key rather than setting it undefined: this object is spread
+  // straight into a Firestore write on the next content edit.
+  if (titleContent) currentItem.value.titleContent = titleContent
+  else delete currentItem.value.titleContent
 }
 
 const onEditContent = (_id: string, content: JSONContent) => {
@@ -1842,6 +1852,33 @@ onUnmounted(() => {
   color: rgba(var(--v-theme-on-surface), 0.87);
   text-align: center;
   word-break: break-word;
+}
+
+/* A rich title keeps the heading type scale for its prose, but a code block or
+   an image inside it reads as content and gets its own size and alignment. */
+.title-display--rich {
+  width: 100%;
+}
+
+.title-display--rich :deep(p) {
+  font-size: inherit;
+  font-weight: inherit;
+  margin: 0.25rem 0;
+}
+
+.title-display--rich :deep(pre) {
+  font-size: 0.85rem;
+  font-weight: 400;
+  text-align: left;
+  margin: 0.75rem 0;
+}
+
+.title-display--rich :deep(img) {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0.5rem auto;
+  border-radius: 6px;
 }
 
 .study-metrics {

@@ -31,7 +31,14 @@ export interface Collection extends Syncable {
 export interface LearningItem extends Syncable {
   id?: string
   collectionId: string
+  // Plain text, always. Everything that isn't the rendered card reads this:
+  // sorting, search, autocompletes, Claude prompts, OS notifications, dialogs.
+  // For an item with a rich title it is the flattened text of `titleContent`,
+  // kept in step on every write.
   title: string
+  // The rich title, when the item has one. Absent means the title is just
+  // `title` — most items, and every item written before rich titles existed.
+  titleContent?: JSONContent
   content?: JSONContent
   // Labels on a 1-5 scale, absent until the item has been labeled. Both are
   // independent of CardProgress.strength_score, which measures how well *you*
@@ -53,6 +60,16 @@ export type ItemLabels = Pick<LearningItem, 'priority' | 'difficulty'>
  * patch" — which is why clearing needs its own marker.
  */
 export type ItemLabelPatch = { [K in keyof ItemLabels]?: ItemLabels[K] | null }
+
+/**
+ * An in-memory edit patch for one item. `titleContent` follows the same
+ * convention as the labels above: omit the key to leave it alone, pass `null`
+ * to clear a rich title back to plain text. It matters that clearing has its
+ * own marker — an explicit `undefined` would reach Firestore, which rejects it.
+ */
+export type ItemEditPatch =
+  Omit<Partial<LearningItem>, keyof ItemLabelPatch | 'titleContent'> &
+  ItemLabelPatch & { titleContent?: JSONContent | null }
 
 export interface CardProgress extends Syncable {
   id?: string

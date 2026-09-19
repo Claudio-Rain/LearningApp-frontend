@@ -813,6 +813,57 @@ export const WIDGET_STYLES = `
       box-sizing: border-box;
     }
 
+    /* A rich title (code block, image) renders as markup inside the question
+       heading, so those nodes get content-sized type instead of the 32px
+       heading scale they'd otherwise inherit. */
+    .front-question p {
+      margin: 4px 0;
+    }
+
+    .front-question pre {
+      background: #1f2937;
+      color: #f3f4f6;
+      padding: 10px 12px;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 10px 0;
+      width: 100%;
+      box-sizing: border-box;
+      text-align: left;
+      font-size: 13px;
+      font-weight: 400;
+      line-height: 1.5;
+    }
+
+    .front-question pre code {
+      background: none;
+      padding: 0;
+      color: inherit;
+      font-family: 'Courier New', monospace;
+    }
+
+    .front-question code {
+      background: #f3f4f6;
+      color: #111827;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85em;
+    }
+
+    .front-question img {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      border-radius: 6px;
+      margin: 8px auto;
+    }
+
+    .learning-content-widget.dark .front-question code {
+      background: #313244;
+      color: #f3f4f6;
+    }
+
     .flashcard-container.flipped .card-side.front {
       opacity: 0;
       z-index: 1;

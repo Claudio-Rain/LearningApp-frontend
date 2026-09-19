@@ -12,7 +12,7 @@ import {
   pullLearningItems,
   setLearningItemLabels
 } from '@/database'
-import type { Collection, ItemLabelPatch, LearningItem } from '@/database/types'
+import type { Collection, ItemEditPatch, ItemLabelPatch, LearningItem } from '@/database/types'
 import { toLabelPatch } from '@/utils/itemLabels'
 
 export type CollectionItems = ReturnType<typeof useCollectionItems>
@@ -117,7 +117,7 @@ export function useCollectionItems(collectionId: string, options: { onMissing: (
    */
   const applyLocalEdit = async (
     id: string,
-    patch: Omit<Partial<LearningItem>, keyof ItemLabelPatch> & ItemLabelPatch,
+    patch: ItemEditPatch,
     lastModified: string
   ) => {
     mergeLocalItem(id, patch, lastModified)
@@ -126,7 +126,7 @@ export function useCollectionItems(collectionId: string, options: { onMissing: (
 
   const mergeLocalItem = (
     id: string,
-    patch: Omit<Partial<LearningItem>, keyof ItemLabelPatch> & ItemLabelPatch,
+    patch: ItemEditPatch,
     lastModified: string
   ) => {
     const item = learningItems.value.find(i => i.id === id)

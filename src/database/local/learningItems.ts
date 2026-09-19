@@ -1,4 +1,5 @@
 import { formatISO } from 'date-fns'
+import type { JSONContent } from '@tiptap/vue-3'
 import type { ItemLabelPatch, LearningItem } from '../types'
 import { dbPromise, LEARNING_ITEMS_STORE } from './db'
 
@@ -25,10 +26,23 @@ export async function updateLearningItem(item: LearningItem): Promise<void> {
   await (await dbPromise).put(LEARNING_ITEMS_STORE, JSON.parse(JSON.stringify(item)))
 }
 
-export async function updateLearningItemTitle(id: string, title: string): Promise<void> {
+/**
+ * Write both halves of a title at once. Pass `titleContent` only for a rich
+ * title; leaving it out drops the field, so the item goes back to plain text
+ * rather than keeping a stale document that contradicts `title`.
+ */
+export async function updateLearningItemTitle(
+  id: string,
+  title: string,
+  titleContent?: JSONContent,
+): Promise<void> {
   const db = await dbPromise
   const item = await db.get(LEARNING_ITEMS_STORE, id)
-  await db.put(LEARNING_ITEMS_STORE, { ...item, title, lastModified: formatISO(new Date()) })
+  if (!item) return
+
+  const next = { ...item, title, titleContent, lastModified: formatISO(new Date()) }
+  if (!titleContent) delete next.titleContent
+  await db.put(LEARNING_ITEMS_STORE, next)
 }
 
 /**

@@ -1,14 +1,10 @@
 <!-- LearningItemPanel.vue -->
 <template>
   <div class="content-panel">
-    <v-textarea
-      v-model="title"
+    <LearningItemTitleEditor
       class="content-title-input"
-      variant="plain"
-      hide-details
-      auto-grow
-      rows="1"
-      @update:model-value="handleTitleInput"
+      :value="titleContent"
+      @change="handleTitleInput"
     />
 
     <div class="label-row">
@@ -38,9 +34,11 @@ import type { JSONContent } from '@tiptap/vue-3'
 import { editLearningItem } from '../../database'
 import type { ItemLabelPatch, LearningItem } from '../../database/types'
 import LearningItemEditor from './LearningItemEditor.vue'
+import LearningItemTitleEditor from './LearningItemTitleEditor.vue'
 import ItemLabelPicker from './ItemLabelPicker.vue'
 import { streamAnswer, getApiKey, setApiKey, extractText } from '../../utils/claude'
 import { markdownToTiptap } from '../../utils/markdown'
+import { applyTitleDoc, docToPlainTitle, titleDoc } from '../../utils/itemTitle'
 import { ITEM_LABEL_KINDS, type ItemLabelKind } from '../../utils/itemLabels'
 import { useItemLabels } from '../composables/useItemLabels'
 
@@ -50,7 +48,15 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'update:content', id: string, content: JSONContent, lastModified: string): void
-  (e: 'update:title', id: string, title: string, lastModified: string): void
+  // `titleContent` is null when the title is plain text, so listeners can clear
+  // a rich title they were holding rather than leave a stale one behind.
+  (
+    e: 'update:title',
+    id: string,
+    title: string,
+    lastModified: string,
+    titleContent: JSONContent | null
+  ): void
   (e: 'update:labels', id: string, patch: ItemLabelPatch, lastModified: string): void
 }>()
 
@@ -111,7 +117,7 @@ const handleAnswer = async () => {
   }
   // Capture the prompt inputs for this item now; the live refs may change if the
   // user switches items while the answer is still generating.
-  const promptTitle = title.value
+  const promptTitle = docToPlainTitle(titleContent.value)
   const promptContent = content.value
   answeringIds.add(itemId)
   let accumulated = ''
@@ -139,14 +145,14 @@ const content = ref<JSONContent>(
     ? { type: 'doc', content: [] }
     : props.item.content ?? { type: 'doc', content: [] }
 )
-const title = ref(props.item.title)
+const titleContent = ref<JSONContent>(titleDoc(props.item))
 
 watch(() => props.item.id, () => {
   console.log('[LearningItemPanel] item ID changed', { newId: props.item.id, contentLength: props.item.content ? JSON.stringify(props.item.content).length : 0 })
   content.value = typeof props.item.content === 'string'
     ? { type: 'doc', content: [] }
     : props.item.content ?? { type: 'doc', content: [] }
-  title.value = props.item.title
+  titleContent.value = titleDoc(props.item)
 })
 
 let contentTimer: ReturnType<typeof setTimeout> | null = null
@@ -169,18 +175,16 @@ const handleContentChange = (val: JSONContent) => {
   }, 500)
 }
 
-const handleTitleInput = () => {
-  if (!title.value.trim()) return
+const handleTitleInput = (doc: JSONContent) => {
+  titleContent.value = doc
+  // An empty title isn't a title — leave the last saved one in place.
+  if (!docToPlainTitle(doc)) return
   if (titleTimer) clearTimeout(titleTimer)
   titleTimer = setTimeout(async () => {
-    const trimmed = title.value.trim()
     const lastModified = formatISO(new Date())
-    await editLearningItem({
-      ...toRaw(props.item),
-      title: trimmed,
-      lastModified
-    })
-    emit('update:title', props.item.id!, trimmed, lastModified)
+    const next = applyTitleDoc({ ...toRaw(props.item), lastModified }, doc)
+    await editLearningItem(next)
+    emit('update:title', props.item.id!, next.title, lastModified, next.titleContent ?? null)
   }, 500)
 }
 </script>
@@ -212,14 +216,9 @@ const handleTitleInput = () => {
 }
 
 /* Keep the title at its natural height so it doesn't stretch the column
-   and push the editor toolbar down. */
+   and push the editor toolbar down. Type scale lives in the title editor. */
 .content-title-input {
   flex: 0 0 auto;
-}
-
-.content-title-input :deep(textarea) {
-  font-size: 1.5rem;
-  font-weight: 600;
-  line-height: 1.3;
+  padding: 8px 0;
 }
 </style>

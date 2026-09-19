@@ -28,7 +28,7 @@
       <LearningItemPanel
         :item="selectedItem"
         @update:content="(id, content, lastModified) => applyLocalEdit(id, { content }, lastModified)"
-        @update:title="(id, title, lastModified) => applyLocalEdit(id, { title }, lastModified)"
+        @update:title="(id, title, lastModified, titleContent) => applyLocalEdit(id, { title, titleContent }, lastModified)"
         @update:labels="(id, patch, lastModified) => applyLocalEdit(id, patch, lastModified)"
       />
     </div>

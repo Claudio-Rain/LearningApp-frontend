@@ -12,6 +12,7 @@ import {
   deleteField
 } from 'firebase/firestore'
 import { db } from './firebase'
+import type { JSONContent } from '@tiptap/vue-3'
 import type { ItemLabelPatch, LearningItem } from '../types'
 
 export async function getLearningItems(collectionRemoteId: string): Promise<LearningItem[]> {
@@ -37,9 +38,19 @@ export async function updateLearningItem(item: LearningItem): Promise<void> {
   await updateDoc(doc(db, 'learning_items', remoteId!), data)
 }
 
-export async function updateLearningItemTitle(remoteId: string, title: string): Promise<void> {
+/**
+ * Write both halves of a title at once. Omitting `titleContent` removes the
+ * field, so an item edited back down to plain text doesn't keep a stale rich
+ * title that a later pull would restore.
+ */
+export async function updateLearningItemTitle(
+  remoteId: string,
+  title: string,
+  titleContent?: JSONContent,
+): Promise<void> {
   await updateDoc(doc(db, 'learning_items', remoteId), {
     title,
+    titleContent: titleContent ?? deleteField(),
     lastModified: formatISO(new Date())
   })
 }

@@ -68,6 +68,20 @@ function renderAnswer(answerEl, content) {
   return '1';
 }
 
+// A title is plain text unless the item carries a rich one (`titleContent`),
+// which is where code blocks and images live.
+function renderTitle(titleEl, item) {
+  if (!item.titleContent) {
+    titleEl.textContent = item.title || '';
+    return;
+  }
+  try {
+    titleEl.innerHTML = renderTiptapContent(item.titleContent);
+  } catch {
+    titleEl.textContent = item.title || '';
+  }
+}
+
 export function updateContentDisplay(item, meta) {
   setCurrentItem(item);
   setFlipped(false);
@@ -86,7 +100,7 @@ export function updateContentDisplay(item, meta) {
 
   if (!frontQuestionEl || !answerEl || !flashcard || !widget) return;
 
-  frontQuestionEl.textContent = item.title || '';
+  renderTitle(frontQuestionEl, item);
   const targetOpacity = renderAnswer(answerEl, item.content);
 
   // Reset flip state
