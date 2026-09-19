@@ -7,8 +7,8 @@ import {
   toStudySetSpec,
   type StudySetCollection,
   type StudySetSettings,
-} from './studySetAssistant'
-import type { StudySetItem } from './studySet'
+} from '@/utils/studySetAssistant'
+import type { StudySetItem } from '@/utils/studySet'
 
 const item = (over: Partial<StudySetItem> & { id: string; collectionId: string }): StudySetItem => ({
   title: over.id,

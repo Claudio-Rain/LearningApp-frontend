@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { allocate, matchesFilter, resolveStudySet, type StudySetItem } from './studySet'
+import { allocate, matchesFilter, resolveStudySet, type StudySetItem } from '@/utils/studySet'
 
 const item = (over: Partial<StudySetItem> & { id: string; collectionId: string }): StudySetItem => ({
   title: over.id,

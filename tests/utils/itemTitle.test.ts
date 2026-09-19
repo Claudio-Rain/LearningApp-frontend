@@ -8,7 +8,7 @@ import {
   titleDocFromMarkdown,
   titleFieldsFromMarkdown,
   titlePreviewFromMarkdown,
-} from './itemTitle'
+} from '@/utils/itemTitle'
 
 const doc = (...content: JSONContent[]): JSONContent => ({ type: 'doc', content })
 const para = (text: string): JSONContent => ({
