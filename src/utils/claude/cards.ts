@@ -27,6 +27,9 @@ export const proposeCardSplit = async (
     `markdown answer for the back, drawn from the original material (fill small gaps with ` +
     `well-known facts, but do not invent new topics). Together the cards should cover the ` +
     `original card without overlapping each other.\n\n` +
+    `Questions are plain text unless the question is about code: then you may use inline ` +
+    `\`code\` or a single fenced code block in the question. Never headings, lists or tables ` +
+    `there.\n\n` +
     `Reply with ONLY a JSON array of exactly ${splits} objects shaped like ` +
     `{"question": "...", "answer": "..."} — no prose, no code fences.`
 
@@ -74,7 +77,8 @@ export const rewriteAsStandaloneQuestion = async (
     `Rewrite their question so it makes sense on its own, away from this card: replace words like ` +
     `"this", "it", "that" with the concrete concept they refer to. Preserve the user's intent and ` +
     `phrasing as much as possible, keep it to one short sentence, and reply with ONLY the rewritten ` +
-    `question — no quotes, no explanation.`
+    `question — no quotes, no explanation. You may wrap an identifier or short snippet in markdown ` +
+    `inline \`code\`; use nothing else from markdown.`
 
   const text = await createText({
     max_tokens: 200,

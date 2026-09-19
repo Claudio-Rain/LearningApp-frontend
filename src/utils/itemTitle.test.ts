@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { JSONContent } from '@tiptap/vue-3'
-import { applyTitleDoc, docToPlainTitle, isPlainTitleDoc, titleDoc } from './itemTitle'
+import {
+  applyTitleDoc,
+  docToPlainTitle,
+  isPlainTitleDoc,
+  titleDoc,
+  titleDocFromMarkdown,
+  titleFieldsFromMarkdown,
+  titlePreviewFromMarkdown,
+} from './itemTitle'
 
 const doc = (...content: JSONContent[]): JSONContent => ({ type: 'doc', content })
 const para = (text: string): JSONContent => ({
@@ -90,5 +98,64 @@ describe('applyTitleDoc', () => {
   it('leaves other fields alone', () => {
     const next = applyTitleDoc({ ...item(), priority: 3 }, doc(para('x')))
     expect(next.priority).toBe(3)
+  })
+})
+
+describe('titleDocFromMarkdown', () => {
+  it('keeps a fenced code block, with its language', () => {
+    const doc = titleDocFromMarkdown('What does this print?\n\n```python\nprint(1)\n```')
+
+    expect(doc.content).toHaveLength(2)
+    expect(doc.content![0]!.type).toBe('paragraph')
+    expect(doc.content![1]).toEqual({
+      type: 'codeBlock',
+      attrs: { language: 'python' },
+      content: [{ type: 'text', text: 'print(1)' }],
+    })
+  })
+
+  it('keeps inline code as a mark', () => {
+    const doc = titleDocFromMarkdown('What does `useRef` return?')
+    const marked = doc.content![0]!.content!.find(n => n.text === 'useRef')
+
+    expect(marked!.marks).toEqual([{ type: 'code' }])
+  })
+
+  it('flattens blocks the title editor cannot edit', () => {
+    // A heading, a list and a table all keep their words and lose their shape —
+    // a title must never hold a node with no button to remove it.
+    for (const markdown of ['# A heading', '- one\n- two', '| a | b |\n| - | - |\n| 1 | 2 |']) {
+      const doc = titleDocFromMarkdown(markdown)
+      expect(doc.content!.every(block => block.type === 'paragraph')).toBe(true)
+      expect(docToPlainTitle(doc)).not.toBe('')
+    }
+  })
+
+  it('is empty for empty markdown', () => {
+    expect(titleDocFromMarkdown('')).toEqual({ type: 'doc', content: [] })
+  })
+})
+
+describe('titleFieldsFromMarkdown', () => {
+  it('leaves prose as a plain title', () => {
+    const fields = titleFieldsFromMarkdown('What is a closure?')
+
+    expect(fields.title).toBe('What is a closure?')
+    expect('titleContent' in fields).toBe(false)
+  })
+
+  it('stores a rich title when the markdown has code', () => {
+    const fields = titleFieldsFromMarkdown('What does this print?\n\n```js\nconsole.log(1)\n```')
+
+    expect(fields.title).toBe('What does this print? console.log(1)')
+    expect(fields.titleContent).toBeDefined()
+  })
+})
+
+describe('titlePreviewFromMarkdown', () => {
+  it('shows one clean line instead of raw markdown', () => {
+    expect(titlePreviewFromMarkdown('What does `x = 1` do?')).toBe('What does x = 1 do?')
+    expect(titlePreviewFromMarkdown('Print it:\n\n```\nprint(1)\nprint(2)\n```'))
+      .toBe('Print it: print(1) print(2)')
   })
 })

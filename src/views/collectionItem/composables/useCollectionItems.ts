@@ -82,13 +82,16 @@ export function useCollectionItems(collectionId: string, options: { onMissing: (
     await load()
   }
 
-  const addItems = async (items: { title: string; content?: JSONContent }[]) => {
+  const addItems = async (
+    items: { title: string; titleContent?: JSONContent; content?: JSONContent }[]
+  ) => {
     if (!collection.value || items.length === 0) return
     const now = formatISO(new Date())
     for (const item of items) {
       await createLearningItem({
         collectionId: collection.value.id!,
         title: item.title,
+        titleContent: item.titleContent,
         content: item.content,
         dateCreated: now,
         lastModified: now

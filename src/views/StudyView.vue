@@ -245,7 +245,7 @@
             <div class="split-title">Proposed cards — approve to create them</div>
             <div v-for="(p, i) in splitProposals" :key="i" class="split-proposal">
               <div class="split-proposal-body">
-                <div class="split-proposal-question">{{ i + 1 }}. {{ p.question }}</div>
+                <div class="split-proposal-question">{{ i + 1 }}. {{ titlePreviewFromMarkdown(p.question) }}</div>
                 <div v-if="p.answer" class="split-proposal-answer">{{ p.answer }}</div>
               </div>
               <v-btn
@@ -460,6 +460,7 @@ import {
 } from '../database'
 import { getApiKey, setApiKey, generateAnswerMarkdown, streamCardChat, rewriteAsStandaloneQuestion, proposeCardSplit, type ChatMessage, type SplitProposal } from '../utils/claude'
 import { markdownToTiptap } from '../utils/markdown'
+import { titleFieldsFromMarkdown, titlePreviewFromMarkdown } from '../utils/itemTitle'
 import { strengthTier, STRENGTH_TIERS, STRENGTH_TIER_META, type StrengthTier } from '@/utils/strength'
 import type { Collection, LearningItem, CardProgress } from '../database/types'
 import { useExcludedItems } from '@/shared/composables/useExcludedItems'
@@ -630,12 +631,13 @@ const saveChatQuestion = async (msg: ChatBubble, index: number) => {
     }
 
     const content = answer ? markdownToTiptap(answer) : undefined
-    const [created] = await createCards(item.collectionId, [{ title, content }])
+    const titleFields = titleFieldsFromMarkdown(title)
+    const [created] = await createCards(item.collectionId, [{ ...titleFields, content }])
     msg.added = true
-    showToast(`Added "${title}"`)
+    showToast(`Added "${titleFields.title}"`)
     if (!content && created) {
-      generateAutoAnswer(created.id!, item.collectionId, title, created.dateCreated)
-        .catch(error => console.error(`Auto-answer failed for "${title}":`, error))
+      generateAutoAnswer(created)
+        .catch(error => console.error(`Auto-answer failed for "${titleFields.title}":`, error))
     }
   } catch (error) {
     console.error('Failed to add chat question:', error)
@@ -724,7 +726,7 @@ const finishSplit = async (deleteOriginal: boolean) => {
   try {
     const proposals = splitProposals.value
     await createCards(item.collectionId, proposals.map(p => ({
-      title: p.question,
+      ...titleFieldsFromMarkdown(p.question),
       content: p.answer ? markdownToTiptap(p.answer) : undefined,
     })))
     showToast(`Added ${proposals.length} card${proposals.length === 1 ? '' : 's'} from the split`)
@@ -1089,13 +1091,13 @@ const openAddDialog = async () => {
 // add dialog and the chat's one-click save.
 const createCards = async (
   collectionId: string,
-  entries: { title: string; content?: JSONContent }[]
+  entries: { title: string; titleContent?: JSONContent; content?: JSONContent }[]
 ): Promise<StudyItem[]> => {
   const now = formatISO(new Date())
   const created: StudyItem[] = []
-  for (const { title, content } of entries) {
-    const id = String(await createLearningItem({ collectionId, title, content, dateCreated: now, lastModified: now }))
-    created.push({ id, collectionId, title, content, dateCreated: now, lastModified: now })
+  for (const { title, titleContent, content } of entries) {
+    const id = String(await createLearningItem({ collectionId, title, titleContent, content, dateCreated: now, lastModified: now }))
+    created.push({ id, collectionId, title, ...(titleContent ? { titleContent } : {}), content, dateCreated: now, lastModified: now })
   }
 
   const collection = (await getCollections()).find(c => c.id === collectionId)
@@ -1142,7 +1144,7 @@ const submitAddDialog = async () => {
         let failed = 0
         for (const item of created) {
           try {
-            await generateAutoAnswer(item.id!, collectionId, item.title, item.dateCreated)
+            await generateAutoAnswer(item)
           } catch (error) {
             failed++
             console.error(`Auto-answer failed for "${item.title}":`, error)
@@ -1165,16 +1167,20 @@ const submitAddDialog = async () => {
   }
 }
 
-const generateAutoAnswer = async (id: string, collectionId: string, title: string, dateCreated: string) => {
-  const markdown = await generateAnswerMarkdown(title)
+// Takes the created card rather than its id and title: writing back a rebuilt
+// object would silently drop whatever else the card carries — a rich title,
+// most of all, which the answer has no business touching.
+const generateAutoAnswer = async (card: StudyItem) => {
+  const { progress: _progress, ...item } = card
+  const markdown = await generateAnswerMarkdown(card.title)
   const content = markdownToTiptap(markdown)
-  await editLearningItem({ id, collectionId, title, content, dateCreated, lastModified: formatISO(new Date()) })
+  await editLearningItem({ ...item, content, lastModified: formatISO(new Date()) })
   syncLearningItems().catch(() => {})
   // Fill the answer into the in-memory queue so flipping the card shows it.
-  const queued = studyQueue.value.find(i => i.id === id)
+  const queued = studyQueue.value.find(i => i.id === card.id)
   if (queued) queued.content = content
-  const item = learningItems.value.find(i => i.id === id)
-  if (item) item.content = content
+  const queuedItem = learningItems.value.find(i => i.id === card.id)
+  if (queuedItem) queuedItem.content = content
 }
 
 const deleteCurrentItem = async () => {

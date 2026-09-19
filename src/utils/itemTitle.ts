@@ -4,6 +4,7 @@
 import type { JSONContent } from '@tiptap/vue-3'
 import type { LearningItem } from '../database/types'
 import { extractText } from './claude/text'
+import { markdownToTiptap } from './markdown'
 
 /** The shape these helpers need — so the content script's plainer item objects fit too. */
 type TitledItem = Pick<LearningItem, 'title'> & { titleContent?: JSONContent }
@@ -43,6 +44,54 @@ export const isPlainTitleDoc = (doc: JSONContent): boolean => {
   if (block!.type !== 'paragraph') return false
   return (block!.content ?? []).every(node => node.type === 'text' && !node.marks?.length)
 }
+
+/**
+ * The blocks a title may hold — the same set LearningItemTitleEditor can edit.
+ * Anything else the model writes is flattened to a paragraph rather than
+ * stored, so a title can never contain a node the title editor has no way to
+ * select, style or delete.
+ */
+const TITLE_BLOCKS = new Set(['paragraph', 'codeBlock', 'image'])
+
+/**
+ * Turn a markdown title written by Claude into a title document. Code — inline
+ * or fenced — is what this exists for; a heading, list or table in a title is
+ * the model overreaching, so it keeps the words and drops the structure.
+ */
+export const titleDocFromMarkdown = (markdown: string): JSONContent => {
+  const blocks = markdownToTiptap(markdown).content ?? []
+
+  const content = blocks.flatMap((block): JSONContent[] => {
+    if (TITLE_BLOCKS.has(block.type ?? '')) {
+      // marked hands back one empty paragraph for empty input; drop it so an
+      // empty title is an empty document, exactly like plainTitleDoc('').
+      const empty = block.type === 'paragraph' && !(block.content ?? []).length
+      return empty ? [] : [block]
+    }
+    const text = extractText(block).replace(/\s+/g, ' ').trim()
+    return text ? [{ type: 'paragraph', content: [{ type: 'text', text }] }] : []
+  })
+
+  return { type: 'doc', content }
+}
+
+/**
+ * Both title fields from a markdown title, ready to spread onto a new item.
+ * `titleContent` is absent when the markdown turned out to be plain prose,
+ * which is the common case.
+ */
+export const titleFieldsFromMarkdown = (
+  markdown: string
+): { title: string; titleContent?: JSONContent } =>
+  applyTitleDoc({ title: '' }, titleDocFromMarkdown(markdown))
+
+/**
+ * One line of plain text for a markdown title the user hasn't approved yet.
+ * Approval lists and toasts are one line per card, so they show this rather
+ * than raw backticks and fences.
+ */
+export const titlePreviewFromMarkdown = (markdown: string): string =>
+  docToPlainTitle(titleDocFromMarkdown(markdown))
 
 /**
  * Write a title document onto an item, returning a new object. A plain title

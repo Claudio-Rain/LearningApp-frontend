@@ -61,7 +61,14 @@ export const WRITE_TOOLS: Anthropic.Tool[] = [
           items: {
             type: 'object',
             properties: {
-              title: { type: 'string', description: 'The question / front of the card.' },
+              title: {
+                type: 'string',
+                description:
+                  'The question / front of the card. Plain text by default. When the question is ' +
+                  'about specific code you may use markdown: inline `code` for an identifier, or ' +
+                  'one fenced code block for a snippet the user has to read. Never headings, ' +
+                  'lists, tables or images.',
+              },
               content: { type: 'string', description: 'The answer / back, in markdown.' },
             },
             required: ['title', 'content'],
@@ -112,7 +119,13 @@ export const WRITE_TOOLS: Anthropic.Tool[] = [
             type: 'object',
             properties: {
               id: { type: 'string', description: 'The learning item id to edit.' },
-              title: { type: 'string', description: 'New title, if changing it.' },
+              title: {
+                type: 'string',
+                description:
+                  'New title, if changing it. Same rules as propose_create_items: plain text ' +
+                  'unless the question is about code, in which case inline `code` or one fenced ' +
+                  'code block. This replaces the old title outright.',
+              },
               content: { type: 'string', description: 'New content as markdown, if changing it.' },
             },
             required: ['id'],

@@ -1,7 +1,7 @@
 import { formatISO } from 'date-fns'
 import { editLearningItem } from '@/database'
 import { markdownToTiptap } from '@/utils/markdown'
-import { applyTitleDoc, plainTitleDoc } from '@/utils/itemTitle'
+import { applyTitleDoc, titleDocFromMarkdown, titleFieldsFromMarkdown } from '@/utils/itemTitle'
 import type { ItemLabelPatch } from '@/database/types'
 import type { CollectionItems } from './useCollectionItems'
 
@@ -10,13 +10,15 @@ import type { CollectionItems } from './useCollectionItems'
  * same composable the manual handlers use, so item counts and syncing stay in
  * step, then reload so the table and any open editor reflect it.
  *
- * The assistant speaks markdown, so content is converted on the way in.
+ * The assistant speaks markdown, so both halves of a card are converted on the
+ * way in. A title is usually plain prose and stays a plain string; it only
+ * becomes rich when the model actually used code in the question.
  */
 export function useAssistantActions(collectionItems: CollectionItems) {
   const applyCreate = async (items: { title: string; content: string }[]) =>
     collectionItems.addItems(
       items.map(item => ({
-        title: item.title,
+        ...titleFieldsFromMarkdown(item.title),
         content: item.content ? markdownToTiptap(item.content) : undefined
       }))
     )
@@ -37,11 +39,11 @@ export function useAssistantActions(collectionItems: CollectionItems) {
       content: patch.content !== undefined ? markdownToTiptap(patch.content) : item.content,
       lastModified
     }
-    // The assistant writes plain text, so a title it rewrites stops being rich —
-    // going through applyTitleDoc drops any code block the old title had rather
-    // than leaving one that contradicts the new `title`.
+    // A rewritten title replaces the old one outright: applyTitleDoc drops the
+    // previous rich title unless the new markdown has code of its own, so the
+    // stored document can never contradict `title`.
     await editLearningItem(
-      patch.title !== undefined ? applyTitleDoc(next, plainTitleDoc(patch.title)) : next
+      patch.title !== undefined ? applyTitleDoc(next, titleDocFromMarkdown(patch.title)) : next
     )
     await collectionItems.touchCollection(lastModified)
     await collectionItems.load()

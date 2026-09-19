@@ -83,7 +83,7 @@
                     @change="toggle(m, String(j))"
                   />
                   <div class="proposal-item-text">
-                    <div class="proposal-item-title">{{ it.title }}</div>
+                    <div class="proposal-item-title">{{ titlePreviewFromMarkdown(it.title) }}</div>
                     <div class="proposal-item-body">{{ shorten(it.content) }}</div>
                   </div>
                 </li>
@@ -155,7 +155,9 @@
                     @change="toggle(m, it.id)"
                   />
                   <div class="proposal-item-text">
-                    <div class="proposal-item-title">{{ it.title ?? it.currentTitle }}</div>
+                    <div class="proposal-item-title">
+                      {{ it.title === undefined ? it.currentTitle : titlePreviewFromMarkdown(it.title) }}
+                    </div>
                     <div v-if="it.title" class="proposal-item-body">
                       was "{{ it.currentTitle }}"
                     </div>
@@ -228,6 +230,7 @@ import type Anthropic from '@anthropic-ai/sdk'
 import type { Collection, ItemLabelPatch, LearningItem } from '../../database/types'
 import { getApiKey, setApiKey } from '../../utils/claude'
 import { ITEM_LABEL_DEFS, ITEM_LABEL_KINDS, labelMeta, labelText } from '../../utils/itemLabels'
+import { titlePreviewFromMarkdown } from '../../utils/itemTitle'
 import {
   runAssistantTurn,
   type Proposal,
