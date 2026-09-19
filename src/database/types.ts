@@ -23,6 +23,7 @@ export interface Collection extends Syncable {
   description?: string
   // null/undefined = uncategorized. A collection belongs to 0 or 1 category.
   categoryId?: string | null
+  starred?: boolean
   lastModified: string
   dateCreated: string
   numberOfItems: number

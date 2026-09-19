@@ -48,7 +48,7 @@
       :headers="headers"
       :items="filteredCollections"
       :items-per-page="-1"
-      :sort-by="[{ key: 'title', order: 'asc' }]"
+      :sort-by="[{ key: 'starred', order: 'desc' }, { key: 'title', order: 'asc' }]"
       class="rounded-lg resizable-table collections-table"
       hover
       @click:row="(_: Event, { item }: { item: Collection }) => goToCollection(item.id!)"
@@ -56,6 +56,17 @@
       <template v-for="col in resizableColumns" #[`header.${col}`]="{ column }" :key="col">
         <span>{{ column.title }}</span>
         <span class="resize-handle" @mousedown.stop="startResize($event, col)" />
+      </template>
+
+      <template #item.starred="{ item }">
+        <v-btn
+          :icon="item.starred ? 'mdi-star' : 'mdi-star-outline'"
+          :color="item.starred ? 'amber-darken-2' : undefined"
+          variant="text"
+          size="small"
+          :title="item.starred ? 'Unstar' : 'Star'"
+          @click.stop="toggleStar(item)"
+        />
       </template>
 
       <template #item.title="{ item }">
@@ -217,6 +228,8 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <CollectionListAssistant :collections="assistantCollections" :scope="assistantScope" />
   </div>
 </template>
 
@@ -225,6 +238,8 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { formatISO } from 'date-fns'
 import { useRouter } from 'vue-router'
 import { useStudyViewCollection } from '@/shared/composables/useStudyViewCollection'
+import CollectionListAssistant from '@/shared/components/CollectionListAssistant.vue'
+import type { CollectionSummary } from '@/utils/collectionListAssistant'
 import {
   getCollections,
   createCollection,
@@ -269,9 +284,11 @@ const categoryMap = computed(() => new Map(categories.value.map(c => [c.id, c]))
 // Neutral accent colors for the two built-in filter options.
 const ALL_COLOR = '#1976D2'
 const UNCATEGORIZED_COLOR = '#78909C'
+const STARRED_COLOR = '#F9A825'
 
 const filterOptions = computed(() => [
   { value: 'all', label: 'All', color: ALL_COLOR },
+  { value: 'starred', label: 'Starred', color: STARRED_COLOR },
   { value: 'none', label: 'Uncategorized', color: UNCATEGORIZED_COLOR },
   ...categories.value.map(c => ({ value: c.id!, label: c.title, color: c.color || ALL_COLOR })),
 ])
@@ -293,10 +310,29 @@ function chipStyle(color: string, active: boolean) {
 }
 
 const filteredCollections = computed(() => {
-  if (selectedCategoryId.value === 'all') return collections.value
-  if (selectedCategoryId.value === 'none') return collections.value.filter(c => !c.categoryId)
-  return collections.value.filter(c => c.categoryId === selectedCategoryId.value)
+  // Normalized so the table sorts on a real boolean rather than undefined.
+  const all = collections.value.map(c => ({ ...c, starred: c.starred === true }))
+  if (selectedCategoryId.value === 'all') return all
+  if (selectedCategoryId.value === 'starred') return all.filter(c => c.starred)
+  if (selectedCategoryId.value === 'none') return all.filter(c => !c.categoryId)
+  return all.filter(c => c.categoryId === selectedCategoryId.value)
 })
+
+const assistantCollections = computed<CollectionSummary[]>(() =>
+  filteredCollections.value.map(c => ({
+    id: c.id!,
+    title: c.title,
+    starred: c.starred === true,
+    categoryTitle: c.categoryId ? categoryMap.value.get(c.categoryId)?.title : undefined,
+    itemCount: c.numberOfItems,
+  }))
+)
+
+const assistantScope = computed(() =>
+  selectedCategoryId.value === 'all'
+    ? undefined
+    : filterOptions.value.find(o => o.value === selectedCategoryId.value)?.label
+)
 
 const categoryOf = (collection: Collection) =>
   collection.categoryId ? categoryMap.value.get(collection.categoryId) : undefined
@@ -312,8 +348,10 @@ const columnWidths = ref<Record<string, number>>({
 })
 
 const ACTIONS_WIDTH = 124
+const STAR_WIDTH = 52
 
 const headers = computed(() => [
+  { title: '', key: 'starred', sortable: true, align: 'center' as const, width: STAR_WIDTH, minWidth: STAR_WIDTH },
   { title: 'Title', key: 'title', sortable: true, width: columnWidths.value.title },
   { title: 'Description', key: 'description', sortable: false, width: columnWidths.value.description },
   { title: 'Category', key: 'categoryId', sortable: false, width: columnWidths.value.categoryId },
@@ -360,6 +398,16 @@ const assignCategory = async (collection: Collection, categoryId: string | null)
   await editCollection({
     ...collection,
     categoryId,
+    lastModified: formatISO(new Date())
+  })
+  await syncCollections()
+  await loadCollections()
+}
+
+const toggleStar = async (collection: Collection) => {
+  await editCollection({
+    ...collection,
+    starred: !collection.starred,
     lastModified: formatISO(new Date())
   })
   await syncCollections()
