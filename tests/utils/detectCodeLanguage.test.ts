@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { detectCodeLanguage } from '@/utils/detectCodeLanguage'
+import { detectCodeLanguage, CODE_LANGUAGES } from '@/utils/detectCodeLanguage'
 
 describe('detectCodeLanguage', () => {
   it.each([
@@ -10,8 +10,30 @@ describe('detectCodeLanguage', () => {
     ['css', '.card { display: flex; color: red; padding: 4px; }'],
     ['html', '<div class="card"><span>hello</span></div>'],
     ['json', '{"a": 1, "b": [true, null], "c": "x"}'],
+    ['csharp', 'var items = new List<int>();\nitems.Add(1);\nforeach (var i in items) Console.WriteLine(i);'],
+    ['cpp', '#include <iostream>\nint main() { std::cout << 1 << std::endl; return 0; }'],
+    ['go', 'package main\n\nimport "fmt"\n\nfunc main() { fmt.Println("hi") }'],
+    ['rust', 'fn main() {\n    let v: Vec<i32> = vec![1, 2, 3];\n    println!("{:?}", v);\n}'],
+    ['bash', 'for f in *.txt; do\n  echo "$f"\ndone'],
   ])('detects %s', (expected, source) => {
     expect(detectCodeLanguage(source)).toBe(expected)
+  })
+
+  it('reads a Vue SFC as vue rather than as markup', () => {
+    const sfc = '<template>\n  <div class="a">{{ msg }}</div>\n</template>\n\n<script setup>\nconst msg = ref(1)\n</script>'
+    expect(detectCodeLanguage(sfc)).toBe('vue')
+  })
+
+  it('reads Java as java rather than as typescript', () => {
+    const source = 'public class Main {\n    public static void main(String[] args) {\n        System.out.println(1);\n    }\n}'
+    expect(detectCodeLanguage(source)).toBe('java')
+  })
+
+  it('separates JSX from plain javascript', () => {
+    const plain = 'const total = items.reduce((a, b) => a + b, 0)\nconsole.log(total)'
+    const jsx = 'export default function App() {\n  const [n, setN] = useState(0)\n  return <Counter value={n} onClick={() => setN(n + 1)} />\n}'
+    expect(detectCodeLanguage(plain)).toBe('javascript')
+    expect(detectCodeLanguage(jsx)).toBe('jsx')
   })
 
   it('returns null for an empty pad', () => {
@@ -29,11 +51,11 @@ describe('detectCodeLanguage', () => {
   })
 
   it('only ever names a language the scratchpad can switch to', () => {
-    const supported = ['javascript', 'typescript', 'python', 'html', 'css', 'sql', 'json']
+    const supported = CODE_LANGUAGES.map(l => l.id)
     const samples = [
-      'package main\n\nfunc main() { println("hi") }',
-      '#include <stdio.h>\nint main(void) { return 0; }',
+      'defmodule Foo do\n  def bar(x), do: x * 2\nend',
       'SELECT * FROM t;',
+      '(defn foo [x] (* x 2))',
       'body { margin: 0 auto; font-size: 12px; }',
     ]
     for (const sample of samples) {

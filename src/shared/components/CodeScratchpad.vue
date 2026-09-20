@@ -12,7 +12,7 @@
         class="scratchpad-lang"
       />
       <span v-if="mode === 'auto'" class="scratchpad-detected">
-        {{ detected ? labelFor(detected) : 'detecting…' }}
+        {{ detected ? CODE_LANGUAGE_LABELS[detected] : 'detecting…' }}
       </span>
       <v-spacer />
       <v-btn
@@ -24,23 +24,61 @@
       >
         Clear
       </v-btn>
+      <v-btn
+        variant="tonal"
+        color="primary"
+        size="x-small"
+        prepend-icon="mdi-check-decagram-outline"
+        :loading="reviewing"
+        :disabled="!text.trim()"
+        @click="review"
+      >
+        Review
+      </v-btn>
     </div>
+
     <div ref="hostEl" class="scratchpad-editor" />
+
+    <div v-if="reviewOpen" class="scratchpad-review">
+      <div class="review-header">
+        <span>Review · {{ CODE_LANGUAGE_LABELS[activeLanguage] }}</span>
+        <v-btn icon="mdi-close" variant="text" size="x-small" title="Close review" @click="reviewOpen = false" />
+      </div>
+      <div class="review-body">
+        <div v-if="reviewError" class="review-error">{{ reviewError }}</div>
+        <div v-else-if="!reviewText" class="review-thinking">Reading it over…</div>
+        <TiptapDisplay v-else :content="markdownToTiptap(reviewText)" />
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { EditorView, basicSetup } from 'codemirror'
-import { Compartment } from '@codemirror/state'
+import { Compartment, type Extension } from '@codemirror/state'
+import { StreamLanguage } from '@codemirror/language'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { javascript } from '@codemirror/lang-javascript'
+import { vue } from '@codemirror/lang-vue'
 import { python } from '@codemirror/lang-python'
 import { html } from '@codemirror/lang-html'
 import { css } from '@codemirror/lang-css'
 import { sql } from '@codemirror/lang-sql'
 import { json } from '@codemirror/lang-json'
-import { detectCodeLanguage, CODE_LANGUAGES, type CodeLanguage } from '@/utils/detectCodeLanguage'
+import { csharp, java, cpp } from '@codemirror/legacy-modes/mode/clike'
+import { go } from '@codemirror/legacy-modes/mode/go'
+import { rust } from '@codemirror/legacy-modes/mode/rust'
+import { shell } from '@codemirror/legacy-modes/mode/shell'
+import TiptapDisplay from './TiptapDisplay.vue'
+import { markdownToTiptap } from '@/utils/markdown'
+import { streamCodeReview } from '@/utils/claude'
+import {
+  detectCodeLanguage,
+  CODE_LANGUAGES,
+  CODE_LANGUAGE_LABELS,
+  type CodeLanguage,
+} from '@/utils/detectCodeLanguage'
 
 type Mode = 'auto' | CodeLanguage
 
@@ -49,14 +87,23 @@ const MODE_ITEMS: { id: Mode; label: string }[] = [
   ...CODE_LANGUAGES,
 ]
 
-const SUPPORT: Record<CodeLanguage, () => ReturnType<typeof javascript>> = {
+const SUPPORT: Record<CodeLanguage, () => Extension> = {
   javascript: () => javascript(),
   typescript: () => javascript({ typescript: true }),
+  jsx: () => javascript({ jsx: true }),
+  tsx: () => javascript({ jsx: true, typescript: true }),
+  vue: () => vue(),
   python: () => python(),
   html: () => html(),
   css: () => css(),
   sql: () => sql(),
   json: () => json(),
+  csharp: () => StreamLanguage.define(csharp),
+  java: () => StreamLanguage.define(java),
+  cpp: () => StreamLanguage.define(cpp),
+  go: () => StreamLanguage.define(go),
+  rust: () => StreamLanguage.define(rust),
+  bash: () => StreamLanguage.define(shell),
 }
 
 const STORAGE_KEY = 'studyScratchpad'
@@ -67,6 +114,11 @@ const mode = ref<Mode>('auto')
 const detected = ref<CodeLanguage | null>(null)
 const text = ref('')
 
+const reviewOpen = ref(false)
+const reviewing = ref(false)
+const reviewText = ref('')
+const reviewError = ref('')
+
 const activeLanguage = computed<CodeLanguage>(() =>
   mode.value === 'auto' ? (detected.value ?? 'javascript') : mode.value
 )
@@ -74,8 +126,6 @@ const activeLanguage = computed<CodeLanguage>(() =>
 let view: EditorView | null = null
 let detectTimer: ReturnType<typeof setTimeout> | null = null
 const languageCompartment = new Compartment()
-
-const labelFor = (id: CodeLanguage) => CODE_LANGUAGES.find(l => l.id === id)?.label ?? id
 
 const readSession = () => {
   try {
@@ -110,6 +160,25 @@ const scheduleDetection = () => {
 const clear = () => {
   view?.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: '' } })
   view?.focus()
+}
+
+const review = async () => {
+  if (reviewing.value) return
+  reviewOpen.value = true
+  reviewing.value = true
+  reviewText.value = ''
+  reviewError.value = ''
+  try {
+    await streamCodeReview(
+      CODE_LANGUAGE_LABELS[activeLanguage.value],
+      text.value,
+      chunk => { reviewText.value += chunk }
+    )
+  } catch (e) {
+    reviewError.value = e instanceof Error ? e.message : 'Review failed'
+  } finally {
+    reviewing.value = false
+  }
 }
 
 const focus = () => view?.focus()
@@ -200,5 +269,41 @@ onBeforeUnmount(() => {
   :deep(.cm-scroller) {
     font-family: 'JetBrainsMono', monospace;
   }
+}
+
+.scratchpad-review {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 0 1 auto;
+  max-height: 45%;
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+}
+
+.review-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 6px 6px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.review-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 12px 12px;
+  font-size: 0.82rem;
+}
+
+.review-thinking {
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.review-error {
+  color: rgb(var(--v-theme-error));
 }
 </style>

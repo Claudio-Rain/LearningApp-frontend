@@ -9,6 +9,9 @@ import { getApiKey } from './apiKey'
 // One model across every AI feature, so a user's key sees consistent behavior.
 export const MODEL = 'claude-sonnet-4-6'
 
+// The exception: short, mechanical calls that don't need the bigger model.
+export const FAST_MODEL = 'claude-haiku-4-5'
+
 /** Build a browser Anthropic client from the user's stored key. Throws if unset. */
 export const createClient = async (): Promise<Anthropic> => {
   const apiKey = await getApiKey()
@@ -17,11 +20,12 @@ export const createClient = async (): Promise<Anthropic> => {
 }
 
 /**
- * Stream a message, forwarding each text chunk to `onToken`. The model is
- * injected so callers only pass request-specific fields (system, messages…).
+ * Stream a message, forwarding each text chunk to `onToken`. The model
+ * defaults to MODEL so callers only pass request-specific fields (system,
+ * messages…), and can be overridden per call.
  */
 export const streamText = async (
-  params: Omit<Anthropic.MessageStreamParams, 'model'>,
+  params: Omit<Anthropic.MessageStreamParams, 'model'> & { model?: string },
   onToken: (chunk: string) => void
 ): Promise<void> => {
   const client = await createClient()
@@ -38,7 +42,7 @@ export const streamText = async (
 
 /** Send a non-streaming message and return its concatenated text blocks. */
 export const createText = async (
-  params: Omit<Anthropic.MessageCreateParamsNonStreaming, 'model'>
+  params: Omit<Anthropic.MessageCreateParamsNonStreaming, 'model'> & { model?: string }
 ): Promise<string> => {
   const client = await createClient()
   const response = await client.messages.create({ model: MODEL, ...params })
