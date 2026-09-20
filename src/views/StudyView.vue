@@ -32,6 +32,7 @@
           <template v-else>
             <v-btn class="header-edit-btn" icon="mdi-plus" variant="text" title="Add question" @click="openAddDialog()" />
             <v-btn v-if="currentItem" class="header-edit-btn" :class="{ 'chat-toggle-active': chatOpen }" icon="mdi-chat-question-outline" variant="text" title="Ask AI about this card" @click="toggleChat" />
+            <v-btn class="header-edit-btn" :class="{ 'chat-toggle-active': codeOpen }" icon="mdi-code-braces" variant="text" title="Code scratchpad (K)" @click="toggleCode" />
             <v-btn v-if="currentItem" class="header-edit-btn" icon="mdi-pencil-outline" variant="text" @click="editDialog = true" />
             <v-btn v-if="currentItem" class="header-edit-btn" icon="mdi-delete-outline" variant="text" color="error" @click="confirmDelete" />
             <v-btn v-if="currentItem" class="header-edit-btn" icon="mdi-eye-off-outline" variant="text" color="warning" @click="excludeDialog = true" />
@@ -320,7 +321,7 @@
     </div>
 
     <!-- Main Content -->
-    <div v-else class="study-container">
+    <div v-else class="study-container" :class="{ 'with-code': codeOpen }">
       <div v-if="studyQueue.length > 0 && currentItem" class="flashcard-wrapper">
         <!-- Card -->
         <div class="flashcard" :class="{ flipped: isFlipped }" @click="isFlipped = !isFlipped">
@@ -389,6 +390,15 @@
         <v-icon size="40" color="grey-lighten-1">mdi-book-open-outline</v-icon>
         <p>No items to study</p>
       </div>
+
+      <aside v-if="codeOpen" class="study-code-aside" :style="{ width: `${codeWidth}px` }">
+        <div class="code-resize-handle" title="Drag to resize" @pointerdown="startCodeResize" />
+        <div class="study-code-header">
+          <span>Code scratchpad</span>
+          <v-btn icon="mdi-close" variant="text" size="x-small" title="Close scratchpad" @click="codeOpen = false" />
+        </div>
+        <CodeScratchpad ref="codeScratchpadEl" />
+      </aside>
     </div>
 
     <!-- Mobile FAB -->
@@ -432,7 +442,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick, defineAsyncComponent } from 'vue'
 import { formatISO, parseISO, isToday } from 'date-fns'
 import type { JSONContent } from '@tiptap/vue-3'
 import { useRoute, useRouter } from 'vue-router'
@@ -545,6 +555,44 @@ const toggleChat = async () => {
   if (chatOpen.value) {
     await nextTick()
     chatInputEl.value?.focus()
+  }
+}
+
+// Pulled in on demand: CodeMirror and its language packs are the heaviest
+// thing on this screen and most sessions never open the scratchpad.
+const CodeScratchpad = defineAsyncComponent(() => import('../shared/components/CodeScratchpad.vue'))
+
+const codeOpen = ref(false)
+const codeScratchpadEl = ref<{ focus: () => void } | null>(null)
+
+const CODE_WIDTH_KEY = 'studyScratchpadWidth'
+const CODE_MIN_WIDTH = 280
+const CODE_MAX_WIDTH = 900
+
+const clampCodeWidth = (px: number) => Math.min(CODE_MAX_WIDTH, Math.max(CODE_MIN_WIDTH, px))
+const codeWidth = ref(clampCodeWidth(Number(localStorage.getItem(CODE_WIDTH_KEY)) || 460))
+
+const startCodeResize = (down: PointerEvent) => {
+  down.preventDefault()
+  const startX = down.clientX
+  const startWidth = codeWidth.value
+  const onMove = (move: PointerEvent) => {
+    codeWidth.value = clampCodeWidth(startWidth + (startX - move.clientX))
+  }
+  const onUp = () => {
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    localStorage.setItem(CODE_WIDTH_KEY, String(codeWidth.value))
+  }
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+}
+
+const toggleCode = async () => {
+  codeOpen.value = !codeOpen.value
+  if (codeOpen.value) {
+    await nextTick()
+    codeScratchpadEl.value?.focus()
   }
 }
 
@@ -743,9 +791,9 @@ const finishSplit = async (deleteOriginal: boolean) => {
 // chatting with the AI; resume where it left off. Otherwise the timer can
 // advance to the next card mid-edit/mid-chat and the interaction lands on the
 // wrong item.
-watch([addDialog, editDialog, chatOpen], ([adding, editing, chatting], [wasAdding, wasEditing, wasChatting]) => {
-  if (adding || editing || chatting) clearTimer()
-  else if (wasAdding || wasEditing || wasChatting) resumeTimer()
+watch([addDialog, editDialog, chatOpen, codeOpen], ([adding, editing, chatting, coding], [wasAdding, wasEditing, wasChatting, wasCoding]) => {
+  if (adding || editing || chatting || coding) clearTimer()
+  else if (wasAdding || wasEditing || wasChatting || wasCoding) resumeTimer()
 })
 
 const { studyTimerSeconds } = useStudyTimer()
@@ -1229,31 +1277,46 @@ const RATING_KEYS: Record<string, number> = {
   '9': 1
 }
 
+const closeTopPanel = () => {
+  if (chatOpen.value) chatOpen.value = false
+  else if (codeOpen.value) codeOpen.value = false
+  else return false
+  return true
+}
+
 const handleKeydown = (e: KeyboardEvent) => {
-  // Escape closes the chat from anywhere — before the input/textarea guard so
-  // it works even while typing in the chat box.
-  if (e.key === 'Escape' && chatOpen.value) {
+  // Escape closes an open panel from anywhere — before the input guards below
+  // so it works even while typing inside one.
+  if (e.key === 'Escape' && closeTopPanel()) {
     e.preventDefault()
-    chatOpen.value = false
     return
   }
   if (editDialog.value || deleteDialog.value || addDialog.value) return
-  const tag = (e.target as HTMLElement)?.tagName
+  const target = e.target as HTMLElement | null
+  // CodeMirror edits a contenteditable, not a textarea, so the tag check below
+  // can't see it — without this every space and arrow key typed in the
+  // scratchpad would flip or change the card.
+  if (target?.closest('.cm-editor')) return
+  const tag = target?.tagName
   if (tag === 'INPUT' || tag === 'TEXTAREA') return
-  if ((e.key === 'c' || e.key === 'C') && currentItem.value) {
+  const key = e.key.length === 1 ? e.key.toLowerCase() : e.key
+  if (key === 'c' && currentItem.value) {
     e.preventDefault()
     toggleChat()
-  } else if (e.key === 'Enter' || e.key === ' ') {
+  } else if (key === 'k') {
+    e.preventDefault()
+    toggleCode()
+  } else if (key === 'Enter' || key === ' ') {
     e.preventDefault()
     isFlipped.value = !isFlipped.value
-  } else if (e.key === 'ArrowLeft') {
+  } else if (key === 'ArrowLeft') {
     e.preventDefault()
     moveToPrev()
-  } else if (e.key === 'ArrowRight') {
+  } else if (key === 'ArrowRight') {
     e.preventDefault()
     skipToNext()
   } else if (isFlipped.value) {
-    const ease = RATING_KEYS[e.key]
+    const ease = RATING_KEYS[key]
     if (ease !== undefined) recordAttempt(ease)
   }
 }
@@ -1340,6 +1403,43 @@ onUnmounted(() => {
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
   z-index: 2000;
   overflow: hidden;
+}
+
+.study-code-aside {
+  position: relative;
+  flex: 0 0 auto;
+  max-width: 60%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: rgb(var(--v-theme-surface));
+  color: rgb(var(--v-theme-on-surface));
+  border-left: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+}
+
+.code-resize-handle {
+  position: absolute;
+  left: -3px;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  cursor: col-resize;
+  z-index: 1;
+}
+
+.code-resize-handle:hover {
+  background: rgba(var(--v-theme-primary), 0.25);
+}
+
+.study-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 8px 8px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  flex-shrink: 0;
 }
 
 .study-chat-header {
@@ -1691,6 +1791,16 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
+/* With the scratchpad docked, the auto margins keep the card centred in what
+   is left rather than letting the panel drag it off-centre. */
+.study-container.with-code {
+  justify-content: flex-start;
+}
+
+.study-container.with-code .flashcard-wrapper {
+  margin: 0 auto;
+}
+
 .flashcard-wrapper {
   display: flex;
   flex-direction: column;
@@ -2034,6 +2144,26 @@ onUnmounted(() => {
 
   50% {
     transform: scale(1.06);
+  }
+}
+
+/* Too narrow to sit beside the card, so the panel stacks under it instead of
+   squeezing both into nothing. */
+@media (max-width: 900px) {
+  .study-container.with-code {
+    flex-direction: column;
+  }
+
+  .study-code-aside {
+    width: auto !important;
+    max-width: none;
+    flex: 1 1 50%;
+    border-left: none;
+    border-top: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  }
+
+  .code-resize-handle {
+    display: none;
   }
 }
 
