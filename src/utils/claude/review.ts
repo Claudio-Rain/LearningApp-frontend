@@ -21,8 +21,9 @@ export const streamCodeReview = async (
         {
           role: 'user',
           content:
-            `Review this ${language} code. Only what matters: bugs first, ` +
-            `then anything clearly worth changing. A few short bullets, no preamble.` +
+            `Review this ${language} code, written in a scratchpad while studying. ` +
+            `Say what's working before anything else, flag real bugs, and leave the ` +
+            `small stuff alone. Encouraging, a few short bullets, no preamble.` +
             `\n\n${code}`,
         },
       ],
