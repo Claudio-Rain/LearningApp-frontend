@@ -1,11 +1,13 @@
-import { ref } from 'vue'
+import { ref, toRaw } from 'vue'
 import { formatISO } from 'date-fns'
 import type { JSONContent } from '@tiptap/vue-3'
 import {
   getCollections,
   getLearningItems,
   createLearningItem,
+  editLearningItem,
   removeLearningItem,
+  createCollection,
   editCollection,
   syncLearningItems,
   syncCollections,
@@ -24,14 +26,15 @@ export type CollectionItems = ReturnType<typeof useCollectionItems>
  */
 export function useCollectionItems(collectionId: string, options: { onMissing: () => void } = { onMissing: () => {} }) {
   const collection = ref<Collection | null>(null)
+  const allCollections = ref<Collection[]>([])
   const learningItems = ref<LearningItem[]>([])
   const selectedItem = ref<LearningItem | null>(null)
   const isPulling = ref(false)
 
   /** Reloads from the local DB, keeping the selection stable where possible. */
   const load = async (preferItemId?: string) => {
-    const allCollections = await getCollections()
-    collection.value = allCollections.find(c => c.id === collectionId) ?? null
+    allCollections.value = await getCollections()
+    collection.value = allCollections.value.find(c => c.id === collectionId) ?? null
     if (!collection.value) {
       alert('Collection not found')
       options.onMissing()
@@ -98,6 +101,33 @@ export function useCollectionItems(collectionId: string, options: { onMissing: (
       })
     }
     await commitCollectionChange(items.length, now)
+    await load()
+  }
+
+  const moveItems = async (ids: string[], target: { id: string } | { newTitle: string }) => {
+    if (!collection.value) return
+    const moving = learningItems.value.filter(i => i.id && ids.includes(i.id))
+    if (moving.length === 0) return
+    const now = formatISO(new Date())
+    const targetId = 'id' in target
+      ? target.id
+      : await createCollection({
+        title: target.newTitle,
+        categoryId: collection.value.categoryId ?? null,
+        dateCreated: now,
+        lastModified: now,
+        numberOfItems: 0
+      })
+
+    for (const item of moving) {
+      await editLearningItem({ ...toRaw(item), collectionId: targetId, lastModified: now })
+    }
+
+    const destination = (await getCollections()).find(c => c.id === targetId)
+    if (destination) {
+      await editCollection({ ...destination, numberOfItems: destination.numberOfItems + moving.length, lastModified: now })
+    }
+    await commitCollectionChange(-moving.length, now)
     await load()
   }
 
@@ -169,12 +199,14 @@ export function useCollectionItems(collectionId: string, options: { onMissing: (
 
   return {
     collection,
+    allCollections,
     learningItems,
     selectedItem,
     isPulling,
     load,
     addItem,
     addItems,
+    moveItems,
     deleteItems,
     applyLocalEdit,
     setLabels,

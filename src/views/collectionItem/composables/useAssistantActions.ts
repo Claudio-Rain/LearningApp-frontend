@@ -3,6 +3,7 @@ import { editLearningItem } from '@/database'
 import { markdownToTiptap } from '@/utils/markdown'
 import { applyTitleDoc, titleDocFromMarkdown, titleFieldsFromMarkdown } from '@/utils/itemTitle'
 import type { ItemLabelPatch } from '@/database/types'
+import type { MoveTarget } from '@/utils/collectionAssistant'
 import type { CollectionItems } from './useCollectionItems'
 
 /**
@@ -49,5 +50,7 @@ export function useAssistantActions(collectionItems: CollectionItems) {
     await collectionItems.load()
   }
 
-  return { applyCreate, applyDelete, applyUpdate, applyLabels }
+  const applyMove = async (ids: string[], target: MoveTarget) => collectionItems.moveItems(ids, target)
+
+  return { applyCreate, applyDelete, applyUpdate, applyLabels, applyMove }
 }

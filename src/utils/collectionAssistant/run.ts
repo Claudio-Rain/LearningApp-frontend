@@ -39,7 +39,7 @@ export const runAssistantTurn = async (
         items.length,
         embed ? itemsBlock : null,
         maxProposalsPerMessage(items, MAX_TOKENS),
-      ),
+        handlers.getOtherCollections(),      ),
       tools: embed ? WRITE_TOOLS : [...READ_TOOLS, ...WRITE_TOOLS],
       runTool: (name, input): ToolOutcome => runToolCall(name, input, handlers),
     },

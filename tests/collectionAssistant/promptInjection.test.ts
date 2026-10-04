@@ -42,7 +42,7 @@ const harness = (db: AssistantItem[]) => {
     onActivity: () => {},
     onProposal: (p) => proposals.push(p),
     getItems: () => db,
-  }
+    getOtherCollections: () => [],  }
   return { proposals, handlers }
 }
 

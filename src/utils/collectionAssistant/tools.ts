@@ -138,6 +138,31 @@ export const WRITE_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: 'propose_move_items',
+    description:
+      'Propose moving items out of this collection into another one. This does NOT move anything — it shows the user an approval card. Give either `collection_id` of an existing collection, or `new_collection_title` to create a new collection for them. One destination per call.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        collection_id: { type: 'string', description: 'Id of an existing destination collection.' },
+        new_collection_title: { type: 'string', description: 'Title for a new destination collection.' },        items: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', description: 'The learning item id to move.' },
+              reason: { type: 'string' },
+            },
+            required: ['id'],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ['items'],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'propose_label_items',
     description:
       "Propose priority and/or difficulty labels for existing items. This does NOT save — it shows the user ONE approval card listing every item's current label next to the proposed one, which they confirm together. Use this instead of propose_update_items whenever you are only labeling: it leaves the card's title and content untouched. Labels are cheap to propose, so cover every item you mean to label in a single call.",

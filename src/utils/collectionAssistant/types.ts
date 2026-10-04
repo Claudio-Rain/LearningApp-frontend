@@ -51,12 +51,26 @@ export interface LabelProposalItem {
   reason?: string
 }
 
+export interface MoveProposalItem {
+  id: string
+  title: string
+  reason?: string
+}
+
+export type MoveTarget = { id: string; title: string } | { newTitle: string }
+
+export interface CollectionRef {
+  id: string
+  title: string
+}
+
 /** A pending write the user must approve before it runs. */
 export type Proposal =
   | { kind: 'create'; items: CreateProposalItem[] }
   | { kind: 'delete'; items: DeleteProposalItem[] }
   | { kind: 'update'; items: UpdateProposalItem[] }
   | { kind: 'label'; items: LabelProposalItem[] }
+  | { kind: 'move'; target: MoveTarget; items: MoveProposalItem[] }
 
 /**
  * One step of work the assistant is doing, so a long silent turn still shows
@@ -83,4 +97,5 @@ export interface AssistantHandlers {
   onActivity: (activity: AssistantActivity) => void
   /** Live view of the collection's items (re-read each tool call). */
   getItems: () => AssistantItem[]
+  getOtherCollections: () => CollectionRef[]
 }

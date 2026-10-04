@@ -15,9 +15,12 @@ import { CLEAR_LABEL_VALUE } from './tools'
 import type {
   AssistantItem,
   AssistantHandlers,
+  CollectionRef,
   CreateProposalItem,
   DeleteProposalItem,
   LabelProposalItem,
+  MoveProposalItem,
+  MoveTarget,
   UpdateProposalItem,
 } from './types'
 
@@ -196,6 +199,43 @@ const proposeLabels = (input: any, handlers: AssistantHandlers): ToolOutcome => 
   )
 }
 
+const resolveMoveTarget = (input: any, others: CollectionRef[]): MoveTarget | null => {
+  const byId = others.find((c) => c.id === String(input?.collection_id ?? ''))
+  if (byId) return byId
+  const newTitle = String(input?.new_collection_title ?? '').trim()
+  if (!newTitle) return null
+  return others.find((c) => c.title.toLowerCase() === newTitle.toLowerCase()) ?? { newTitle }
+}
+
+const proposeMove = (input: any, handlers: AssistantHandlers): ToolOutcome => {
+  const target = resolveMoveTarget(input, handlers.getOtherCollections())
+  if (!target) {
+    return failed(
+      'Give a collection_id from the other collections, or a new_collection_title.',
+      'No destination collection',
+    )
+  }
+  const live = handlers.getItems()
+  const items: MoveProposalItem[] = []
+  for (const raw of input?.items ?? []) {
+    const current = live.find((it) => it.id === String(raw?.id ?? ''))
+    if (!current) continue
+    items.push({ id: current.id, title: current.title, reason: raw?.reason ? String(raw.reason) : undefined })
+  }
+  if (items.length === 0) {
+    return failed(
+      'None of the given ids matched an item in this collection.',
+      'No matching items to move',
+    )
+  }
+  handlers.onProposal({ kind: 'move', target, items })
+  const where = 'id' in target ? `"${target.title}"` : `a new collection "${target.newTitle}"`
+  return ok(
+    `Showed the user an approval card to move ${items.length} item${plural(items.length)} to ${where}. Awaiting their review.`,
+    `Suggested moving ${items.length} item${plural(items.length)} to ${where}`,
+  )
+}
+
 // Turn a write tool call into a Proposal for the UI. The result text tells the
 // model the card is up. Never touches the DB — the actual write happens only
 // when the user approves the card.
@@ -205,6 +245,7 @@ const runWriteTool = (name: string, input: any, handlers: AssistantHandlers): To
     case 'propose_delete_items': return proposeDelete(input, handlers)
     case 'propose_update_items': return proposeUpdates(input, handlers)
     case 'propose_label_items': return proposeLabels(input, handlers)
+    case 'propose_move_items': return proposeMove(input, handlers)
     default: return failed(`Unknown tool: ${name}`, `Unknown tool: ${name}`)
   }
 }

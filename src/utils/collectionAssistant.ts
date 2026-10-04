@@ -25,7 +25,9 @@ export type {
   DeleteProposalItem,
   UpdateProposalItem,
   LabelProposalItem,
-  Proposal,
+  MoveProposalItem,
+  MoveTarget,
+  CollectionRef,  Proposal,
   AssistantActivity,
   AssistantHandlers,
 } from './collectionAssistant/types'

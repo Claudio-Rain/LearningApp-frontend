@@ -111,6 +111,27 @@
               </ul>
             </template>
 
+            <template v-else-if="m.proposal.kind === 'move'">
+              <div class="proposal-head">
+                <v-icon size="16" color="primary">mdi-folder-move-outline</v-icon>
+                Move {{ selectedCount(m) }} item{{ selectedCount(m) === 1 ? '' : 's' }}
+                to {{ targetName(m.proposal.target) }}
+              </div>
+              <ul class="proposal-list">
+                <li v-for="it in m.proposal.items" :key="it.id">
+                  <input
+                    type="checkbox" :checked="m.selected[it.id]"
+                    :disabled="m.status !== 'pending'"
+                    @change="toggle(m, it.id)"
+                  />
+                  <div class="proposal-item-text">
+                    <div class="proposal-item-title">{{ it.title }}</div>
+                    <div v-if="it.reason" class="proposal-item-body">{{ it.reason }}</div>
+                  </div>
+                </li>
+              </ul>
+            </template>
+
             <!-- Labels -->
             <template v-else-if="m.proposal.kind === 'label'">
               <div class="proposal-head">
@@ -240,16 +261,24 @@ import {
   type DeleteProposalItem,
   type UpdateProposalItem,
   type LabelProposalItem,
+  type MoveProposalItem,
+  type MoveTarget,
+  type CollectionRef,
 } from '../../utils/collectionAssistant'
 
 const props = defineProps<{
   collection: Collection
+  collections: Collection[]
   items: LearningItem[]
   applyCreate: (items: { title: string; content: string }[]) => Promise<void>
   applyDelete: (ids: string[]) => Promise<void>
   applyUpdate: (id: string, patch: { title?: string; content?: string }) => Promise<void>
   applyLabels: (id: string, patch: ItemLabelPatch) => Promise<void>
+  applyMove: (ids: string[], target: MoveTarget) => Promise<void>
 }>()
+
+const targetName = (target: MoveTarget) =>
+  'id' in target ? `"${target.title}"` : `new collection "${target.newTitle}"`
 
 // The one-line before → after for each label this proposal changes.
 const labelChanges = (it: LabelProposalItem) =>
@@ -328,6 +357,7 @@ const applyLabel = (m: ProposalMessage): string => {
   if (m.proposal.kind === 'delete') return `Delete selected (${n})`
   if (m.proposal.kind === 'update') return `Save selected (${n})`
   if (m.proposal.kind === 'label') return `Apply labels (${n})`
+  if (m.proposal.kind === 'move') return `Move selected (${n})`
   return `Add selected (${n})`
 }
 
@@ -350,6 +380,11 @@ const getItems = (): AssistantItem[] =>
       priority: i.priority,
       difficulty: i.difficulty,
     }))
+
+const getOtherCollections = (): CollectionRef[] =>
+  props.collections
+    .filter((c) => c.id && c.id !== props.collection.id)
+    .map((c) => ({ id: c.id!, title: c.title }))
 
 // Append streamed text to the trailing assistant bubble, or start a new one.
 const appendText = (chunk: string) => {
@@ -414,6 +449,7 @@ const send = async (preset?: string) => {
       onProposal: pushProposal,
       onActivity: pushActivity,
       getItems,
+      getOtherCollections,
     })
     closeStreamingBubble()
   } catch (err) {
@@ -458,6 +494,11 @@ const runLabel = async (items: LabelProposalItem[]) => {
   return `Labeled ${count(items.length, 'item')}`
 }
 
+const runMove = async (items: MoveProposalItem[], target: MoveTarget) => {
+  await props.applyMove(items.map((it) => it.id), target)
+  return `Moved ${count(items.length, 'item')} to ${targetName(target)}`
+}
+
 const runProposal = async (m: ProposalMessage): Promise<string> => {
   // Create items have no id, so their checkbox key is their index.
   if (m.proposal.kind === 'create') {
@@ -466,6 +507,7 @@ const runProposal = async (m: ProposalMessage): Promise<string> => {
   const chosen = m.proposal.items.filter((it) => m.selected[it.id])
   if (m.proposal.kind === 'delete') return runDelete(chosen as DeleteProposalItem[])
   if (m.proposal.kind === 'label') return runLabel(chosen as LabelProposalItem[])
+  if (m.proposal.kind === 'move') return runMove(chosen as MoveProposalItem[], m.proposal.target)
   return runUpdate(chosen as UpdateProposalItem[])
 }
 

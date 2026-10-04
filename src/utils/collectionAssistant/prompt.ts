@@ -3,7 +3,7 @@
 
 import { extractText } from '../claude'
 import { ITEM_LABEL_DEFS, ITEM_LABEL_KINDS, LABEL_LEVELS, labelText } from '../itemLabels'
-import type { AssistantItem } from './types'
+import type { AssistantItem, CollectionRef } from './types'
 
 // How the two label scales are explained to the model. Generated from the
 // vocabulary so the prompt, the tool enum and the UI can never disagree about
@@ -89,11 +89,15 @@ export const buildSystem = (
   itemsBlock: string | null,
   // Derived from the collection's own card sizes — see maxProposalsPerMessage.
   maxProposals: number,
+  otherCollections: CollectionRef[] = [],
 ): string =>
   `You are a study assistant embedded in a flashcard app, helping the user work with one collection of learning items (flashcards).\n\n` +
   `Collection: "${collection.title}"` +
   (collection.description ? `\nDescription: ${collection.description}` : '') +
   `\nIt currently has ${itemCount} learning item${itemCount === 1 ? '' : 's'}.\n\n` +
+  (otherCollections.length
+    ? `Other collections:\n${otherCollections.map((c) => `- ${c.id}: ${c.title}`).join('\n')}\n\n`
+    : '') +
   `Each learning item is a flashcard with a title (the question/front) and content (the answer/back).\n\n` +
   `Each item also carries two optional 1-5 labels the user can set, and you can read and propose:\n` +
   labelRules() +
