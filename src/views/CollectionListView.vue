@@ -229,7 +229,11 @@
       </v-card>
     </v-dialog>
 
-    <CollectionListAssistant :collections="assistantCollections" :scope="assistantScope" />
+    <CollectionListAssistant
+      :collections="assistantCollections"
+      :scope="assistantScope"
+      :apply-renames="handleRenames"
+    />
   </div>
 </template>
 
@@ -488,7 +492,17 @@ const handleEdit = async (collection: Collection) => {
   await loadCollections()
 }
 
-const handleDescriptionChange = async (collection: Collection, description: string) => {
+const handleRenames = async (renames: { id: string; title: string }[]) => {
+  const lastModified = formatISO(new Date())
+  for (const { id, title } of renames) {
+    const collection = collections.value.find(c => c.id === id)
+    if (collection) await editCollection({ ...collection, title, lastModified })
+  }
+  await syncCollections()
+  await loadCollections()
+}
+
+const handleDescriptionChange =async (collection: Collection, description: string) => {
   await editCollection({
     ...collection,
     description,

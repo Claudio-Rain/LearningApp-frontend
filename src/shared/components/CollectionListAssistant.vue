@@ -45,6 +45,43 @@
           />
           <!-- eslint-enable vue/no-v-html -->
 
+          <div v-else-if="m.role === 'proposal'" class="proposal" :class="m.status">
+            <div class="proposal-head">
+              <v-icon size="16" color="primary">mdi-rename-outline</v-icon>
+              Rename {{ selectedCount(m) }} collection{{ selectedCount(m) === 1 ? '' : 's' }}
+            </div>
+            <ul class="proposal-list">
+              <li v-for="it in m.proposal.items" :key="it.id">
+                <input
+                  type="checkbox" :checked="m.selected[it.id]"
+                  :disabled="m.status !== 'pending'"
+                  @change="m.selected[it.id] = !m.selected[it.id]"
+                />
+                <div class="proposal-item-text">
+                  <div class="proposal-item-title">{{ it.title }}</div>
+                  <div class="proposal-item-body">was "{{ it.currentTitle }}"</div>
+                </div>
+              </li>
+            </ul>
+            <div v-if="m.status === 'pending'" class="proposal-actions">
+              <v-btn
+                size="small" variant="flat" color="primary"
+                :disabled="applying || selectedCount(m) === 0"
+                :loading="applying"
+                @click="apply(m)"
+              >
+                Rename selected ({{ selectedCount(m) }})
+              </v-btn>
+              <v-btn size="small" variant="text" :disabled="applying" @click="m.status = 'cancelled'">
+                Cancel
+              </v-btn>
+            </div>
+            <div v-else class="proposal-status" :class="m.status">
+              <v-icon size="14">{{ m.status === 'applied' ? 'mdi-check' : 'mdi-close' }}</v-icon>
+              {{ m.status === 'applied' ? m.result : 'Cancelled' }}
+            </div>
+          </div>
+
           <div v-else class="activity" :class="m.activity.status">
             <v-progress-circular
               v-if="m.activity.status === 'running'"
@@ -57,7 +94,7 @@
           </div>
         </template>
 
-        <div v-if="loading" class="msg assistant thinking">
+        <div v-if="loading && !stepRunning" class="msg assistant thinking">
           <span class="dot" /><span class="dot" /><span class="dot" />
         </div>
         <div v-if="error" class="assistant-error">{{ error }}</div>
@@ -87,10 +124,18 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import type Anthropic from '@anthropic-ai/sdk'
 import { getApiKey, setApiKey } from '@/utils/claude'
-import { runCollectionListTurn, type CollectionSummary } from '@/utils/collectionListAssistant'
+import {
+  runCollectionListTurn,
+  type CollectionListProposal,
+  type CollectionSummary,
+} from '@/utils/collectionListAssistant'
 import type { AssistantActivity } from '@/utils/collectionAssistant'
 
-const props = defineProps<{ collections: CollectionSummary[]; scope?: string }>()
+const props = defineProps<{
+  collections: CollectionSummary[]
+  scope?: string
+  applyRenames: (renames: { id: string; title: string }[]) => Promise<void>
+}>()
 
 const subtitle = computed(() => {
   const n = props.collections.length
@@ -98,14 +143,24 @@ const subtitle = computed(() => {
   return props.scope ? `${count} in ${props.scope}` : count
 })
 
+type ProposalMessage = {
+  role: 'proposal'
+  proposal: CollectionListProposal
+  status: 'pending' | 'applied' | 'cancelled'
+  selected: Record<string, boolean>
+  result?: string
+}
+
 type DisplayMessage =
   | { role: 'user'; text: string }
   | { role: 'assistant'; text: string; streaming?: boolean }
+  | ProposalMessage
   | { role: 'activity'; activity: AssistantActivity }
 
 const open = ref(false)
 const draft = ref('')
 const loading = ref(false)
+const applying = ref(false)
 const error = ref('')
 const messages = ref<DisplayMessage[]>([])
 const scrollEl = ref<HTMLElement | null>(null)
@@ -118,7 +173,11 @@ const suggestions = [
   'What order do these build on each other in?',
 ]
 
-const renderMarkdown = (text: string): string =>
+const stepRunning = computed(() =>
+  messages.value.some((m) => m.role === 'activity' && m.activity.status === 'running'),
+)
+
+const renderMarkdown =(text: string): string =>
   DOMPurify.sanitize(marked.parse(text, { async: false }) as string)
 
 const scrollToBottom = () => {
@@ -153,6 +212,33 @@ const pushActivity = (activity: AssistantActivity) => {
   scrollToBottom()
 }
 
+const selectedCount = (m: ProposalMessage): number =>
+  Object.values(m.selected).filter(Boolean).length
+
+const pushProposal = (proposal: CollectionListProposal) => {
+  closeStreamingBubble()
+  const selected = Object.fromEntries(proposal.items.map((it) => [it.id, true]))
+  messages.value.push({ role: 'proposal', proposal, status: 'pending', selected })
+  scrollToBottom()
+}
+
+const apply = async (m: ProposalMessage) => {
+  applying.value = true
+  error.value = ''
+  try {
+    const chosen = m.proposal.items.filter((it) => m.selected[it.id])
+    await props.applyRenames(chosen.map(({ id, title }) => ({ id, title })))
+    m.result = `Renamed ${chosen.length} collection${chosen.length === 1 ? '' : 's'}`
+    m.status = 'applied'
+  } catch (err) {
+    console.error('Failed to rename collections:', err)
+    error.value = "Couldn't rename those collections. Please try again."
+  } finally {
+    applying.value = false
+    scrollToBottom()
+  }
+}
+
 const ensureKey = async (): Promise<boolean> => {
   if (await getApiKey()) return true
   const key = prompt('Paste your Anthropic API key (stored only in this browser, used directly from it):')
@@ -177,6 +263,7 @@ const send = async (preset?: string) => {
     await runCollectionListTurn(apiMessages, {
       onText: appendText,
       onActivity: pushActivity,
+      onProposal: pushProposal,
       getCollections: () => props.collections,
     })
     closeStreamingBubble()

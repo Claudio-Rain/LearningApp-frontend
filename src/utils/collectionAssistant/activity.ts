@@ -79,6 +79,7 @@ export const TOOL_ACTIVITY: Record<string, { icon: string; label: string }> = {
   propose_create_items: { icon: 'mdi-plus-circle-outline', label: 'Writing new items' },
   propose_delete_items: { icon: 'mdi-delete-outline', label: 'Picking items to remove' },
   propose_update_items: { icon: 'mdi-pencil-outline', label: 'Writing edits' },
+  propose_rename_collections: { icon: 'mdi-rename-outline', label: 'Choosing new names' },
   propose_move_items: { icon: 'mdi-folder-move-outline', label: 'Picking items to move' },
   propose_label_items: { icon: 'mdi-label-outline', label: 'Judging priority and difficulty' },
   propose_study_set: { icon: 'mdi-playlist-check', label: 'Putting a study set together' },
