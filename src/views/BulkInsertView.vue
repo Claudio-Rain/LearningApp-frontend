@@ -195,6 +195,7 @@ import {
 import type { Category, Collection } from '../database/types'
 import { generateAnswerMarkdown, getApiKey, setApiKey } from '../utils/claude'
 import { markdownToTiptap } from '../utils/markdown'
+import { swatchFor } from '../utils/categoryColors'
 
 // ── State ───────────────────────────────────────────────
 const collections = ref<Collection[]>([])
@@ -479,10 +480,6 @@ const insertItems = async (
   }
 }
 
-// Same swatches the collections view offers; new categories get one by position
-// so they don't all come out the same color.
-const colorSwatches = ['#1976D2', '#388E3C', '#D32F2F', '#F57C00', '#7B1FA2', '#0097A7', '#C2185B', '#5D4037']
-
 /** Find an existing category by title (case-insensitive) or create a new one. */
 const resolveCategory = async (title: string | null): Promise<string | null> => {
   const name = title?.trim()
@@ -496,7 +493,8 @@ const resolveCategory = async (title: string | null): Promise<string | null> => 
   const now = formatISO(new Date())
   const id = (await createCategory({
     title: name,
-    color: colorSwatches[categories.value.length % colorSwatches.length],
+    // By position, so new categories don't all come out the same color.
+    color: swatchFor(categories.value.length),
     parentId: null,
     dateCreated: now,
     lastModified: now
