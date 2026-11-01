@@ -112,7 +112,6 @@ The confirmation states what will be lost:
 | File | Change |
 |---|---|
 | `useCollectionItems.ts` `moveItems` (~L113) | A new collection created while moving items is placed next to the current one (same `parentId`). |
-| `CollectionListView` `handleAdd`, `BulkInsertView`, `HtmlBulkInsertView` | Create with `parentId: null`. |
 | `BulkInsertView.vue` `resolveCollection` (~L513) | Matches by title, which can now repeat: match top-level collections only. |
 | Categories | Only apply to top-level collections. A collection dropped into another loses its category and is shown with its top-level collection's. |
 

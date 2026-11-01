@@ -1,7 +1,8 @@
 import { ref, computed, watch } from 'vue'
-import { getLearningItems } from '@/database'
+import { getAllLearningItems } from '@/database'
 import type { LearningItem } from '@/database'
 import { useExcludedItems } from '@/shared/composables/useExcludedItems'
+import { withSubCollections } from '@/utils/subCollections'
 import { ITEM_LABEL_DEFS, LABEL_LEVELS, toLabelLevel } from '@/utils/itemLabels'
 import type { ItemLabelKind } from '@/utils/itemLabels'
 import { STRENGTH_TIERS, STRENGTH_TIER_META, strengthTier } from '@/utils/strength'
@@ -57,13 +58,14 @@ export function useExclusionTable() {
   const anchorIndex = ref<number | null>(null)
 
   // Collection filter options, annotated with how many of each collection's
-  // items are currently excluded.
+  // items (sub-collections included) are currently excluded.
   const collectionOptions = computed(() => {
     const excluded = excludedItemIds.value // always track as dependency
     return collections.value.map(c => {
-      const ids = collectionItemIds.value.get(c.id)
-      if (!ids) return { id: c.id, title: c.title, categoryId: c.categoryId }
-      const excludedCount = [...ids].filter(id => excluded.has(id)).length
+      const ids = [...withSubCollections([c.id], collections.value)]
+        .flatMap(id => [...(collectionItemIds.value.get(id) ?? [])])
+      if (!ids.length) return { id: c.id, title: c.title, categoryId: c.categoryId }
+      const excludedCount = ids.filter(id => excluded.has(id)).length
       const label = excludedCount > 0 ? `${c.title} (${excludedCount} excluded)` : c.title
       return { id: c.id, title: label, categoryId: c.categoryId }
     })
@@ -126,12 +128,14 @@ export function useExclusionTable() {
     }
     loadingItems.value = true
     try {
-      // Merge items across the selected collections, deduping by id. An item that
-      // lives in several selected collections lists them all in collectionTitle.
+      // Merge items across the selected collections and their sub-collections,
+      // deduping by id. An item that lives in several of them lists them all in
+      // collectionTitle.
       const merged = new Map<string, ExclusionItem>()
-      for (const id of ids) {
+      const allItems = await getAllLearningItems()
+      for (const id of withSubCollections(ids, collections.value)) {
         const title = collections.value.find(c => c.id === id)?.title ?? ''
-        const collectionItems = await getLearningItems(id)
+        const collectionItems = allItems.filter(i => i.collectionId === id)
         for (const item of collectionItems) {
           if (!item.id) continue
           const existing = merged.get(item.id)

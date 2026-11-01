@@ -16,10 +16,13 @@ import { runAgentTurn, type ToolOutcome } from './assistantLoop'
 import { ITEM_LABEL_DEFS, LABEL_LEVELS, labelText, parseLabelLevel } from './itemLabels'
 import { resolveStudySet, type BalanceMode, type StudySetFilter, type StudySetItem, type StudySetPlan, type StudySetSpec } from './studySet'
 import type { AssistantActivity } from './collectionAssistant/types'
+import { collectionPath, fileUnderChosen, withSubCollections } from './subCollections'
 
 export interface StudySetCollection {
   id: string
   title: string
+  /** The collection it lives in. Choosing a collection includes its sub-collections. */
+  parentId?: string | null
 }
 
 /** A proposed set, awaiting the user's approval. */
@@ -100,7 +103,7 @@ export const STUDY_SET_TOOLS: Anthropic.Tool[] = [
         collection_ids: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Ids of the collections to draw from.',
+          description: 'Ids of the collections to draw from. Choosing a collection includes its sub-collections; to draw from only part of it, choose the specific sub-collections.',
         },
         label: {
           type: 'string',
@@ -176,7 +179,7 @@ export const STUDY_SET_TOOLS: Anthropic.Tool[] = [
         collection_ids: {
           type: 'array',
           items: { type: 'string' },
-          description: 'Ids of the collections Study View should draw from. This REPLACES the current selection, so include any existing ones the user wants to keep.',
+          description: 'Ids of the collections Study View should draw from. Choosing a collection includes its sub-collections. This REPLACES the current selection, so include any existing ones the user wants to keep.',
         },
         clear_exclusions: {
           type: 'boolean',
@@ -265,7 +268,7 @@ export function toStudySetSpec(
 const runProposeStudySet = (input: any, handlers: StudySetHandlers): ToolOutcome => {
   const collections = handlers.getCollections()
   const settings = handlers.getSettings()
-  const activeIds = new Set(activeSetItems(settings, handlers.getItems()).map(i => i.id))
+  const activeIds = new Set(activeSetItems(settings, handlers.getItems(), collections).map(i => i.id))
   const spec = toStudySetSpec(input, collections, activeIds)
 
   if (spec.collectionIds.length === 0) {
@@ -278,8 +281,9 @@ const runProposeStudySet = (input: any, handlers: StudySetHandlers): ToolOutcome
 
   // Resolve here, not in the model: the counts the user approves are the same
   // numbers the app will act on, and the model gets the real result to describe.
-  const plan = resolveStudySet(handlers.getItems(), spec)
-  const titleFor = (id: string) => collections.find(c => c.id === id)?.title ?? id
+  // Each chosen collection's share covers its sub-collections too.
+  const plan = resolveStudySet(fileUnderChosen(handlers.getItems(), spec.collectionIds, collections), spec)
+  const titleFor = (id: string) => collectionPath(id, collections) || id
 
   if (plan.items.length === 0) {
     // Say which lever emptied it. "Nothing matched" sends the model off
@@ -337,15 +341,21 @@ const runProposeCollections = (input: any, handlers: StudySetHandlers): ToolOutc
 
   const items = handlers.getItems()
   const excluded = handlers.getSettings().excludedItemIds
-  const chosen = ids.map(id => ({
-    id,
-    title: known.find(c => c.id === id)?.title ?? id,
-    cardCount: items.filter(i => i.collectionId === id).length,
-  }))
+  const chosen = ids.map(id => {
+    const inside = withSubCollections([id], known)
+    return {
+      id,
+      title: collectionPath(id, known) || id,
+      cardCount: items.filter(i => inside.has(i.collectionId)).length,
+    }
+  })
 
-  const cardCount = chosen.reduce((sum, c) => sum + c.cardCount, 0)
+  // Counted over the union, so a parent chosen with its own sub-collection
+  // doesn't count the sub-collection's cards twice.
+  const scope = withSubCollections(ids, known)
+  const cardCount = items.filter(i => scope.has(i.collectionId)).length
   const hiddenByExclusions = items.filter(
-    i => ids.includes(i.collectionId) && excluded.has(i.id)
+    i => scope.has(i.collectionId) && excluded.has(i.id)
   ).length
   const clearExclusions = input?.clear_exclusions === true
 
@@ -425,13 +435,17 @@ export function masterySummary(items: StudySetItem[]): string {
 export function renderDistribution(collections: StudySetCollection[], items: StudySetItem[]): string {
   return collections
     .map(c => {
-      const own = items.filter(i => i.collectionId === c.id)
-      if (own.length === 0) return `- ${c.title} (id: ${c.id}): empty`
+      // What choosing this collection gives you: its own cards and its sub-collections'.
+      const inside = withSubCollections([c.id], collections)
+      const own = items.filter(i => inside.has(i.collectionId))
+      const title = collectionPath(c.id, collections)
+      const nested = inside.size > 1 ? ', including its sub-collections' : ''
+      if (own.length === 0) return `- ${title} (id: ${c.id}): empty`
 
       const unlabeled = own.filter(i => i.priority === undefined && i.difficulty === undefined).length
 
       return (
-        `- ${c.title} (id: ${c.id}): ${own.length} cards\n` +
+        `- ${title} (id: ${c.id}): ${own.length} cards${nested}\n` +
         `  priority — ${tally(own, 'priority')}\n` +
         `  difficulty — ${tally(own, 'difficulty')}\n` +
         `  ${unlabeled} unlabeled · ${masterySummary(own)}`
@@ -447,10 +461,13 @@ export function renderDistribution(collections: StudySetCollection[], items: Stu
  * This is the whole definition of an active set — there is no stored set object
  * (see `useStudySet`), so "what am I studying" is only ever this subtraction.
  */
-export function activeSetItems(settings: StudySetSettings, items: StudySetItem[]): StudySetItem[] {
-  return items.filter(
-    i => settings.studyViewCollectionIds.includes(i.collectionId) && !settings.excludedItemIds.has(i.id)
-  )
+export function activeSetItems(
+  settings: StudySetSettings,
+  items: StudySetItem[],
+  collections: StudySetCollection[] = []
+): StudySetItem[] {
+  const studied = withSubCollections(settings.studyViewCollectionIds, collections)
+  return items.filter(i => studied.has(i.collectionId) && !settings.excludedItemIds.has(i.id))
 }
 
 /**
@@ -473,16 +490,19 @@ export function renderActiveSet(
     return 'No collections are selected for Study View, so there is no active set.'
   }
 
-  const active = activeSetItems(settings, items)
+  const active = activeSetItems(settings, items, collections)
   if (active.length === 0) {
     return 'Every card in the selected collections is excluded — the active set is empty.'
   }
 
   const from = settings.studyViewCollectionIds
-    .map(id => ({
-      title: collections.find(c => c.id === id)?.title ?? id,
-      n: active.filter(i => i.collectionId === id).length,
-    }))
+    .map(id => {
+      const inside = withSubCollections([id], collections)
+      return {
+        title: collectionPath(id, collections) || id,
+        n: active.filter(i => inside.has(i.collectionId)).length,
+      }
+    })
     .filter(c => c.n > 0)
     .map(c => `${c.title} ${c.n}`)
     .join(', ')
@@ -518,8 +538,8 @@ export function renderSettings(
 ): string {
   const names = (ids: string[]) => {
     const titles = ids
-      .map(id => collections.find(c => c.id === id)?.title)
-      .filter((t): t is string => !!t)
+      .filter(id => collections.some(c => c.id === id))
+      .map(id => collectionPath(id, collections))
     return titles.length > 0 ? titles.join(', ') : 'none selected'
   }
 
@@ -550,6 +570,7 @@ export function buildStudySetSystem(
     `What they are studying right now:\n${renderActiveSet(settings, collections, items)}\n\n` +
     `Rules:\n` +
     `- The settings above are live — that IS what the user currently has selected on the page, so answer questions about their selection directly instead of saying you can't see it. It refreshes each time they message you, so if they change a selector and ask again, you will see the new value.\n` +
+    `- Collections can live inside other collections; the library shows each one by its path ("Junior › DB concepts"). Choosing a collection always includes its sub-collections. When they want only part of one ("DB concepts from junior and middle"), choose those specific sub-collections, not their parent.\n` +
     `- When they say "the ones I selected", "these collections", or don't name any, use the Study View selection above. If that is empty, ask which collections rather than guessing.\n` +
     `- You CAN change the Study View selection: propose_study_view_collections does exactly that. Use it when they want whole collections (including copying the content widget's selection across); use propose_study_set when they want a filtered slice. Never tell the user to go and change the selector by hand.\n` +
     `- propose_study_view_collections REPLACES the selection rather than adding to it, so when the user says "also add these", include the collections already selected alongside the new ones.\n` +

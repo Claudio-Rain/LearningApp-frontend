@@ -51,6 +51,7 @@ export {
   updateCategory,
   getCollections,
   getLearningItems,
+  getAllLearningItems,
   updateCollection,
   updateLearningItem,
   updateLearningItemTitle,

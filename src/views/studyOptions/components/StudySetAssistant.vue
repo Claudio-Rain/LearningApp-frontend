@@ -196,6 +196,7 @@ import {
 import type { AssistantActivity } from '@/utils/collectionAssistant'
 import { labelText } from '@/utils/itemLabels'
 import type { StudySetSpec, Range } from '@/utils/studySet'
+import { collectionPath, withSubCollections } from '@/utils/subCollections'
 import { useCollectionCatalog } from '../composables/useCollectionCatalog'
 import { useContentWidgetForm } from '../composables/useContentWidgetForm'
 import { useStudySet } from '../composables/useStudySet'
@@ -244,7 +245,7 @@ const suggestions = [
 const renderMarkdown = (text: string): string =>
   DOMPurify.sanitize(marked.parse(text, { async: false }) as string)
 
-const titleFor = (id: string) => collections.value.find(c => c.id === id)?.title ?? id
+const titleFor = (id: string) => collectionPath(id, collections.value) || id
 
 const sharePercent = (proposal: { plan: { items: unknown[] } }, taken: number): number => {
   const total = proposal.plan.items.length
@@ -341,7 +342,7 @@ const send = async (preset?: string) => {
       onText: appendText,
       onActivity: pushActivity,
       onProposal: pushProposal,
-      getCollections: () => collections.value.map(c => ({ id: c.id, title: c.title })),
+      getCollections: () => collections.value.map(c => ({ id: c.id, title: c.title, parentId: c.parentId })),
       getItems: () => items.value,
       getSettings: () => ({
         studyViewCollectionIds: studyViewCollectionIds.value,
@@ -366,7 +367,8 @@ const useSet = async (proposal: StudySetProposal): Promise<string> => {
 
 const useCollections = async (proposal: CollectionsProposal): Promise<string> => {
   const ids = proposal.collections.map(c => c.id)
-  const itemIds = items.value.filter(i => ids.includes(i.collectionId)).map(i => i.id)
+  const scope = withSubCollections(ids, collections.value)
+  const itemIds = items.value.filter(i => scope.has(i.collectionId)).map(i => i.id)
   const { restored } = await applyCollections(ids, itemIds, proposal.clearExclusions)
   return restored > 0
     ? `Study View updated — ${restored} card${restored === 1 ? '' : 's'} un-hidden`

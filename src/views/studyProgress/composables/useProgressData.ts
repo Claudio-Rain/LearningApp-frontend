@@ -4,9 +4,10 @@ import {
   getAllCardProgress,
   getCategories,
   getCollections,
-  getLearningItems
+  getAllLearningItems
 } from '@/database'
 import type { AttemptLog, CardProgress, Category, Collection, LearningItem } from '@/database/types'
+import { withSubCollections } from '@/utils/subCollections'
 import { computeProgressStats } from '../aggregation'
 import type { ProgressChartData } from '../charts/chartRegistry'
 
@@ -37,9 +38,11 @@ export function useProgressData() {
 
   const filteredItemIds = computed(() => {
     if (isAllSelected.value) return new Set(allLearningItems.value.map(i => i.id!))
+    // A chosen collection includes its sub-collections.
+    const shown = withSubCollections(selectedCollectionIds.value, collections.value)
     return new Set(
       allLearningItems.value
-        .filter(i => selectedCollectionIds.value.includes(i.collectionId))
+        .filter(i => shown.has(i.collectionId))
         .map(i => i.id!)
     )
   })
@@ -82,10 +85,8 @@ export function useProgressData() {
     collections.value = await getCollections()
     categories.value = await getCategories()
 
-    const itemsPerCollection = await Promise.all(
-      collections.value.filter(c => c.id).map(c => getLearningItems(c.id!))
-    )
-    allLearningItems.value = itemsPerCollection.flat()
+    const ids = new Set(collections.value.map(c => c.id))
+    allLearningItems.value = (await getAllLearningItems()).filter(i => ids.has(i.collectionId))
 
     restoreSelection()
   }

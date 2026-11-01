@@ -1,8 +1,10 @@
 import {
-  getLearningItems,
+  getCollections,
+  getAllLearningItems,
   getAllCardProgress,
   getAllExcludedItems
 } from '../../src/database/index.ts';
+import { withSubCollections } from '../../src/utils/subCollections.ts';
 import { getStudySettings, setNotificationLearningItemId, clearNotificationLearningItemId } from '../utils/storage.js';
 import { formatNotificationTitle, formatNotificationMessage } from '../utils/notification.js';
 import { NOTIFICATION_TIMEOUT_MS, NOTIFICATION_PRIORITY } from '../constants.js';
@@ -10,13 +12,16 @@ import { NOTIFICATION_TIMEOUT_MS, NOTIFICATION_PRIORITY } from '../constants.js'
 export async function sendNotification() {
   const { collectionId } = await getStudySettings();
   console.log('[background] sendNotification: fetching items for collection', collectionId);
-  const [rawItems, allProgress, excluded] = await Promise.all([
-    getLearningItems(collectionId),
+  const [collections, allItems, allProgress, excluded] = await Promise.all([
+    getCollections(),
+    getAllLearningItems(),
     getAllCardProgress(),
     getAllExcludedItems()
   ]);
+  // The chosen collection includes its sub-collections.
+  const notifiedIds = withSubCollections([collectionId], collections);
   const excludedSet = new Set(excluded.map(e => e.learningItemId));
-  const items = (rawItems || []).filter(i => !excludedSet.has(i.id));
+  const items = allItems.filter(i => notifiedIds.has(i.collectionId) && !excludedSet.has(i.id));
   console.log('[background] sendNotification: items fetched, count =', items?.length ?? 0);
 
   if (!items || items.length === 0) {

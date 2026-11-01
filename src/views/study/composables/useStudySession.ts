@@ -3,7 +3,7 @@ import { useRouter } from 'vue-router'
 import { formatISO, parseISO, isToday } from 'date-fns'
 import {
   getCollections,
-  getLearningItems,
+  getAllLearningItems,
   getAllCardProgress,
   getAllAttemptLogs,
   createAttemptLog,
@@ -14,6 +14,7 @@ import {
 } from '@/database'
 import type { Collection, LearningItem, CardProgress } from '@/database/types'
 import { useExcludedItems } from '@/shared/composables/useExcludedItems'
+import { withSubCollections } from '@/utils/subCollections'
 import { buildStudyQueue, isNewProgress, mergeCollectionItems, summarizeProgress } from '../queue'
 import type { StudyItem } from '../types'
 
@@ -29,6 +30,8 @@ export function useStudySession(collectionIds: Ref<string[]>) {
   const { excludedItemIds } = useExcludedItems()
 
   const collections = ref<Collection[]>([])
+  // The chosen collections plus their sub-collections — what the queue draws from.
+  const studiedIds = ref<Set<string>>(new Set())
   const learningItems = ref<LearningItem[]>([])
   const cardProgressMap = ref<Map<string, CardProgress>>(new Map())
   const studyQueue = ref<StudyItem[]>([])
@@ -64,8 +67,9 @@ export function useStudySession(collectionIds: Ref<string[]>) {
       return
     }
 
-    const perCollection = await Promise.all(collectionIds.value.map(id => getLearningItems(id)))
-    learningItems.value = mergeCollectionItems(perCollection, excludedItemIds.value)
+    studiedIds.value = withSubCollections(collectionIds.value, allCollections)
+    const items = (await getAllLearningItems()).filter(i => studiedIds.value.has(i.collectionId))
+    learningItems.value = mergeCollectionItems([items], excludedItemIds.value)
 
     const progressMap = new Map<string, CardProgress>()
     for (const progress of await getAllCardProgress()) {
@@ -179,6 +183,7 @@ export function useStudySession(collectionIds: Ref<string[]>) {
 
   return {
     collections,
+    studiedIds,
     learningItems,
     studyQueue,
     currentIndex,

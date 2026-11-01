@@ -3,6 +3,7 @@ import type { Collection } from '../types'
 import * as local from '../local'
 import * as remote from '../remote'
 import { removeLearningItem } from './learningItems'
+import { subCollectionsOf } from '../../utils/subCollections'
 
 export async function pullCollections() {
   try {
@@ -54,7 +55,19 @@ export async function editCollection(collection: Collection) {
   }
 }
 
+/**
+ * Deletes a collection with everything inside it: its sub-collections and all
+ * their items. Sub-collections go first, so an interruption never leaves one
+ * behind without its parent.
+ */
 export async function removeCollection(id: string) {
+  const subCollections = subCollectionsOf(id, await local.getCollections())
+  for (const subId of [...subCollections, id]) {
+    await removeSingleCollection(subId)
+  }
+}
+
+async function removeSingleCollection(id: string) {
   // Cascade through removeLearningItem so each item also drops its progress + attempt logs.
   const items = await local.getLearningItems(id)
   for (const item of items) {

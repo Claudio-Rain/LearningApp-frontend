@@ -94,6 +94,36 @@ describe('activeSetItems', () => {
     const active = activeSetItems(settings(), library)
     expect(active.every(i => i.collectionId === 'idioms')).toBe(true)
   })
+
+  it('includes the sub-collections of a selected collection', () => {
+    const nested: StudySetCollection[] = [
+      { id: 'english', title: 'English' },
+      { id: 'idioms', title: 'Idioms', parentId: 'english' },
+      { id: 'phrasal', title: 'Phrasal Verbs' },
+    ]
+    const active = activeSetItems(settings({ studyViewCollectionIds: ['english'] }), library, nested)
+    expect(active.map(i => i.id)).toEqual(['a', 'b'])
+  })
+})
+
+describe('sub-collections in the library', () => {
+  const nested: StudySetCollection[] = [
+    { id: 'net', title: '.NET' },
+    { id: 'junior', title: 'Junior', parentId: 'net' },
+    { id: 'junior-db', title: 'DB concepts', parentId: 'junior' },
+    { id: 'middle-db', title: 'DB concepts', parentId: 'net' },
+  ]
+
+  it('names each collection by its path and counts what choosing it includes', () => {
+    const text = renderDistribution(nested, [
+      item({ id: 'j1', collectionId: 'junior-db' }),
+      item({ id: 'm1', collectionId: 'middle-db' }),
+    ])
+
+    expect(text).toContain('- .NET (id: net): 2 cards, including its sub-collections')
+    expect(text).toContain('- .NET › Junior › DB concepts (id: junior-db): 1 cards\n')
+    expect(text).toContain('- .NET › DB concepts (id: middle-db): 1 cards\n')
+  })
 })
 
 describe('renderActiveSet', () => {

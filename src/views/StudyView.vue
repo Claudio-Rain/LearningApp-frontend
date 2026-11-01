@@ -98,8 +98,9 @@ import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import type { JSONContent } from '@tiptap/vue-3'
 import LearningItemPanel from '@/shared/components/LearningItemPanel.vue'
-import { startSyncEngine, pullLearningItems, pullCardProgress, removeLearningItem } from '@/database'
+import { startSyncEngine, getCollections, pullLearningItems, pullCardProgress, removeLearningItem } from '@/database'
 import type { LearningItem } from '@/database/types'
+import { withSubCollections } from '@/utils/subCollections'
 import { strengthTier } from '@/utils/strength'
 import { useExcludedItems } from '@/shared/composables/useExcludedItems'
 import { useStudyViewCollection } from '@/shared/composables/useStudyViewCollection'
@@ -256,7 +257,7 @@ const excludeCurrentItem = async () => {
 
 // --- Creating and editing cards --------------------------------------------
 
-const cards = useCardFactory(() => collectionIds.value, session)
+const cards = useCardFactory(() => [...session.studiedIds.value], session)
 
 const editableItem = computed<LearningItem | null>(() => {
   if (!currentItem.value) return null
@@ -306,7 +307,8 @@ watch(collectionIds, async (ids, oldIds) => {
 onMounted(async () => {
   startSyncEngine()
   if (navigator.onLine && collectionIds.value.length) {
-    await Promise.all(collectionIds.value.map(id => pullLearningItems(id)))
+    const ids = withSubCollections(collectionIds.value, await getCollections())
+    await Promise.all([...ids].map(id => pullLearningItems(id)))
     await pullCardProgress()
   }
   await session.loadData()

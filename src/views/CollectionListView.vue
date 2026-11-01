@@ -32,12 +32,14 @@
 
     <CollectionsTable
       :collections="filtered"
+      :all-collections="collections"
       :categories="categories"
       @open="goToCollection"
       @study="goToStudy"
       @rename="handleRename"
       @delete="handleDelete"
       @update="updateCollection"
+      @move="moveCollection"
     />
 
     <CategoriesDialog
@@ -64,6 +66,7 @@ import CollectionListAssistant from '@/shared/components/CollectionListAssistant
 import type { CollectionSummary } from '@/utils/collectionListAssistant'
 import type { Collection } from '@/database/types'
 import { syncAll } from '@/database'
+import { subCollectionsOf } from '@/utils/subCollections'
 import CollectionFilterBar from './collectionList/components/CollectionFilterBar.vue'
 import CollectionsTable from './collectionList/components/CollectionsTable.vue'
 import CategoriesDialog from './collectionList/components/CategoriesDialog.vue'
@@ -82,6 +85,7 @@ const {
   addCollection,
   updateCollection,
   renameCollections,
+  moveCollection,
   deleteCollection,
   addCategory,
   renameCategory,
@@ -121,8 +125,20 @@ const handleRename = async (collection: Collection) => {
   if (title) await updateCollection(collection, { title })
 }
 
+// Deleting takes the sub-collections and all their items too, so say how much.
 const handleDelete = async (id: string) => {
-  if (confirm('Are you sure you want to delete this collection?')) await deleteCollection(id)
+  const subIds = subCollectionsOf(id, collections.value)
+  if (!subIds.length) {
+    if (confirm('Are you sure you want to delete this collection?')) await deleteCollection(id)
+    return
+  }
+  const deleted = collections.value.filter(c => c.id === id || subIds.includes(c.id!))
+  const itemCount = deleted.reduce((n, c) => n + c.numberOfItems, 0)
+  const title = deleted.find(c => c.id === id)?.title
+  const subs = `${subIds.length} sub-collection${subIds.length === 1 ? '' : 's'}`
+  if (confirm(`Delete "${title}"? This also deletes ${subs} and ${itemCount} learning items.`)) {
+    await deleteCollection(id)
+  }
 }
 
 const handleDeleteCategory = async (id: string) => {

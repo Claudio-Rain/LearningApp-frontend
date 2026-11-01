@@ -1,11 +1,12 @@
 import { ref } from 'vue'
-import { getCollections, getCategories, getLearningItems, getAllCardProgress } from '@/database'
+import { getCollections, getCategories, getAllLearningItems, getAllCardProgress } from '@/database'
 import type { Category } from '@/database'
 
 export interface CatalogCollection {
   id: string
   title: string
   categoryId?: string | null
+  parentId?: string | null
 }
 
 /**
@@ -50,9 +51,11 @@ async function fetchAll() {
       .sort((a, b) => a.title.localeCompare(b.title))
     categories.value = cats
 
-    const perCollection = await Promise.all(
-      collections.value.map(async c => ({ collectionId: c.id, items: await getLearningItems(c.id) }))
-    )
+    const allItems = await getAllLearningItems()
+    const perCollection = collections.value.map(c => ({
+      collectionId: c.id,
+      items: allItems.filter(i => i.collectionId === c.id)
+    }))
     collectionItemIds.value = new Map(
       perCollection.map(({ collectionId, items }) =>
         [collectionId, new Set(items.map(i => i.id).filter(Boolean) as string[])] as const

@@ -1,10 +1,11 @@
 import {
-  getLearningItems,
+  getAllLearningItems,
   getAllCardProgress,
   getCollections,
   getAllExcludedItems,
   getAllAttemptLogs
 } from '../../src/database/index.ts';
+import { withSubCollections } from '../../src/utils/subCollections.ts';
 import {
   getStudySettings,
   setContentLearningItemId,
@@ -46,16 +47,18 @@ export async function fetchNextContentItem(advanceSession = false) {
     return;
   }
 
-  console.log('[background] fetchNextContentItem: fetching items for collections', validIds);
+  // A chosen collection includes its sub-collections.
+  const shownIds = withSubCollections(validIds, collections);
+  console.log('[background] fetchNextContentItem: fetching items for collections', [...shownIds]);
 
-  const [itemArrays, allProgress, excluded, attemptLogs] = await Promise.all([
-    Promise.all(validIds.map(id => getLearningItems(id))),
+  const [allItems, allProgress, excluded, attemptLogs] = await Promise.all([
+    getAllLearningItems(),
     getAllCardProgress(),
     getAllExcludedItems(),
     getAllAttemptLogs()
   ]);
 
-  const rawItems = itemArrays.flat();
+  const rawItems = allItems.filter(i => shownIds.has(i.collectionId));
 
   const excludedSet = new Set(excluded.map(e => e.learningItemId));
   const items = (rawItems || []).filter(i => !excludedSet.has(i.id));

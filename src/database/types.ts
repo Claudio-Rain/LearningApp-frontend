@@ -23,9 +23,14 @@ export interface Collection extends Syncable {
   description?: string
   // null/undefined = uncategorized. A collection belongs to 0 or 1 category.
   categoryId?: string | null
+  // The collection this one lives in; null/undefined = top level. Choosing a
+  // collection anywhere in the app (study, widget, progress, study sets) also
+  // includes its sub-collections — see utils/subCollections.ts.
+  parentId?: string | null
   starred?: boolean
   lastModified: string
   dateCreated: string
+  // This collection's own items, not counting its sub-collections.
   numberOfItems: number
 }
 

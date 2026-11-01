@@ -21,7 +21,8 @@ type Session = Pick<ReturnType<typeof useStudySession>, 'appendItems' | 'patchIt
  */
 export function useCardFactory(studiedCollectionIds: () => string[], session: Session) {
   // Bumps the collection's item count and kicks the background sync. New
-  // cards join the queue only when their collection is the one being studied.
+  // cards join the queue only when their collection is being studied (chosen,
+  // or inside a chosen one).
   const createCards = async (collectionId: string, entries: CardEntry[]): Promise<StudyItem[]> => {
     const now = formatISO(new Date())
     const created: StudyItem[] = []

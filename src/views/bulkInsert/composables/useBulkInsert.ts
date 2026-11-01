@@ -85,7 +85,9 @@ export function useBulkInsert() {
    * re-file existing collections.
    */
   const resolveCollectionByTitle = async (title: string, categoryId: string | null): Promise<string> => {
-    const existing = collections.value.find(c => sameTitle(c.title, title))
+    // Top level only: sub-collections can share a name ("DB concepts" under
+    // Junior and under Middle), so a bare title can't tell them apart.
+    const existing = collections.value.find(c => !c.parentId && sameTitle(c.title, title))
     if (existing?.id) {
       await applyCategory(existing, categoryId)
       return existing.id

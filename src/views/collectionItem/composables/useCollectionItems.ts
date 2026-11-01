@@ -114,6 +114,8 @@ export function useCollectionItems(collectionId: string, options: { onMissing: (
       : await createCollection({
         title: target.newTitle,
         categoryId: collection.value.categoryId ?? null,
+        // Next to the current collection, not at the top level.
+        parentId: collection.value.parentId ?? null,
         dateCreated: now,
         lastModified: now,
         numberOfItems: 0

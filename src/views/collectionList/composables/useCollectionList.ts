@@ -14,6 +14,7 @@ import {
   syncAll
 } from '@/database'
 import type { Category, Collection } from '@/database/types'
+import { canMoveInto } from '@/utils/subCollections'
 
 const now = () => formatISO(new Date())
 
@@ -69,6 +70,19 @@ export function useCollectionList() {
     await afterCollectionWrite()
   }
 
+  /**
+   * Put a collection inside another (null = back to the top level); its own
+   * sub-collections and items come along. Categories only apply at the top
+   * level, so one moved inside another loses its own.
+   */
+  const moveCollection = async (id: string, parentId: string | null) => {
+    const collection = collections.value.find(c => c.id === id)
+    if (!collection || !canMoveInto(id, parentId, collections.value)) return
+    const categoryId = parentId ? null : (collection.categoryId ?? null)
+    await editCollection({ ...collection, parentId, categoryId, lastModified: now() })
+    await afterCollectionWrite()
+  }
+
   const deleteCollection = async (id: string) => {
     await removeCollection(id)
     await afterCollectionWrite()
@@ -118,6 +132,7 @@ export function useCollectionList() {
     addCollection,
     updateCollection,
     renameCollections,
+    moveCollection,
     deleteCollection,
     addCategory,
     renameCategory,
