@@ -11,7 +11,7 @@
 //   cards   — split-card and question-rewrite helpers
 
 export { MODEL, createClient } from './claude/client'
-export { getApiKey, setApiKey, clearApiKey, hasApiKey } from './claude/apiKey'
+export { getApiKey, setApiKey, clearApiKey, hasApiKey, ensureApiKey } from './claude/apiKey'
 export { extractText } from './claude/text'
 export type { ChatMessage, SplitProposal } from './claude/types'
 export { streamAnswer, generateAnswerMarkdown } from './claude/answers'

@@ -43,3 +43,15 @@ export const clearApiKey = async (): Promise<void> => {
 }
 
 export const hasApiKey = async (): Promise<boolean> => !!(await getApiKey())
+
+/**
+ * Make sure a key is stored, asking for one once if it isn't. Resolves false
+ * when the user dismisses the prompt, so callers can skip the Claude call.
+ */
+export const ensureApiKey = async (): Promise<boolean> => {
+  if (await getApiKey()) return true
+  const key = prompt('Paste your Anthropic API key (stored only in this browser, used directly from it):')
+  if (!key?.trim()) return false
+  await setApiKey(key)
+  return true
+}
