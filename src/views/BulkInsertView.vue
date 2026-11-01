@@ -12,10 +12,22 @@
         v-model:mode="collectionMode"
         v-model:selected-id="selectedCollectionId"
         v-model:new-title="newCollectionTitle"
-        v-model:category="standardCategory"
         :collections="collections"
-        :categories="categories"
-      />
+      >
+        <!-- Free text: an existing category title, a new one to create, or empty for none. -->
+        <v-combobox
+          v-model="standardCategory"
+          :items="categories.map(c => c.title)"
+          label="Category (optional)"
+          variant="outlined"
+          density="compact"
+          clearable
+          hide-details
+        />
+        <div class="text-caption text-medium-emphasis mt-1">
+          Pick an existing category or type a new name — it will be created and assigned to the collection.
+        </div>
+      </TargetCollectionCard>
       <StandardItemsCard v-model:text="rawInput" v-model:answer-with-a-i="answerWithAI" :items="parsedItems" />
     </template>
 

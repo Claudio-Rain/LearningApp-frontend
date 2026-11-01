@@ -40,7 +40,14 @@
           </v-expansion-panel-title>
           <v-expansion-panel-text>
             <v-list density="compact">
-              <ParsedItemRow v-for="(item, i) in col.items" :key="i" :item="item" :show-answer="!answerWithAI" />
+              <!-- In AI mode Claude writes the answers, so there is none to preview. -->
+              <PreviewItemRow
+                v-for="(item, i) in col.items"
+                :key="i"
+                :valid="item.valid"
+                :title="item.question || '(missing question)'"
+                :subtitle="answerWithAI ? undefined : item.answer || '(missing answer)'"
+              />
             </v-list>
           </v-expansion-panel-text>
         </v-expansion-panel>
@@ -55,7 +62,7 @@
 <script setup lang="ts">
 import { countValid, pluralize, type ParsedCollection } from '../parse'
 import AnswerWithAIToggle from './AnswerWithAIToggle.vue'
-import ParsedItemRow from './ParsedItemRow.vue'
+import PreviewItemRow from './PreviewItemRow.vue'
 
 const text = defineModel<string>('text', { required: true })
 const answerWithAI = defineModel<boolean>('answerWithAI', { required: true })

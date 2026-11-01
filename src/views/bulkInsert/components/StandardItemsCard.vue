@@ -23,7 +23,13 @@
     <div v-if="items.length > 0" class="mt-3">
       <div class="text-subtitle-2 mb-2">Preview — {{ pluralize(items.length, 'item') }} detected</div>
       <v-list density="compact" class="preview-list rounded border">
-        <ParsedItemRow v-for="(item, i) in items" :key="i" :item="item" />
+        <PreviewItemRow
+          v-for="(item, i) in items"
+          :key="i"
+          :valid="item.valid"
+          :title="item.question || '(missing question)'"
+          :subtitle="item.answer || '(missing answer)'"
+        />
       </v-list>
     </div>
     <div v-else-if="text.trim()" class="text-caption text-error mt-2">No valid items found. Check the format.</div>
@@ -33,7 +39,7 @@
 <script setup lang="ts">
 import { pluralize, type ParsedItem } from '../parse'
 import AnswerWithAIToggle from './AnswerWithAIToggle.vue'
-import ParsedItemRow from './ParsedItemRow.vue'
+import PreviewItemRow from './PreviewItemRow.vue'
 
 const text = defineModel<string>('text', { required: true })
 const answerWithAI = defineModel<boolean>('answerWithAI', { required: true })

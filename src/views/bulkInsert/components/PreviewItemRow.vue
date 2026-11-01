@@ -1,24 +1,22 @@
 <template>
-  <v-list-item :class="{ 'invalid-item': !item.valid }">
+  <v-list-item :class="{ 'invalid-item': !valid }">
     <template #prepend>
-      <v-icon :color="item.valid ? 'success' : 'error'" size="small">
-        {{ item.valid ? 'mdi-check-circle' : 'mdi-alert-circle' }}
+      <v-icon :color="valid ? 'success' : 'error'" size="small">
+        {{ valid ? 'mdi-check-circle' : 'mdi-alert-circle' }}
       </v-icon>
     </template>
-    <v-list-item-title class="text-body-2 font-weight-medium">
-      {{ item.question || '(missing question)' }}
-    </v-list-item-title>
-    <v-list-item-subtitle v-if="showAnswer" class="text-caption">
-      {{ item.answer || '(missing answer)' }}
-    </v-list-item-subtitle>
+    <v-list-item-title class="text-body-2 font-weight-medium">{{ title }}</v-list-item-title>
+    <v-list-item-subtitle v-if="subtitle !== undefined" class="text-caption">{{ subtitle }}</v-list-item-subtitle>
   </v-list-item>
 </template>
 
 <script setup lang="ts">
-import type { ParsedItem } from '../parse'
-
-/** One parsed item in a preview list, marked valid or not. */
-withDefaults(defineProps<{ item: ParsedItem; showAnswer?: boolean }>(), { showAnswer: true })
+/** One parsed item in a bulk-insert preview, marked valid or not. Omit `subtitle` to hide it. */
+defineProps<{
+  valid: boolean
+  title: string
+  subtitle?: string
+}>()
 </script>
 
 <style scoped>

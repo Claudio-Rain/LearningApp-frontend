@@ -143,7 +143,7 @@ export function useBulkInsert() {
 
   /** Standard mode: every item into one collection, picked by id or created by title. */
   const insertIntoOne = async (
-    target: { kind: 'existing'; id: string } | { kind: 'new'; title: string },
+    target: InsertTarget,
     categoryTitle: string | null,
     items: ParsedItem[],
     options: InsertOptions
@@ -168,5 +168,42 @@ export function useBulkInsert() {
     await reloadCollections()
   }
 
-  return { collections, categories, load, insertIntoOne, insertMany }
+  /**
+   * HTML bulk insert: items whose content is already built, into a picked
+   * collection or a brand-new one. Unlike standard mode, "new" always creates a
+   * collection, even if one with that title exists, and assigns no category.
+   */
+  const insertPrepared = async (
+    target: InsertTarget,
+    entries: { title: string; content: JSONContent }[]
+  ) => {
+    const at = now()
+    let collectionId: string
+    if (target.kind === 'new') {
+      collectionId = (await createCollection({
+        title: target.title.trim(),
+        dateCreated: at,
+        lastModified: at,
+        numberOfItems: 0
+      })) as string
+      await reloadCollections()
+    } else {
+      collectionId = target.id
+    }
+
+    for (const { title, content } of entries) {
+      await createLearningItem({ collectionId, title, content, dateCreated: at, lastModified: at })
+    }
+
+    const col = collections.value.find(c => c.id === collectionId)
+    if (col) {
+      await editCollection({ ...col, numberOfItems: col.numberOfItems + entries.length, lastModified: at })
+      await reloadCollections()
+    }
+  }
+
+  return { collections, categories, load, insertIntoOne, insertMany, insertPrepared }
 }
+
+/** The collection a single-collection insert goes into. */
+export type InsertTarget = { kind: 'existing'; id: string } | { kind: 'new'; title: string }

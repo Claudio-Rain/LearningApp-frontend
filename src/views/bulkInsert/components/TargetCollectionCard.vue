@@ -27,33 +27,18 @@
       :rules="[v => !!v || 'Enter a name']"
     />
 
-    <v-combobox
-      v-model="category"
-      :items="categories.map(c => c.title)"
-      label="Category (optional)"
-      variant="outlined"
-      density="compact"
-      clearable
-      hide-details
-    />
-    <div class="text-caption text-medium-emphasis mt-1">
-      Pick an existing category or type a new name — it will be created and assigned to the collection.
-    </div>
+    <!-- Extra fields for the destination, e.g. a category. -->
+    <slot />
   </v-card>
 </template>
 
 <script setup lang="ts">
-import type { Category, Collection } from '@/database/types'
+import type { Collection } from '@/database/types'
 
-/** Standard mode's destination: an existing collection or a new one, plus an optional category. */
+/** Where bulk-inserted items go: an existing collection or a new one. */
 const mode = defineModel<'existing' | 'new'>('mode', { required: true })
 const selectedId = defineModel<string | null>('selectedId', { required: true })
 const newTitle = defineModel<string>('newTitle', { required: true })
-// Free text: an existing category title, a new one to create, or empty for none.
-const category = defineModel<string | null>('category', { required: true })
 
-defineProps<{
-  collections: Collection[]
-  categories: Category[]
-}>()
+defineProps<{ collections: Collection[] }>()
 </script>
