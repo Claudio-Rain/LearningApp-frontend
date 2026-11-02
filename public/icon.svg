@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2E0B66"/>
+      <stop offset="0.55" stop-color="#5E1A9C"/>
+      <stop offset="1" stop-color="#9B4FD6"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.8" cy="0.2" r="0.6">
+      <stop offset="0" stop-color="#03DAC6" stop-opacity="0.38"/>
+      <stop offset="1" stop-color="#03DAC6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="line" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#D9C2FF"/>
+      <stop offset="1" stop-color="#FFFFFF"/>
+    </linearGradient>
+    <filter id="soft" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="114" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="114" fill="url(#glow)"/>
+
+  <!-- learn, forget a little, review: each peak climbs higher, each dip is shallower -->
+  <path d="M100 392 L 160 262 C 182 322, 200 344, 222 350 L 280 200 C 302 252, 320 270, 342 276 L 400 128 L 400 412 L 100 412 Z"
+        fill="url(#area)"/>
+  <path d="M100 392 L 160 262 C 182 322, 200 344, 222 350 L 280 200 C 302 252, 320 270, 342 276 L 400 128"
+        fill="none" stroke="url(#line)" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <circle cx="400" cy="128" r="54" fill="#03DAC6" filter="url(#soft)" opacity="0.85"/>
+  <circle cx="400" cy="128" r="36" fill="#03DAC6"/>
+  <circle cx="400" cy="128" r="14" fill="#FFFFFF"/>
+</svg>
