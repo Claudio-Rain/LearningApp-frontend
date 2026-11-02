@@ -115,9 +115,13 @@ const assistantCollections = computed<CollectionSummary[]>(() => {
   }))
 })
 
+// With a category's chip selected, the new collection goes in that category,
+// so it shows up in the list being looked at.
 const handleAdd = async () => {
   const title = prompt('Collection name?')
-  if (title) await addCollection(title)
+  if (!title) return
+  const inCategory = categories.value.some(c => c.id === selectedFilter.value)
+  await addCollection(title, inCategory ? selectedFilter.value : null)
 }
 
 const handleRename = async (collection: Collection) => {

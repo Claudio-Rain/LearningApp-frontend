@@ -72,11 +72,6 @@ export function withSubCollections(chosenIds: Iterable<string>, collections: Nes
   return result
 }
 
-/** The top-level collection a collection lives under; itself when it is top level. */
-export function topLevelOf(id: string, collections: NestedCollection[]): string {
-  return ancestorsOf(id, parentsOf(collections))[0] ?? id
-}
-
 /** The sub-collections inside a collection, at any depth — not the collection itself. */
 export function subCollectionsOf(id: string, collections: NestedCollection[]): string[] {
   return [...withSubCollections([id], collections)].filter(sub => sub !== id)

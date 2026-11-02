@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import type { Category, Collection } from '@/database/types'
-import { collectionRows, filterCollections, filterOptions, isValidFilter } from '@/views/collectionList/filters'
+import {
+  collectionRows,
+  dropCollection,
+  filterCollections,
+  filterOptions,
+  isValidFilter
+} from '@/views/collectionList/filters'
 
 const collection = (id: string, extra: Partial<Collection> = {}): Collection => ({
   id,
@@ -99,6 +105,63 @@ describe('collectionRows', () => {
       ['alpha', 0, 'Alpha', false],
       ['db', 0, 'Junior › DB', true]
     ])
+  })
+})
+
+describe('dropCollection', () => {
+  // Top level, never placed: Alpha (starred), Junior, Zeta. Junior holds C#, DB.
+  const all = [
+    collection('junior', { title: 'Junior' }),
+    collection('db', { title: 'DB', parentId: 'junior' }),
+    collection('csharp', { title: 'C#', parentId: 'junior' }),
+    collection('zeta', { title: 'Zeta', categoryId: 'c1' }),
+    collection('alpha', { title: 'Alpha', starred: true })
+  ]
+  const apply = (changes: Collection[]) => {
+    const byId = new Map(changes.map(c => [c.id, c]))
+    return all.map(c => byId.get(c.id) ?? c)
+  }
+  const topLevel = (collections: Collection[]) =>
+    collectionRows(filterCollections(collections, 'all'), collections, new Set())
+      .filter(r => r.depth === 0)
+      .map(r => r.id)
+
+  it('moves a collection to the front of its level, numbering the level', () => {
+    const changes = dropCollection(all, 'zeta', 'alpha', 'before')
+    expect(topLevel(apply(changes))).toEqual(['zeta', 'alpha', 'junior'])
+    expect(changes.map(c => [c.id, c.order])).toEqual([
+      ['zeta', 0],
+      ['alpha', 1],
+      ['junior', 2]
+    ])
+  })
+
+  it('places after a collection, and only reports what changed', () => {
+    const placed = apply(dropCollection(all, 'zeta', 'alpha', 'before'))
+    const changes = dropCollection(placed, 'zeta', 'alpha', 'after')
+    expect(changes.map(c => [c.id, c.order])).toEqual([
+      ['alpha', 0],
+      ['zeta', 1]
+    ])
+  })
+
+  it('takes the level of the target when dropped next to a sub-collection', () => {
+    const [moved] = dropCollection(all, 'zeta', 'csharp', 'before').filter(c => c.id === 'zeta')
+    expect([moved!.parentId, moved!.order, moved!.categoryId]).toEqual(['junior', 0, null])
+  })
+
+  it('puts a collection inside another at the end', () => {
+    const changes = dropCollection(all, 'alpha', 'junior', 'inside')
+    expect(changes.map(c => [c.id, c.order])).toEqual([
+      ['csharp', 0],
+      ['db', 1],
+      ['alpha', 2]
+    ])
+  })
+
+  it('refuses a drop into itself or its own sub-collections', () => {
+    expect(dropCollection(all, 'junior', 'junior', 'inside')).toEqual([])
+    expect(dropCollection(all, 'junior', 'db', 'before')).toEqual([])
   })
 })
 

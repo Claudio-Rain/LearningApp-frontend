@@ -14,7 +14,7 @@ import {
   syncAll
 } from '@/database'
 import type { Category, Collection } from '@/database/types'
-import { canMoveInto } from '@/utils/subCollections'
+import { dropCollection, type DropPosition } from '../filters'
 
 const now = () => formatISO(new Date())
 
@@ -48,9 +48,9 @@ export function useCollectionList() {
 
   // --- Collections ---------------------------------------------------------
 
-  const addCollection = async (title: string) => {
+  const addCollection = async (title: string, categoryId: string | null = null) => {
     const at = now()
-    await createCollection({ title, dateCreated: at, lastModified: at, numberOfItems: 0 })
+    await createCollection({ title, categoryId, dateCreated: at, lastModified: at, numberOfItems: 0 })
     await afterCollectionWrite()
   }
 
@@ -71,15 +71,17 @@ export function useCollectionList() {
   }
 
   /**
-   * Put a collection inside another (null = back to the top level); its own
-   * sub-collections and items come along. Categories only apply at the top
-   * level, so one moved inside another loses its own.
+   * Drop a collection before/after another, or inside it (target null = end
+   * of the top level); its own sub-collections and items come along. The list
+   * shows the new place right away, before the writes finish.
    */
-  const moveCollection = async (id: string, parentId: string | null) => {
-    const collection = collections.value.find(c => c.id === id)
-    if (!collection || !canMoveInto(id, parentId, collections.value)) return
-    const categoryId = parentId ? null : (collection.categoryId ?? null)
-    await editCollection({ ...collection, parentId, categoryId, lastModified: now() })
+  const moveCollection = async (id: string, targetId: string | null, position: DropPosition) => {
+    const lastModified = now()
+    const changed = dropCollection(collections.value, id, targetId, position).map(c => ({ ...c, lastModified }))
+    if (!changed.length) return
+    const byId = new Map(changed.map(c => [c.id, c]))
+    collections.value = collections.value.map(c => byId.get(c.id) ?? c)
+    await Promise.all(changed.map(c => editCollection(c)))
     await afterCollectionWrite()
   }
 

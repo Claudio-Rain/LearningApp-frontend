@@ -27,6 +27,10 @@ export interface Collection extends Syncable {
   // collection anywhere in the app (study, widget, progress, study sets) also
   // includes its sub-collections — see utils/subCollections.ts.
   parentId?: string | null
+  // Position among the collections at the same level, set by dragging in the
+  // collections list. Unset = never placed: listed after the placed ones,
+  // starred first then by title.
+  order?: number
   starred?: boolean
   lastModified: string
   dateCreated: string

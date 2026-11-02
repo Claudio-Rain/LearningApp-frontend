@@ -2,12 +2,11 @@
   <div class="collections-table-wrap">
     <!-- Floats over the filter bar so showing it doesn't shift the rows mid-drag. -->
     <div
-      v-if="draggedIsSub"
+      v-if="showTopLevel"
       class="top-level-drop rounded-lg"
-      :class="{ 'top-level-drop--over': overId === TOP_LEVEL }"
-      @dragover="onDragover($event, TOP_LEVEL)"
-      @dragleave="onDragleave($event, TOP_LEVEL)"
-      @drop="onDrop($event, TOP_LEVEL)"
+      @dragover="onDragover($event, TOP_LEVEL, 'inside')"
+      @dragleave="onDragleave"
+      @drop="onDrop($event, TOP_LEVEL, 'inside')"
     >
       <v-icon icon="mdi-arrow-collapse-up" size="small" class="mr-2" />
       Move to top level
@@ -40,15 +39,16 @@
 
       <template #item.title="{ item }">
         <div class="title-cell" :style="{ paddingLeft: `${item.depth * INDENT}px` }">
-          <v-btn
+          <!-- A wide target, so a near miss doesn't open the collection. -->
+          <span
             v-if="item.childCount"
-            :icon="collapsed.has(item.id!) ? 'mdi-chevron-right' : 'mdi-chevron-down'"
-            variant="text"
-            size="x-small"
-            density="comfortable"
+            class="expander"
+            role="button"
             :title="collapsed.has(item.id!) ? 'Expand' : 'Collapse'"
             @click.stop="toggleCollapsed(item.id!)"
-          />
+          >
+            <v-icon :icon="collapsed.has(item.id!) ? 'mdi-chevron-right' : 'mdi-chevron-down'" size="24" />
+          </span>
           <span v-else class="expander-spacer" />
           <span class="collection-title">{{ item.label }}</span>
         </div>
@@ -97,10 +97,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import type { Category, Collection } from '@/database/types'
-import { canMoveInto, parentsOf } from '@/utils/subCollections'
-import { collectionRows, type CollectionRow, type ListedCollection } from '../filters'
+import { parentsOf, withSubCollections } from '@/utils/subCollections'
+import {
+  collectionRows,
+  type CollectionRow,
+  type DropPosition,
+  type ListedCollection
+} from '../filters'
 import { useResizableColumns } from '../composables/useResizableColumns'
 import CollectionCategoryMenu from './CollectionCategoryMenu.vue'
 
@@ -119,8 +124,8 @@ const emit = defineEmits<{
   delete: [id: string]
   /** Star, description and category edits, made in place in the row. */
   update: [collection: Collection, changes: Partial<Collection>]
-  /** A collection dropped into another one, or back to the top level (null). */
-  move: [id: string, parentId: string | null]
+  /** A collection dropped before/after/inside another one, or back to the top level (null). */
+  move: [id: string, targetId: string | null, position: DropPosition]
 }>()
 
 const INDENT = 20
@@ -136,8 +141,8 @@ const { widths, startResize } = useResizableColumns({
   actions: 120
 })
 
-// Rows come in tree order (starred first, then title, within each level), so
-// the table itself doesn't sort.
+// Rows come in tree order (the dragged order within each level), so the table
+// itself doesn't sort.
 const headers = computed(() => [
   { title: '', key: 'starred', sortable: false, align: 'center' as const, width: STAR_WIDTH, minWidth: STAR_WIDTH },
   { title: 'Title', key: 'title', sortable: false, width: widths.value.title },
@@ -182,70 +187,170 @@ const toggleCollapsed = (id: string) => setCollapsed(id, !collapsed.value.has(id
 const rows = computed(() => collectionRows(props.collections, props.allCollections, collapsed.value))
 
 // --- Drag & drop -------------------------------------------------------------
-// Drop a collection onto another to put it inside, or onto the "Move to top
-// level" zone (shown while dragging a sub-collection) to take it back out.
+// Drop a collection on the top or bottom edge of a row to place it before or
+// after that row (same level), on the middle of a row to put it inside, or on
+// the "Move to top level" zone (shown while dragging a sub-collection) to
+// take it back out.
+//
+// While dragging, nothing reactive changes: dragover fires many times a
+// second, and re-rendering the table on each one made dragging slow. The drop
+// indicators are classes set straight on the element under the pointer.
+// The only reactive change (showing the top-level zone) waits until after
+// dragstart, since Chrome cancels a drag when the DOM changes during it.
 
 const TOP_LEVEL = 'top-level'
-const draggingId = ref<string | null>(null)
-const overId = ref<string | null>(null)
 
 const parents = computed(() => parentsOf(props.allCollections))
-const draggedIsSub = computed(() => !!draggingId.value && parents.value.has(draggingId.value))
 
-/** Whether the dragged collection can be dropped on `target`, and it would change something. */
-const accepts = (target: string) => {
-  const id = draggingId.value
-  if (!id) return false
-  if (target === TOP_LEVEL) return parents.value.has(id)
-  return parents.value.get(id) !== target && canMoveInto(id, target, props.allCollections)
+interface Drag {
+  id: string
+  parentId: string | null
+  /** The collection and everything inside it: it can't be dropped into any of them. */
+  inside: Set<string>
+}
+let drag: Drag | null = null
+const showTopLevel = ref(false)
+
+const targetId = (target: string) => (target === TOP_LEVEL ? null : target)
+
+/** Whether the dragged collection can be dropped there. */
+const accepts = (target: string, position: DropPosition) => {
+  if (!drag || drag.id === target) return false
+  if (target === TOP_LEVEL) return drag.parentId !== null
+  const parentId = position === 'inside' ? target : (parents.value.get(target) ?? null)
+  if (position === 'inside' && parentId === drag.parentId) return false
+  return parentId === null || !drag.inside.has(parentId)
 }
 
+let dropEl: HTMLElement | null = null
+let dropPosition: DropPosition | null = null
+const showDrop = (el: HTMLElement | null, position: DropPosition | null) => {
+  if (el === dropEl && position === dropPosition) return
+  dropEl?.classList.remove(`drop-${dropPosition}`)
+  el?.classList.add(`drop-${position}`)
+  dropEl = el
+  dropPosition = position
+}
+
+// The edges of a row place before/after it; the middle puts inside. An
+// expanded row's bottom edge also puts inside, since its sub-collections are
+// what shows right below it.
+const EDGE = 0.3
+const positionIn = (event: DragEvent, row: CollectionRow): DropPosition => {
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const y = (event.clientY - rect.top) / rect.height
+  if (y < EDGE) return 'before'
+  const expanded = row.childCount > 0 && !collapsed.value.has(row.id!)
+  if (y > 1 - EDGE && !expanded) return 'after'
+  return 'inside'
+}
+
+// The wheel doesn't scroll during a native drag, so holding the pointer near
+// the top or bottom edge scrolls the list, faster the closer it gets.
+const SCROLL_EDGE = 80
+const MAX_SCROLL_SPEED = 18
+let scroller: HTMLElement | null = null
+let pointerY: number | null = null
+let scrollFrame = 0
+
+const scrollerOf = (el: HTMLElement | null): HTMLElement => {
+  for (let node = el?.parentElement; node; node = node.parentElement) {
+    if (/auto|scroll/.test(getComputedStyle(node).overflowY) && node.scrollHeight > node.clientHeight) return node
+  }
+  return document.scrollingElement as HTMLElement
+}
+
+const trackPointer = (event: DragEvent) => {
+  pointerY = event.clientY
+}
+
+const autoScroll = () => {
+  if (scroller && pointerY !== null) {
+    const isPage = scroller === document.scrollingElement
+    const { top, bottom } = isPage ? { top: 0, bottom: window.innerHeight } : scroller.getBoundingClientRect()
+    const intoTop = top + SCROLL_EDGE - pointerY
+    const intoBottom = pointerY - (bottom - SCROLL_EDGE)
+    const depth = intoTop > 0 ? -intoTop : intoBottom > 0 ? intoBottom : 0
+    if (depth) scroller.scrollTop += (Math.max(-SCROLL_EDGE, Math.min(SCROLL_EDGE, depth)) / SCROLL_EDGE) * MAX_SCROLL_SPEED
+  }
+  scrollFrame = requestAnimationFrame(autoScroll)
+}
+
+const startAutoScroll = (el: HTMLElement) => {
+  scroller = scrollerOf(el)
+  document.addEventListener('dragover', trackPointer)
+  scrollFrame = requestAnimationFrame(autoScroll)
+}
+
+const stopAutoScroll = () => {
+  cancelAnimationFrame(scrollFrame)
+  document.removeEventListener('dragover', trackPointer)
+  scroller = null
+  pointerY = null
+}
+
+onBeforeUnmount(stopAutoScroll)
+
+let draggedEl: HTMLElement | null = null
+
 const onDragstart = (event: DragEvent, id: string) => {
-  draggingId.value = id
+  drag = {
+    id,
+    parentId: parents.value.get(id) ?? null,
+    inside: withSubCollections([id], props.allCollections)
+  }
+  draggedEl = event.currentTarget as HTMLElement
+  startAutoScroll(draggedEl)
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move'
     event.dataTransfer.setData('text/plain', id)
   }
+  setTimeout(() => {
+    if (!drag) return
+    draggedEl?.classList.add('row--dragging')
+    showTopLevel.value = drag.parentId !== null
+  })
 }
 
-const onDragover = (event: DragEvent, target: string) => {
-  if (!accepts(target)) return
+const onDragover = (event: DragEvent, target: string, position: DropPosition) => {
+  if (!accepts(target, position)) {
+    showDrop(null, null)
+    return
+  }
   event.preventDefault()
   if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
-  overId.value = target
+  showDrop(event.currentTarget as HTMLElement, position)
 }
 
 // Moving over a cell inside the row also fires dragleave; only leaving the row counts.
-const onDragleave = (event: DragEvent, target: string) => {
-  const into = event.relatedTarget as Node | null
-  if (overId.value === target && !(event.currentTarget as Node).contains(into)) overId.value = null
+const onDragleave = (event: DragEvent) => {
+  const el = event.currentTarget as HTMLElement
+  if (dropEl === el && !el.contains(event.relatedTarget as Node | null)) showDrop(null, null)
 }
 
 const onDragend = () => {
-  draggingId.value = null
-  overId.value = null
+  stopAutoScroll()
+  showDrop(null, null)
+  draggedEl?.classList.remove('row--dragging')
+  draggedEl = null
+  drag = null
+  showTopLevel.value = false
 }
 
-const onDrop = (event: DragEvent, target: string) => {
+const onDrop = (event: DragEvent, target: string, position: DropPosition) => {
   event.preventDefault()
-  const id = draggingId.value
-  if (id && accepts(target)) {
-    if (target !== TOP_LEVEL) setCollapsed(target, false)
-    emit('move', id, target === TOP_LEVEL ? null : target)
-  }
+  const id = drag?.id
+  // The collection dropped into keeps its expanded/collapsed state.
+  if (id && accepts(target, position)) emit('move', id, targetId(target), position)
   onDragend()
 }
 
 const rowProps = ({ item }: { item: CollectionRow }) => ({
   draggable: true,
-  class: {
-    'row--dragging': draggingId.value === item.id,
-    'row--drop-target': overId.value === item.id
-  },
   onDragstart: (e: DragEvent) => onDragstart(e, item.id!),
-  onDragover: (e: DragEvent) => onDragover(e, item.id!),
-  onDragleave: (e: DragEvent) => onDragleave(e, item.id!),
-  onDrop: (e: DragEvent) => onDrop(e, item.id!),
+  onDragover: (e: DragEvent) => onDragover(e, item.id!, positionIn(e, item)),
+  onDragleave,
+  onDrop: (e: DragEvent) => onDrop(e, item.id!, positionIn(e, item)),
   onDragend
 })
 </script>
@@ -267,10 +372,20 @@ const rowProps = ({ item }: { item: CollectionRow }) => ({
   opacity: 0.45;
 }
 
-.collections-table :deep(tr.row--drop-target) {
+/* Drop indicators, set on the element under the pointer while dragging. */
+.collections-table :deep(tr.drop-inside) {
   background: rgba(var(--v-theme-primary), 0.12);
   outline: 2px dashed rgb(var(--v-theme-primary));
   outline-offset: -2px;
+}
+
+/* A line on the edge where the collection will land. */
+.collections-table :deep(tr.drop-before > td) {
+  box-shadow: inset 0 3px 0 rgb(var(--v-theme-primary));
+}
+
+.collections-table :deep(tr.drop-after > td) {
+  box-shadow: inset 0 -3px 0 rgb(var(--v-theme-primary));
 }
 
 .title-cell {
@@ -279,10 +394,25 @@ const rowProps = ({ item }: { item: CollectionRow }) => ({
   gap: 4px;
 }
 
+.expander,
 .expander-spacer {
-  display: inline-block;
-  width: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
   flex-shrink: 0;
+}
+
+.expander {
+  border-radius: 8px;
+  cursor: pointer;
+  color: rgba(var(--v-theme-on-surface), 0.7);
+}
+
+.expander:hover {
+  background: rgba(var(--v-theme-on-surface), 0.1);
+  color: rgb(var(--v-theme-on-surface));
 }
 
 .collection-title {
@@ -310,7 +440,7 @@ const rowProps = ({ item }: { item: CollectionRow }) => ({
   font-size: 0.9rem;
 }
 
-.top-level-drop--over {
+.top-level-drop.drop-inside {
   border-color: rgb(var(--v-theme-primary));
   background: rgba(var(--v-theme-primary), 0.08);
   color: rgb(var(--v-theme-primary));
