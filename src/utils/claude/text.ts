@@ -4,6 +4,10 @@ import type { JSONContent } from '@tiptap/vue-3'
 export const extractText = (node?: JSONContent | string): string => {
   if (!node) return ''
   if (typeof node === 'string') return node
+  // Formulas carry their source in an attribute, not as text; keep it as LaTeX
+  // so plain titles and prompts don't silently lose them.
+  if (node.type === 'mathInline') return `$${node.attrs?.latex ?? ''}$`
+  if (node.type === 'mathBlock') return `$$${node.attrs?.latex ?? ''}$$\n`
   let text = node.text ?? ''
   if (node.content) text += node.content.map(extractText).join('')
   // Treat block-level nodes as line breaks so structure survives flattening.

@@ -20,6 +20,7 @@ import Table from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
 import TableHeader from '@tiptap/extension-table-header'
 import TableCell from '@tiptap/extension-table-cell'
+import { MathExtensions } from '../tiptap/math'
 
 const lowlight = createLowlight(all)
 
@@ -38,6 +39,7 @@ const editor = new Editor({
     TableHeader,
     TableCell,
     CodeBlockLowlight.configure({ lowlight }),
+    ...MathExtensions,
   ],
   content: props.content,
   editable: false,

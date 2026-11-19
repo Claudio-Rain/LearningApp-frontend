@@ -37,6 +37,7 @@ import Image from '@tiptap/extension-image'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { all, createLowlight } from 'lowlight'
 import CodeBlock from './CodeBlock.vue'
+import { MathExtensions } from '../tiptap/math'
 
 const lowlight = createLowlight(all)
 
@@ -64,6 +65,7 @@ const editor = new Editor({
         return VueNodeViewRenderer(CodeBlock)
       },
     }).configure({ lowlight }),
+    ...MathExtensions,
   ],
   content: props.value,
   onUpdate: ({ editor }) => {
@@ -86,6 +88,7 @@ const TOOLS = [
   { name: 'italic', icon: 'mdi-format-italic', label: 'Italic', run: () => editor.chain().focus().toggleItalic().run() },
   { name: 'code', icon: 'mdi-code-tags', label: 'Inline code', run: () => editor.chain().focus().toggleCode().run() },
   { name: 'codeBlock', icon: 'mdi-code-braces-box', label: 'Code block', run: () => editor.chain().focus().toggleCodeBlock().run() },
+  { name: 'mathInline', icon: 'mdi-sigma', label: 'Formula ($…$)', run: () => editor.chain().focus().insertMathInline().run() },
 ]
 
 // Same guard as the content editor: only take an outside change when it's a

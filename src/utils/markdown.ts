@@ -8,7 +8,50 @@
 // works identically in the worker and the browser.
 
 import type { JSONContent } from '@tiptap/vue-3'
-import { marked, type Token, type Tokens } from 'marked'
+import { Marked, type TokenizerExtension, type Token, type Tokens } from 'marked'
+
+// --- LaTeX ---------------------------------------------------------------
+// Claude writes formulas as $…$ / \(…\) inline and $$…$$ / \[…\] for display.
+// These tokenizers lift them out before marked's escape handling can eat the
+// backslashes; they become mathInline / mathBlock nodes below.
+
+type MathToken = Tokens.Generic & { text: string }
+
+const blockMath: TokenizerExtension = {
+  name: 'blockMath',
+  level: 'block',
+  start: (src) => src.match(/\$\$|\\\[/)?.index,
+  tokenizer(src) {
+    const m = /^ {0,3}(?:\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\])[ \t]*(?:\n|$)/.exec(src)
+    if (m) return { type: 'blockMath', raw: m[0], text: (m[1] ?? m[2] ?? '').trim() }
+  },
+}
+
+const INLINE_MATH = [
+  /^\$\$([^$]+?)\$\$/,
+  // Non-space right inside both `$`, and no digit right after the closing one,
+  // so "$5 and $10" stays text.
+  /^\$(?!\s)((?:\\.|[^\\$\n])+?)(?<!\s)\$(?!\d)/,
+  /^\\\(([\s\S]+?)\\\)/,
+]
+
+const inlineMath: TokenizerExtension = {
+  name: 'inlineMath',
+  level: 'inline',
+  start: (src) => {
+    const i = src.search(/\$|\\\(/)
+    return i < 0 ? undefined : i
+  },
+  tokenizer(src) {
+    for (const re of INLINE_MATH) {
+      const m = re.exec(src)
+      if (m) return { type: 'inlineMath', raw: m[0], text: (m[1] ?? '').trim() }
+    }
+  },
+}
+
+// A private instance, so the assistants' global `marked.parse` is unaffected.
+const markdownLexer = new Marked({ extensions: [blockMath, inlineMath] })
 
 const decodeEntities = (s: string): string =>
   s
@@ -49,6 +92,11 @@ const inlineTokens = (tokens: Token[] = [], marks: JSONContent['marks'] = []): J
       case 'link': out.push(...inlineTokens((t as Tokens.Link).tokens, marks)); break
       case 'image': { const n = textNode((t as Tokens.Image).text || '', marks); if (n) out.push(n); break }
       case 'html': break
+      case 'inlineMath': {
+        const { text } = t as MathToken
+        if (text) out.push({ type: 'mathInline', attrs: { latex: text } })
+        break
+      }
       default: {
         const anyTok = t as { tokens?: Token[]; text?: string }
         if (anyTok.tokens) out.push(...inlineTokens(anyTok.tokens, marks))
@@ -121,6 +169,11 @@ const blockTokens = (tokens: Token[] = []): JSONContent[] => {
       case 'hr':
         out.push({ type: 'horizontalRule' })
         break
+      case 'blockMath': {
+        const { text } = t as MathToken
+        if (text) out.push({ type: 'mathBlock', attrs: { latex: text } })
+        break
+      }
       case 'html':
         break
       default:
@@ -131,7 +184,7 @@ const blockTokens = (tokens: Token[] = []): JSONContent[] => {
 }
 
 export const markdownToTiptap = (markdown: string): JSONContent => {
-  const tokens = marked.lexer(markdown)
+  const tokens = markdownLexer.lexer(markdown)
   const content = blockTokens(tokens)
   return { type: 'doc', content: content.length ? content : [{ type: 'paragraph' }] }
 }

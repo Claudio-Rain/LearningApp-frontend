@@ -46,6 +46,14 @@ size="small" variant="text" icon
             <v-icon>mdi-table-plus</v-icon>
             <v-tooltip activator="parent" location="top">Insert table</v-tooltip>
           </v-btn>
+          <v-btn size="small" variant="text" icon @click="editor.chain().focus().insertMathInline().run()">
+            <v-icon>mdi-sigma</v-icon>
+            <v-tooltip activator="parent" location="top">Inline formula ($…$)</v-tooltip>
+          </v-btn>
+          <v-btn size="small" variant="text" icon @click="editor.chain().focus().insertMathBlock().run()">
+            <v-icon>mdi-function-variant</v-icon>
+            <v-tooltip activator="parent" location="top">Formula block ($$ + space)</v-tooltip>
+          </v-btn>
         </div>
 
         <template v-if="editor.isActive('table')">
@@ -122,6 +130,7 @@ import Table from '@tiptap/extension-table'
 import TableRow from '@tiptap/extension-table-row'
 import TableHeader from '@tiptap/extension-table-header'
 import TableCell from '@tiptap/extension-table-cell'
+import { MathExtensions } from '../tiptap/math'
 
 const lowlight = createLowlight(all)
 
@@ -161,7 +170,7 @@ const editor = new Editor({
         return VueNodeViewRenderer(CodeBlock)
       },
     }).configure({ lowlight }),
-
+    ...MathExtensions,
   ],
   content: normalizeContent(props.value),
   onUpdate: ({ editor }) => {

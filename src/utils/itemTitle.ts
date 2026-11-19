@@ -51,7 +51,7 @@ export const isPlainTitleDoc = (doc: JSONContent): boolean => {
  * stored, so a title can never contain a node the title editor has no way to
  * select, style or delete.
  */
-const TITLE_BLOCKS = new Set(['paragraph', 'codeBlock', 'image'])
+const TITLE_BLOCKS = new Set(['paragraph', 'codeBlock', 'image', 'mathBlock'])
 
 /**
  * Turn a markdown title written by Claude into a title document. Code — inline
