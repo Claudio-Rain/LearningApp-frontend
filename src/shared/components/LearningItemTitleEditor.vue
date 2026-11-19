@@ -38,6 +38,7 @@ import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { all, createLowlight } from 'lowlight'
 import CodeBlock from './CodeBlock.vue'
 import { MathExtensions } from '../tiptap/math'
+import { ColorHighlight, Tone } from '../tiptap/richFormat'
 
 const lowlight = createLowlight(all)
 
@@ -66,6 +67,10 @@ const editor = new Editor({
       },
     }).configure({ lowlight }),
     ...MathExtensions,
+    // No callouts in a title (they're flattened on the way in), but a title
+    // Claude wrote may carry a highlight or coloured word.
+    Tone,
+    ColorHighlight,
   ],
   content: props.value,
   onUpdate: ({ editor }) => {

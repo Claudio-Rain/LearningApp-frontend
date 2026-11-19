@@ -83,7 +83,7 @@
                     @change="toggle(m, String(j))"
                   />
                   <div class="proposal-item-text">
-                    <div class="proposal-item-title">{{ titlePreviewFromMarkdown(it.title) }}</div>
+                    <MathText tag="div" class="proposal-item-title" :text="titlePreviewFromMarkdown(it.title)" />
                     <div class="proposal-item-body">{{ shorten(it.content) }}</div>
                   </div>
                 </li>
@@ -104,7 +104,7 @@
                     @change="toggle(m, it.id)"
                   />
                   <div class="proposal-item-text">
-                    <div class="proposal-item-title">{{ it.title }}</div>
+                    <MathText tag="div" class="proposal-item-title" :text="it.title" />
                     <div v-if="it.reason" class="proposal-item-body">{{ it.reason }}</div>
                   </div>
                 </li>
@@ -125,7 +125,7 @@
                     @change="toggle(m, it.id)"
                   />
                   <div class="proposal-item-text">
-                    <div class="proposal-item-title">{{ it.title }}</div>
+                    <MathText tag="div" class="proposal-item-title" :text="it.title" />
                     <div v-if="it.reason" class="proposal-item-body">{{ it.reason }}</div>
                   </div>
                 </li>
@@ -146,7 +146,7 @@
                     @change="toggle(m, it.id)"
                   />
                   <div class="proposal-item-text">
-                    <div class="proposal-item-title">{{ it.title }}</div>
+                    <MathText tag="div" class="proposal-item-title" :text="it.title" />
                     <!-- Before → after, so the user judges the change itself -->
                     <div class="label-changes">
                       <span v-for="change in labelChanges(it)" :key="change.kind" class="label-change">
@@ -252,6 +252,7 @@ import type { Collection, ItemLabelPatch, LearningItem } from '../../database/ty
 import { getApiKey, setApiKey } from '../../utils/claude'
 import { ITEM_LABEL_DEFS, ITEM_LABEL_KINDS, labelMeta, labelText } from '../../utils/itemLabels'
 import { titlePreviewFromMarkdown } from '../../utils/itemTitle'
+import MathText from './MathText.vue'
 import {
   runAssistantTurn,
   type Proposal,

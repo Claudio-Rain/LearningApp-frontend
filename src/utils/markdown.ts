@@ -10,6 +10,8 @@
 import type { JSONContent } from '@tiptap/vue-3'
 import { Marked, type TokenizerExtension, type Token, type Tokens } from 'marked'
 import { parsePlotSpec } from './plotSpec'
+import { repairLatex } from './latex'
+import { calloutFromTag, isHighlightColor, isTextColor } from './richFormat'
 
 // --- LaTeX ---------------------------------------------------------------
 // Claude writes formulas as $…$ / \(…\) inline and $$…$$ / \[…\] for display.
@@ -24,7 +26,7 @@ const blockMath: TokenizerExtension = {
   start: (src) => src.match(/\$\$|\\\[/)?.index,
   tokenizer(src) {
     const m = /^ {0,3}(?:\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\])[ \t]*(?:\n|$)/.exec(src)
-    if (m) return { type: 'blockMath', raw: m[0], text: (m[1] ?? m[2] ?? '').trim() }
+    if (m) return { type: 'blockMath', raw: m[0], text: repairLatex(m[1] ?? m[2] ?? '').trim() }
   },
 }
 
@@ -46,13 +48,65 @@ const inlineMath: TokenizerExtension = {
   tokenizer(src) {
     for (const re of INLINE_MATH) {
       const m = re.exec(src)
-      if (m) return { type: 'inlineMath', raw: m[0], text: (m[1] ?? '').trim() }
+      if (m) return { type: 'inlineMath', raw: m[0], text: repairLatex(m[1] ?? '').trim() }
     }
   },
 }
 
+// --- Highlights and coloured text ------------------------------------------
+//   ==text==             yellow highlighter
+//   ==text=={.green}     highlighter in a palette colour
+//   [text]{.blue}        coloured text
+//   [text]{.bg-pink}     highlighter, Pandoc-span style
+// Unknown colours keep the text and drop the styling.
+
+type MarkJSON = NonNullable<JSONContent['marks']>[number]
+type StyledToken = Tokens.Generic & { tokens: Token[]; mark: MarkJSON | null }
+
+const highlightMarkFor = (color?: string): MarkJSON =>
+  color && color !== 'yellow' && isHighlightColor(color)
+    ? { type: 'highlight', attrs: { color } }
+    : { type: 'highlight' }
+
+/** The mark a "{.class}" stands for: `blue` colours text, `bg-…`/`hl-…` highlights. */
+const markForClass = (cls: string): MarkJSON | null => {
+  const bg = /^(?:bg|hl|mark)-(.+)$/.exec(cls)
+  if (bg) return isHighlightColor(bg[1]!) ? highlightMarkFor(bg[1]) : null
+  return isTextColor(cls) ? { type: 'tone', attrs: { color: cls } } : null
+}
+
+const highlightText: TokenizerExtension = {
+  name: 'highlightText',
+  level: 'inline',
+  start: (src) => {
+    const i = src.indexOf('==')
+    return i < 0 ? undefined : i
+  },
+  tokenizer(src) {
+    const m = /^==(?=\S)([^\n]*?\S)==(?:\{\.([a-z]+)\})?/.exec(src)
+    if (!m) return
+    const color = m[2]
+    const mark = !color || isHighlightColor(color) ? highlightMarkFor(color) : null
+    return { type: 'styled', raw: m[0], mark, tokens: this.lexer.inlineTokens(m[1]!) }
+  },
+}
+
+const styledSpan: TokenizerExtension = {
+  name: 'styledSpan',
+  level: 'inline',
+  start: (src) => {
+    const i = src.search(/\[[^\]\n]+\]\{\./)
+    return i < 0 ? undefined : i
+  },
+  tokenizer(src) {
+    const m = /^\[([^\]\n]+)\]\{\.([a-z-]+)\}/.exec(src)
+    if (!m) return
+    return { type: 'styled', raw: m[0], mark: markForClass(m[2]!), tokens: this.lexer.inlineTokens(m[1]!) }
+  },
+}
+
 // A private instance, so the assistants' global `marked.parse` is unaffected.
-const markdownLexer = new Marked({ extensions: [blockMath, inlineMath] })
+const markdownLexer = new Marked({ extensions: [blockMath, inlineMath, highlightText, styledSpan] })
 
 const decodeEntities = (s: string): string =>
   s
@@ -70,8 +124,8 @@ const textNode = (text: string, marks: JSONContent['marks']): JSONContent | null
   return node
 }
 
-const withMark = (marks: JSONContent['marks'], type: string): JSONContent['marks'] =>
-  [...(marks ?? []), { type }]
+const withMark = (marks: JSONContent['marks'], mark: string | MarkJSON): JSONContent['marks'] =>
+  [...(marks ?? []), typeof mark === 'string' ? { type: mark } : mark]
 
 // Inline tokens -> array of text/hardBreak nodes carrying the active marks.
 const inlineTokens = (tokens: Token[] = [], marks: JSONContent['marks'] = []): JSONContent[] => {
@@ -94,8 +148,15 @@ const inlineTokens = (tokens: Token[] = [], marks: JSONContent['marks'] = []): J
       case 'image': { const n = textNode((t as Tokens.Image).text || '', marks); if (n) out.push(n); break }
       case 'html': break
       case 'inlineMath': {
+        // Carries the surrounding marks, so a formula inside ==…== or a
+        // coloured span is highlighted or coloured with the words around it.
         const { text } = t as MathToken
-        if (text) out.push({ type: 'mathInline', attrs: { latex: text } })
+        if (text) out.push({ type: 'mathInline', attrs: { latex: text }, ...(marks.length && { marks }) })
+        break
+      }
+      case 'styled': {
+        const { tokens: inner, mark } = t as StyledToken
+        out.push(...inlineTokens(inner, mark ? withMark(marks, mark) : marks))
         break
       }
       default: {
@@ -114,6 +175,28 @@ const tableCell = (cell: Tokens.TableCell, header: boolean): JSONContent => ({
   type: header ? 'tableHeader' : 'tableCell',
   content: [paragraph(cell.tokens)],
 })
+
+// "> [!TIP] Optional title" (GitHub alert syntax) opens a callout box; any
+// other blockquote stays a blockquote. An unknown tag still makes a box, as a
+// plain note, so the content never shows a stray "[!FOO]".
+const CALLOUT_HEAD = /^\[!([^\]\s]+)\][ \t]*([^\n]*)(?:\n|$)/
+
+const blockquoteNode = (bq: Tokens.Blockquote): JSONContent => {
+  const head = CALLOUT_HEAD.exec(bq.text)
+  if (!head) return { type: 'blockquote', content: blockTokens(bq.tokens) }
+
+  const body = blockTokens(markdownLexer.lexer(bq.text.slice(head[0].length)))
+  return {
+    type: 'callout',
+    attrs: {
+      variant: calloutFromTag(head[1]!) ?? 'note',
+      // The title is a plain attribute (rendered with its $math$); drop
+      // emphasis markers rather than show them.
+      title: head[2]!.replace(/\*\*|__|\*|_(?=\s|$)/g, '').trim(),
+    },
+    content: body.length ? body : [{ type: 'paragraph' }],
+  }
+}
 
 // Block tokens -> array of block nodes. 'text' tokens become paragraphs so this
 // also handles tight list-item content.
@@ -150,7 +233,7 @@ const blockTokens = (tokens: Token[] = []): JSONContent[] => {
         break
       }
       case 'blockquote':
-        out.push({ type: 'blockquote', content: blockTokens((t as Tokens.Blockquote).tokens) })
+        out.push(blockquoteNode(t as Tokens.Blockquote))
         break
       case 'list': {
         const list = t as Tokens.List

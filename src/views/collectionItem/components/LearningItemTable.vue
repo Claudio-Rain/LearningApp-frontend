@@ -16,10 +16,11 @@
       <span class="row-number">{{ index + 1 }}</span>
     </template>
     <template #item.title="{ item }">
-      <v-tooltip :text="item.title" location="top" open-delay="300" max-width="600">
+      <v-tooltip location="top" open-delay="300" max-width="600">
         <template #activator="{ props: tooltipProps }">
-          <span v-bind="tooltipProps" class="item-title">{{ item.title }}</span>
+          <MathText v-bind="tooltipProps" class="item-title" :text="item.title" />
         </template>
+        <MathText :text="item.title" />
       </v-tooltip>
     </template>
     <template #item.actions="{ item }">
@@ -42,6 +43,7 @@
 
 <script setup lang="ts">
 import type { LearningItem } from '@/database/types'
+import MathText from '@/shared/components/MathText.vue'
 
 const props = defineProps<{
   items: LearningItem[]

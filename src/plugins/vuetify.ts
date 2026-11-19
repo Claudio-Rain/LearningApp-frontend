@@ -84,6 +84,24 @@ const light = {
   gradientBlueTo: '#42A5F5',
   gradientPurpleFrom: '#6A1B9A',
   gradientPurpleTo: '#AB47BC',
+
+  // Rich-text palette for card content (see shared/styles/richContent.scss).
+  // Stored in content by name ("blue", "yellow"), never as a hex, so a card
+  // written in light mode still reads in dark mode. `ink*` colour text and
+  // callout accents; `mark*` are highlighter fills, applied semi-transparent.
+  inkBlue: '#1565C0',
+  inkGreen: '#2E7D32',
+  inkRed: '#C62828',
+  inkOrange: '#D84315',
+  inkPurple: '#6A1B9A',
+  inkTeal: '#00796B',
+
+  markYellow: '#FFE45C',
+  markGreen: '#9BE59F',
+  markBlue: '#9FD3FF',
+  markPink: '#FFA8CC',
+  markPurple: '#D9B3F0',
+  markOrange: '#FFC48A',
 }
 
 // Dark counterparts. Text-bearing tokens lighten, since dark ink is unreadable
@@ -140,6 +158,20 @@ const dark = {
   gradientBlueTo: '#1976D2',
   gradientPurpleFrom: '#4A148C',
   gradientPurpleTo: '#7B1FA2',
+
+  inkBlue: '#90CAF9',
+  inkGreen: '#A5D6A7',
+  inkRed: '#EF9A9A',
+  inkOrange: '#FFB74D',
+  inkPurple: '#CE93D8',
+  inkTeal: '#80CBC4',
+
+  markYellow: '#C9A800',
+  markGreen: '#2E7D32',
+  markBlue: '#1565C0',
+  markPink: '#AD1457',
+  markPurple: '#6A1B9A',
+  markOrange: '#E65100',
 }
 
 export const vuetify = createVuetify({

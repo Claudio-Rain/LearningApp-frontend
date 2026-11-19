@@ -1,8 +1,27 @@
 // Formatting conventions the app can render, told to Claude wherever its
 // markdown ends up on a card (see utils/markdown.ts for the parsing side).
 
-export const RICH_FORMAT_GUIDE =
-  `Formatting: write math in LaTeX, $...$ inline and $$...$$ for display equations. ` +
+const MATH_GUIDE =
+  `Math: LaTeX, $...$ inline and $$...$$ for display equations. Inside math you may use ` +
+  `\\boxed{...} for the final answer and \\color{blue}{...} to mark the step that changes. Write ` +
+  `symbols directly (✓, →) or as LaTeX commands (\\checkmark); never as escapes like \\u2713.`
+
+const EMPHASIS_GUIDE =
+  `Emphasis beyond bold: ==text== highlights (yellow); ==text=={.green} picks the highlighter colour ` +
+  `(yellow, green, blue, pink, purple, orange); [text]{.blue} colours text (blue, green, red, orange, ` +
+  `purple, teal). Use them sparingly and consistently — e.g. one colour for what's given and another ` +
+  `for what's found — so they carry meaning instead of decoration.`
+
+const CALLOUT_GUIDE =
+  `Callout boxes: a blockquote whose first line is "[!TYPE] optional title", e.g.\n` +
+  `> [!THEOREM] Integration by parts\n` +
+  `> $$\\int u\\,dv = uv - \\int v\\,du$$\n` +
+  `Types: DEFINITION, THEOREM (key result/formula to remember), TIP (intuition, the idea behind it), ` +
+  `WARNING (common mistake), EXAMPLE (worked example), SUMMARY, NOTE. A box may hold text, lists, ` +
+  `math and plots. Use a few per answer where they structure it — the key formula, the classic ` +
+  `mistake — not around every paragraph.`
+
+const PLOT_GUIDE =
   `When a graph would genuinely help (functions, limits, derivatives, integrals, sequences), you may ` +
   `add an interactive plot as a fenced block with the language "plot", one setting per line:\n` +
   `- a function of x per line, e.g. "y = x^2 - 3x" or "sin(x)/x" (use * or implicit multiplication, ` +
@@ -21,3 +40,10 @@ export const RICH_FORMAT_GUIDE =
   `and its neighbourhood, not the default -5..5 where a parabola reaches 25 and flattens everything ` +
   `else). Keep it to what the reader must see: at most 3 curves and a few labelled marks. Use at ` +
   `most one plot and only when it adds understanding.`
+
+export const RICH_FORMAT_GUIDE =
+  `Formatting — the app renders all of this:\n` +
+  `- ${MATH_GUIDE}\n` +
+  `- ${EMPHASIS_GUIDE}\n` +
+  `- ${CALLOUT_GUIDE}\n` +
+  `- ${PLOT_GUIDE}`

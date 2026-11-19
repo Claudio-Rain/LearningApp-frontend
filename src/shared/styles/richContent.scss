@@ -1,0 +1,196 @@
+// Rich card content, shared by every Tiptap surface (editor, flashcards,
+// chat). Tiptap gives each editor element the `tiptap` class, editable or not.
+// Colours come from the Vuetify theme tokens in plugins/vuetify.ts, so every
+// rule here works in light and dark mode without a second copy.
+
+$text-tones: (
+  blue: inkBlue,
+  green: inkGreen,
+  red: inkRed,
+  orange: inkOrange,
+  purple: inkPurple,
+  teal: inkTeal,
+);
+
+$marks: (
+  yellow: markYellow,
+  green: markGreen,
+  blue: markBlue,
+  pink: markPink,
+  purple: markPurple,
+  orange: markOrange,
+);
+
+// `--tone` is an "r,g,b" triple for whatever carries data-tone: coloured
+// text, callouts, and the callout type menu (which renders outside .tiptap).
+@each $name, $token in $text-tones {
+  [data-tone='#{$name}'],
+  .callout-tone--#{$name} {
+    --tone: var(--v-theme-#{$token});
+  }
+}
+
+.callout-tone--blue,
+.callout-tone--green,
+.callout-tone--red,
+.callout-tone--orange,
+.callout-tone--purple,
+.callout-tone--teal {
+  .v-icon {
+    color: rgb(var(--tone));
+  }
+}
+
+.tiptap {
+  // --- typography ---------------------------------------------------------
+
+  line-height: 1.6;
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.01em;
+    line-height: 1.25;
+  }
+
+  h2,
+  h3 {
+    margin: 1.4rem 0 0.4rem;
+  }
+
+  strong {
+    font-weight: 650;
+  }
+
+  blockquote {
+    margin: 0.75rem 0;
+    padding: 0.15rem 0 0.15rem 0.9rem;
+    border-left: 3px solid rgba(var(--v-theme-on-surface), 0.2);
+    color: rgba(var(--v-theme-on-surface), 0.78);
+  }
+
+  // Display math: the block's own margin plus KaTeX's 1em left big holes
+  // between a sentence and the formula it introduces.
+  .math-node--block {
+    margin: 0.4rem 0 0.6rem;
+
+    .katex-display {
+      margin: 0;
+    }
+  }
+
+  // --- coloured text ------------------------------------------------------
+
+  .tone[data-tone] {
+    color: rgb(var(--tone));
+    font-weight: 550;
+
+    // A formula inside coloured text takes the colour too.
+    .katex {
+      color: inherit;
+    }
+  }
+
+  // --- highlighter ----------------------------------------------------------
+
+  mark {
+    color: inherit;
+    padding: 0.05em 0.2em;
+    border-radius: 0.3em;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    background: rgba(var(--v-theme-markYellow), 0.6);
+  }
+
+  @each $name, $token in $marks {
+    mark[data-color='#{$name}'] {
+      background: rgba(var(--v-theme-#{$token}), 0.6);
+    }
+  }
+
+  // --- callouts -------------------------------------------------------------
+
+  // --tone comes from the wrapper's data-tone (see the top of this file);
+  // setting a default here would outrank it.
+  .callout {
+    margin: 1rem 0;
+    padding: 0.55rem 0.95rem 0.7rem;
+    border-left: 4px solid rgb(var(--tone));
+    border-radius: 10px;
+    background: rgba(var(--tone), 0.07);
+
+    &__header {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-bottom: 0.2rem;
+      color: rgb(var(--tone));
+      font-weight: 650;
+      font-size: 0.95rem;
+      letter-spacing: 0.01em;
+
+      .v-icon {
+        color: inherit;
+      }
+    }
+
+    &__title {
+      min-width: 0;
+    }
+
+    &__type,
+    &__unwrap {
+      display: inline-flex;
+      align-items: center;
+      border: 0;
+      padding: 2px 3px;
+      border-radius: 6px;
+      background: transparent;
+      color: inherit;
+      cursor: pointer;
+
+      &:hover {
+        background: rgba(var(--tone), 0.14);
+      }
+    }
+
+    &__caret {
+      opacity: 0.6;
+    }
+
+    &__title-input {
+      flex: 1;
+      min-width: 0;
+      border: 0;
+      outline: none;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+
+      &::placeholder {
+        color: rgba(var(--tone), 0.65);
+      }
+    }
+
+    &__unwrap {
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    &:hover &__unwrap,
+    &__unwrap:focus-visible {
+      opacity: 0.7;
+    }
+
+    &__body {
+      > :first-child {
+        margin-top: 0;
+      }
+
+      > :last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+}

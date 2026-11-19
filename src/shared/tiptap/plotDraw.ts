@@ -6,7 +6,7 @@
 // placer instead: it tries a handful of positions and takes the first that
 // stays inside the plot and clear of everything placed before it.
 
-import katex from 'katex'
+import { mathTextHtml, renderMath } from '@/utils/mathText'
 import { EvalBuiltIn, type FunctionPlotAnnotation, type FunctionPlotDatum, type FunctionPlotOptions } from 'function-plot'
 import { DEFAULT_X_DOMAIN, isSequence, normalizeExpression, plainLabel, type PlotSpec } from '@/utils/plotSpec'
 
@@ -308,11 +308,6 @@ export const buildPlot = (spec: PlotSpec, width: number, height: number): PlotBu
 
 // --- rich labels (title and legend) ---------------------------------------------
 
-const escapeHtml = (s: string) =>
-  s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!)
-
-const renderMath = (latex: string) => katex.renderToString(latex, { throwOnError: false, strict: 'ignore' })
-
 const MATH_WORDS = new Set(['sin', 'cos', 'tan', 'sqrt', 'log', 'ln', 'exp', 'abs', 'pi', 'sinh', 'cosh', 'tanh', 'asin', 'acos', 'atan'])
 
 /**
@@ -338,12 +333,5 @@ const expressionToLatex = (text: string) =>
  * Label or title text as safe HTML: $...$ parts rendered with KaTeX, the rest
  * escaped — and a bare formula with no $ at all rendered as math too.
  */
-export const richTextHtml = (text: string): string => {
-  if (!text.includes('$') && looksLikeMath(text)) return renderMath(expressionToLatex(text))
-  return text
-    .split(/(\$[^$]+\$)/g)
-    .map(part =>
-      part.length > 2 && part.startsWith('$') && part.endsWith('$') ? renderMath(part.slice(1, -1)) : escapeHtml(part)
-    )
-    .join('')
-}
+export const richTextHtml = (text: string): string =>
+  !text.includes('$') && looksLikeMath(text) ? renderMath(expressionToLatex(text)) : mathTextHtml(text)

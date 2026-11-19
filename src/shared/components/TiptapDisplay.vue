@@ -12,7 +12,6 @@ import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import Color from '@tiptap/extension-color'
 import TextStyle from '@tiptap/extension-text-style'
-import Highlight from '@tiptap/extension-highlight'
 import Underline from '@tiptap/extension-underline'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { all, createLowlight } from 'lowlight'
@@ -22,6 +21,7 @@ import TableHeader from '@tiptap/extension-table-header'
 import TableCell from '@tiptap/extension-table-cell'
 import { MathExtensions } from '../tiptap/math'
 import { FunctionPlot } from '../tiptap/plot'
+import { RichFormatExtensions } from '../tiptap/richFormat'
 
 const lowlight = createLowlight(all)
 
@@ -33,7 +33,6 @@ const editor = new Editor({
     Image,
     Color,
     TextStyle,
-    Highlight,
     Underline,
     Table.configure({ resizable: false }),
     TableRow,
@@ -42,6 +41,7 @@ const editor = new Editor({
     CodeBlockLowlight.configure({ lowlight }),
     ...MathExtensions,
     FunctionPlot,
+    ...RichFormatExtensions,
   ],
   content: props.content,
   editable: false,

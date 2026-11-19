@@ -56,6 +56,7 @@ import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 import { TextSelection } from '@tiptap/pm/state'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
+import { repairLatex } from '@/utils/latex'
 
 const props = defineProps(nodeViewProps)
 
@@ -72,7 +73,7 @@ const render = () => {
   // While editing a block, the preview stays visible and follows the draft.
   const source = editing.value ? draft.value : latex.value
   if (!output.value) return
-  katex.render(source, output.value, {
+  katex.render(repairLatex(source), output.value, {
     displayMode: isBlock.value,
     throwOnError: false,
     strict: 'ignore',

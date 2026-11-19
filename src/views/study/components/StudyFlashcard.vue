@@ -9,7 +9,7 @@
             class="title-display title-display--rich"
             :content="item.titleContent"
           />
-          <h2 v-else class="title-display">{{ item.title }}</h2>
+          <MathText v-else tag="h2" class="title-display" :text="item.title" />
         </div>
       </div>
 
@@ -54,6 +54,7 @@
 
 <script setup lang="ts">
 import TiptapDisplay from '@/shared/components/TiptapDisplay.vue'
+import MathText from '@/shared/components/MathText.vue'
 import { EASE, RATING_BUTTONS } from '../ratings'
 import type { StudyItem } from '../types'
 

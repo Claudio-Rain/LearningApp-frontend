@@ -22,12 +22,54 @@ size="small" variant="text" icon :class="{ 'is-active': editor.isActive('underli
             <v-icon>mdi-format-underline</v-icon>
             <v-tooltip activator="parent" location="top">Underline</v-tooltip>
           </v-btn>
-          <v-btn
-size="small" variant="text" icon :class="{ 'is-active': editor.isActive('highlight') }"
-            @click="editor.chain().focus().toggleHighlight().run()">
-            <v-icon>mdi-marker</v-icon>
-            <v-tooltip activator="parent" location="top">Highlight</v-tooltip>
-          </v-btn>
+          <v-menu location="bottom">
+            <template #activator="{ props: menuProps }">
+              <v-btn v-bind="menuProps" size="small" variant="text" icon :class="{ 'is-active': editor.isActive('highlight') }">
+                <v-icon>mdi-marker</v-icon>
+                <v-tooltip activator="parent" location="top">Highlight</v-tooltip>
+              </v-btn>
+            </template>
+            <div class="palette">
+              <button
+                v-for="c in HIGHLIGHT_COLORS"
+                :key="c"
+                type="button"
+                class="palette__swatch"
+                :class="{ 'is-current': editor.isActive('highlight', { color: highlightAttr(c) }) }"
+                :style="{ background: `rgb(var(--v-theme-mark${cap(c)}))` }"
+                :title="cap(c)"
+                @click="applyHighlight(c)"
+              />
+              <button type="button" class="palette__none" title="No highlight" @click="editor.chain().focus().unsetHighlight().run()">
+                <v-icon size="16">mdi-close</v-icon>
+              </button>
+            </div>
+          </v-menu>
+          <v-menu location="bottom">
+            <template #activator="{ props: menuProps }">
+              <v-btn v-bind="menuProps" size="small" variant="text" icon :class="{ 'is-active': editor.isActive('tone') }">
+                <v-icon>mdi-format-color-text</v-icon>
+                <v-tooltip activator="parent" location="top">Text colour</v-tooltip>
+              </v-btn>
+            </template>
+            <div class="palette">
+              <button
+                v-for="c in TEXT_COLORS"
+                :key="c"
+                type="button"
+                class="palette__swatch palette__swatch--text"
+                :class="{ 'is-current': editor.isActive('tone', { color: c }) }"
+                :style="{ color: `rgb(var(--v-theme-ink${cap(c)}))` }"
+                :title="cap(c)"
+                @click="editor.chain().focus().setTone(c).run()"
+              >
+                A
+              </button>
+              <button type="button" class="palette__none" title="Default colour" @click="editor.chain().focus().setTone(null).run()">
+                <v-icon size="16">mdi-close</v-icon>
+              </button>
+            </div>
+          </v-menu>
 
         </div>
 
@@ -54,6 +96,24 @@ size="small" variant="text" icon
             <v-icon>mdi-function-variant</v-icon>
             <v-tooltip activator="parent" location="top">Formula block ($$ + space)</v-tooltip>
           </v-btn>
+          <v-menu location="bottom">
+            <template #activator="{ props: menuProps }">
+              <v-btn v-bind="menuProps" size="small" variant="text" icon :class="{ 'is-active': editor.isActive('callout') }">
+                <v-icon>mdi-card-text-outline</v-icon>
+                <v-tooltip activator="parent" location="top">Highlight box (definition, key result, tip…)</v-tooltip>
+              </v-btn>
+            </template>
+            <v-list density="compact">
+              <v-list-item
+                v-for="v in CALLOUT_VARIANTS"
+                :key="v"
+                :prepend-icon="CALLOUTS[v].icon"
+                :title="CALLOUTS[v].label"
+                :class="`callout-tone--${CALLOUTS[v].tone}`"
+                @click="editor.chain().focus().setCallout(v).run()"
+              />
+            </v-list>
+          </v-menu>
           <v-btn size="small" variant="text" icon @click="editor.chain().focus().insertFunctionPlot().run()">
             <v-icon>mdi-chart-bell-curve-cumulative</v-icon>
             <v-tooltip activator="parent" location="top">Function plot</v-tooltip>
@@ -125,7 +185,6 @@ import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import Color from '@tiptap/extension-color'
 import TextStyle from '@tiptap/extension-text-style'
-import Highlight from '@tiptap/extension-highlight'
 import Underline from '@tiptap/extension-underline'
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import { all, createLowlight } from 'lowlight'
@@ -136,6 +195,14 @@ import TableHeader from '@tiptap/extension-table-header'
 import TableCell from '@tiptap/extension-table-cell'
 import { MathExtensions } from '../tiptap/math'
 import { FunctionPlot } from '../tiptap/plot'
+import { RichFormatExtensions } from '../tiptap/richFormat'
+import { CALLOUTS, CALLOUT_VARIANTS, HIGHLIGHT_COLORS, TEXT_COLORS, type HighlightColor } from '@/utils/richFormat'
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+
+// Yellow is the highlighter's default, stored without a colour so it matches
+// every highlight saved before colours existed.
+const highlightAttr = (c: HighlightColor) => (c === 'yellow' ? null : c)
 
 const lowlight = createLowlight(all)
 
@@ -164,7 +231,6 @@ const editor = new Editor({
     Image,
     Color,
     TextStyle,
-    Highlight,
     Underline,
     Table.configure({ resizable: true }),
     TableRow,
@@ -177,6 +243,7 @@ const editor = new Editor({
     }).configure({ lowlight }),
     ...MathExtensions,
     FunctionPlot,
+    ...RichFormatExtensions,
   ],
   content: normalizeContent(props.value),
   onUpdate: ({ editor }) => {
@@ -203,6 +270,11 @@ watch(
     editor.commands.setContent(normalized, false)
   }
 )
+
+const applyHighlight = (c: HighlightColor) => {
+  const color = highlightAttr(c)
+  editor.chain().focus().setHighlight(color ? { color } : undefined).run()
+}
 
 onBeforeUnmount(() => editor.destroy())
 </script>
@@ -289,6 +361,50 @@ onBeforeUnmount(() => editor.destroy())
       opacity: 0;
       cursor: pointer;
     }
+  }
+}
+
+// Colour pickers for the highlighter and text colour menus.
+.palette {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgb(var(--v-theme-surface));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+
+  &__swatch,
+  &__none {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.1s ease;
+
+    &:hover {
+      transform: scale(1.12);
+    }
+
+    &.is-current {
+      border-color: rgb(var(--v-theme-on-surface));
+    }
+  }
+
+  &__swatch--text {
+    background: rgba(var(--v-theme-on-surface), 0.06);
+    font-weight: 800;
+    font-size: 15px;
+  }
+
+  &__none {
+    background: transparent;
+    border-color: rgba(var(--v-theme-on-surface), 0.2);
+    color: rgba(var(--v-theme-on-surface), 0.6);
   }
 }
 
