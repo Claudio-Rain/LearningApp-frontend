@@ -3,6 +3,7 @@
 import type { JSONContent } from '@tiptap/vue-3'
 import { extractText } from './text'
 import { streamText } from './client'
+import { RICH_FORMAT_GUIDE } from './format'
 
 /**
  * Stream an answer to a learning item. Calls `onToken` with each chunk of text
@@ -18,7 +19,10 @@ export const streamAnswer = async (
     ? `Learning item: "${title}"\n\n${body}\n\nAnswer or explain this learning item clearly and concisely.`
     : `Answer or explain this learning item clearly and concisely: "${title}"`
 
-  await streamText({ max_tokens: 2048, messages: [{ role: 'user', content: prompt }] }, onToken)
+  await streamText(
+    { max_tokens: 2048, system: RICH_FORMAT_GUIDE, messages: [{ role: 'user', content: prompt }] },
+    onToken
+  )
 }
 
 /**

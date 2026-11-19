@@ -21,6 +21,7 @@ import TableRow from '@tiptap/extension-table-row'
 import TableHeader from '@tiptap/extension-table-header'
 import TableCell from '@tiptap/extension-table-cell'
 import { MathExtensions } from '../tiptap/math'
+import { FunctionPlot } from '../tiptap/plot'
 
 const lowlight = createLowlight(all)
 
@@ -40,6 +41,7 @@ const editor = new Editor({
     TableCell,
     CodeBlockLowlight.configure({ lowlight }),
     ...MathExtensions,
+    FunctionPlot,
   ],
   content: props.content,
   editable: false,

@@ -54,6 +54,10 @@ size="small" variant="text" icon
             <v-icon>mdi-function-variant</v-icon>
             <v-tooltip activator="parent" location="top">Formula block ($$ + space)</v-tooltip>
           </v-btn>
+          <v-btn size="small" variant="text" icon @click="editor.chain().focus().insertFunctionPlot().run()">
+            <v-icon>mdi-chart-bell-curve-cumulative</v-icon>
+            <v-tooltip activator="parent" location="top">Function plot</v-tooltip>
+          </v-btn>
         </div>
 
         <template v-if="editor.isActive('table')">
@@ -131,6 +135,7 @@ import TableRow from '@tiptap/extension-table-row'
 import TableHeader from '@tiptap/extension-table-header'
 import TableCell from '@tiptap/extension-table-cell'
 import { MathExtensions } from '../tiptap/math'
+import { FunctionPlot } from '../tiptap/plot'
 
 const lowlight = createLowlight(all)
 
@@ -171,6 +176,7 @@ const editor = new Editor({
       },
     }).configure({ lowlight }),
     ...MathExtensions,
+    FunctionPlot,
   ],
   content: normalizeContent(props.value),
   onUpdate: ({ editor }) => {

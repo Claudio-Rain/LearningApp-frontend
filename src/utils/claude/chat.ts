@@ -3,6 +3,7 @@
 import type { JSONContent } from '@tiptap/vue-3'
 import { extractText } from './text'
 import { streamText, createText } from './client'
+import { RICH_FORMAT_GUIDE } from './format'
 import type { ChatMessage } from './types'
 
 // The card's front/back ride along as the system prompt so every turn stays
@@ -12,7 +13,8 @@ const cardSystem = (title: string, body: string): string =>
   `Front: ${title}` +
   (body.trim() ? `\n\nBack:\n${body.trim()}` : '') +
   `\n\nAnswer the user's questions about this card clearly and concisely. ` +
-  `Stay focused on helping them understand this material.`
+  `Stay focused on helping them understand this material.\n\n` +
+  RICH_FORMAT_GUIDE
 
 /**
  * Stream a multi-turn chat about a specific flashcard, from TipTap content.

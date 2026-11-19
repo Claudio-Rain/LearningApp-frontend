@@ -9,6 +9,7 @@
 
 import type { JSONContent } from '@tiptap/vue-3'
 import { Marked, type TokenizerExtension, type Token, type Tokens } from 'marked'
+import { parsePlotSpec } from './plotSpec'
 
 // --- LaTeX ---------------------------------------------------------------
 // Claude writes formulas as $…$ / \(…\) inline and $$…$$ / \[…\] for display.
@@ -134,6 +135,13 @@ const blockTokens = (tokens: Token[] = []): JSONContent[] => {
       }
       case 'code': {
         const code = t as Tokens.Code
+        // ```plot blocks become interactive plots; one that doesn't parse stays
+        // visible as code so the content isn't lost.
+        const plot = code.lang?.trim().toLowerCase() === 'plot' ? parsePlotSpec(code.text) : null
+        if (plot) {
+          out.push({ type: 'functionPlot', attrs: { ...plot } })
+          break
+        }
         out.push({
           type: 'codeBlock',
           attrs: { language: code.lang || null },
