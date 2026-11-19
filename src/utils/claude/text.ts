@@ -11,6 +11,7 @@ const ATTR_NODES: Record<string, (attrs: Attrs) => string> = {
   mathBlock: attrs => `$$${attrs.latex ?? ''}$$\n`,
   functionPlot: attrs =>
     '```plot\n' + plotSpecToText({ functions: [], ...attrs } as PlotSpec) + '\n```\n',
+  diagram: attrs => '```mermaid\n' + String(attrs.source ?? '') + '\n```\n',
 }
 
 const calloutHead = (attrs: Attrs): string =>

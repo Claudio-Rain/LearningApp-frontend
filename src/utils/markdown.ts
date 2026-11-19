@@ -220,9 +220,15 @@ const blockTokens = (tokens: Token[] = []): JSONContent[] => {
         const code = t as Tokens.Code
         // ```plot blocks become interactive plots; one that doesn't parse stays
         // visible as code so the content isn't lost.
-        const plot = code.lang?.trim().toLowerCase() === 'plot' ? parsePlotSpec(code.text) : null
+        const lang = code.lang?.trim().toLowerCase()
+        const plot = lang === 'plot' ? parsePlotSpec(code.text) : null
         if (plot) {
           out.push({ type: 'functionPlot', attrs: { ...plot } })
+          break
+        }
+        // ```mermaid blocks become drawn diagrams (syntax is checked when drawn).
+        if (lang === 'mermaid' && code.text.trim()) {
+          out.push({ type: 'diagram', attrs: { source: code.text.trim() } })
           break
         }
         out.push({

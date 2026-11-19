@@ -118,6 +118,10 @@ size="small" variant="text" icon
             <v-icon>mdi-chart-bell-curve-cumulative</v-icon>
             <v-tooltip activator="parent" location="top">Function plot</v-tooltip>
           </v-btn>
+          <v-btn size="small" variant="text" icon @click="editor.chain().focus().insertDiagram().run()">
+            <v-icon>mdi-sitemap-outline</v-icon>
+            <v-tooltip activator="parent" location="top">Diagram (flowchart, sequence, mind map…)</v-tooltip>
+          </v-btn>
         </div>
 
         <template v-if="editor.isActive('table')">
@@ -195,6 +199,7 @@ import TableHeader from '@tiptap/extension-table-header'
 import TableCell from '@tiptap/extension-table-cell'
 import { MathExtensions } from '../tiptap/math'
 import { FunctionPlot } from '../tiptap/plot'
+import { Diagram } from '../tiptap/diagram'
 import { RichFormatExtensions } from '../tiptap/richFormat'
 import { CALLOUTS, CALLOUT_VARIANTS, HIGHLIGHT_COLORS, TEXT_COLORS, type HighlightColor } from '@/utils/richFormat'
 
@@ -243,6 +248,7 @@ const editor = new Editor({
     }).configure({ lowlight }),
     ...MathExtensions,
     FunctionPlot,
+    Diagram,
     ...RichFormatExtensions,
   ],
   content: normalizeContent(props.value),

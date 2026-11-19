@@ -42,9 +42,21 @@ const PLOT_GUIDE =
   `else). Keep it to what the reader must see: at most 3 curves and a few labelled marks. Use at ` +
   `most one plot and only when it adds understanding.`
 
+const DIAGRAM_GUIDE =
+  `When a picture of structure would make the idea click — steps of a process or algorithm, cause ` +
+  `and effect, how parts relate, who does what in what order, a hierarchy or classification, a ` +
+  `timeline, states and transitions, proportions — you may add a diagram as a fenced block with the ` +
+  `language "mermaid" holding Mermaid syntax (flowchart, sequenceDiagram, mindmap, timeline, ` +
+  `stateDiagram-v2, classDiagram, erDiagram, pie, quadrantChart…). Pick the type that fits the ` +
+  `subject. Keep it small and readable: about 12 nodes at most, short labels, labels with ` +
+  `punctuation in double quotes (A["Step 1: f(x)"]). Don't set colours, themes or %%{init}%% ` +
+  `directives — the app styles it. Graphs of functions go in a plot, not a diagram. Use at most one ` +
+  `or two per answer and only when they add understanding; never draw diagrams as ASCII art.`
+
 export const RICH_FORMAT_GUIDE =
   `Formatting — the app renders all of this:\n` +
   `- ${MATH_GUIDE}\n` +
   `- ${EMPHASIS_GUIDE}\n` +
   `- ${CALLOUT_GUIDE}\n` +
-  `- ${PLOT_GUIDE}`
+  `- ${PLOT_GUIDE}\n` +
+  `- ${DIAGRAM_GUIDE}`
