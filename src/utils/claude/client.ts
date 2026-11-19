@@ -7,10 +7,10 @@ import Anthropic from '@anthropic-ai/sdk'
 import { getApiKey } from './apiKey'
 
 // One model across every AI feature, so a user's key sees consistent behavior.
-export const MODEL = 'claude-sonnet-4-6'
+export const MODEL = 'claude-sonnet-5-5'
 
 // The exception: short, mechanical calls that don't need the bigger model.
-export const FAST_MODEL = 'claude-haiku-4-5'
+export const FAST_MODEL = 'claude-haiku-5-5'
 
 /** Build a browser Anthropic client from the user's stored key. Throws if unset. */
 export const createClient = async (): Promise<Anthropic> => {
