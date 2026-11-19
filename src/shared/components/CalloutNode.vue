@@ -27,14 +27,22 @@
             />
           </v-list>
         </v-menu>
+        <!-- The title reads as rendered math until clicked; only then is it
+             a text field showing the raw $...$ source. -->
         <input
+          v-if="editingTitle"
+          ref="titleInput"
           class="callout__title-input"
           :value="title"
           :placeholder="def.label"
           spellcheck="false"
-          @change="onTitle"
+          @blur="finishTitle"
           @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
+          @keydown.esc.prevent="cancelTitle"
         />
+        <button v-else type="button" class="callout__title-button" title="Edit title" @click="startTitle">
+          <MathText class="callout__title" :class="{ 'callout__title--placeholder': !title }" :text="title || def.label" />
+        </button>
         <button type="button" class="callout__unwrap" title="Remove the box, keep the text" @click="unwrap">
           <v-icon size="16">mdi-close</v-icon>
         </button>
@@ -49,7 +57,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { NodeViewContent, NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 import MathText from './MathText.vue'
 import { CALLOUTS, CALLOUT_VARIANTS, isCalloutVariant } from '@/utils/richFormat'
@@ -61,8 +69,25 @@ const def = computed(() => CALLOUTS[variant.value])
 const title = computed<string>(() => props.node.attrs.title ?? '')
 const editable = computed(() => props.editor.isEditable)
 
-function onTitle(event: Event) {
-  props.updateAttributes({ title: (event.target as HTMLInputElement).value.trim() })
+const editingTitle = ref(false)
+const titleInput = ref<HTMLInputElement | null>(null)
+let cancelled = false
+
+function startTitle() {
+  cancelled = false
+  editingTitle.value = true
+  nextTick(() => titleInput.value?.select())
+}
+
+function finishTitle(event: FocusEvent) {
+  const value = (event.target as HTMLInputElement).value.trim()
+  editingTitle.value = false
+  if (!cancelled && value !== title.value) props.updateAttributes({ title: value })
+}
+
+function cancelTitle() {
+  cancelled = true
+  titleInput.value?.blur()
 }
 
 // Replace the box with its own blocks.

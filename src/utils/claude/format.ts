@@ -3,7 +3,8 @@
 
 const MATH_GUIDE =
   `Math: LaTeX, $...$ inline and $$...$$ for display equations. Inside math you may use ` +
-  `\\boxed{...} for the final answer and \\color{blue}{...} to mark the step that changes. Write ` +
+  `\\boxed{...} for the final answer and \\color{blue}{...} to mark the step that changes (only blue, green, red, orange, purple or ` +
+  `teal, which follow the light/dark theme). Write ` +
   `symbols directly (✓, →) or as LaTeX commands (\\checkmark); never as escapes like \\u2713.`
 
 const EMPHASIS_GUIDE =

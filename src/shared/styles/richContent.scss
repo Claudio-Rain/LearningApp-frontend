@@ -30,6 +30,28 @@ $marks: (
   }
 }
 
+// \color{blue} inside a formula is pure #0000FF, unreadable on a dark card.
+// KaTeX writes the name into an inline style (with or without a space,
+// depending on DOM render vs renderToString), so map the names we tell Claude
+// to use onto the same theme inks as coloured text.
+$latex-colors: (
+  blue: inkBlue,
+  green: inkGreen,
+  red: inkRed,
+  orange: inkOrange,
+  purple: inkPurple,
+  teal: inkTeal,
+  magenta: inkPurple,
+  cyan: inkTeal,
+);
+
+@each $name, $token in $latex-colors {
+  .katex [style*='color: #{$name};'],
+  .katex [style*='color:#{$name};'] {
+    color: rgb(var(--v-theme-#{$token})) !important;
+  }
+}
+
 .callout-tone--blue,
 .callout-tone--green,
 .callout-tone--red,
@@ -78,6 +100,18 @@ $marks: (
     .katex-display {
       margin: 0;
     }
+
+    // Left-aligned (fleqn), indented a little under the sentence above.
+    .katex-display.fleqn > .katex {
+      padding-left: 1.5rem;
+    }
+  }
+
+  // An inline fraction or limit is taller than the line; give it room so it
+  // doesn't touch the lines above and below (plain inline math still wraps).
+  .math-node:not(.math-node--block):has(.mfrac, .op-limits) {
+    display: inline-block;
+    margin: 0.2em 0;
   }
 
   // --- coloured text ------------------------------------------------------
@@ -137,6 +171,33 @@ $marks: (
 
     &__title {
       min-width: 0;
+
+      // A title is a label, not a display formula: keep math at text size.
+      .katex {
+        font-size: 1.05em;
+      }
+
+      &--placeholder {
+        opacity: 0.65;
+      }
+    }
+
+    // In the editor the rendered title is a button that opens the text field.
+    &__title-button {
+      flex: 1;
+      min-width: 0;
+      padding: 1px 2px;
+      border: 0;
+      border-radius: 4px;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      text-align: left;
+      cursor: text;
+
+      &:hover {
+        background: rgba(var(--tone), 0.1);
+      }
     }
 
     &__type,

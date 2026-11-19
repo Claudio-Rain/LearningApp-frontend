@@ -75,6 +75,9 @@ const render = () => {
   if (!output.value) return
   katex.render(repairLatex(source), output.value, {
     displayMode: isBlock.value,
+    // Display formulas sit indented under the line that introduces them; in a
+    // wide editor a centred one floats far from its step.
+    fleqn: true,
     throwOnError: false,
     strict: 'ignore',
   })
@@ -176,7 +179,6 @@ function onKeydown(event: KeyboardEvent) {
 
   &--block {
     margin: 1rem 0;
-    text-align: center;
     overflow-x: auto;
     overflow-y: hidden;
 
