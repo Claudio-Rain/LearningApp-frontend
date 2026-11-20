@@ -9,6 +9,8 @@ import {
   replayCardStrength,
   strengthBuckets,
   weakestCollections,
+  learningCurve,
+  revisionsToMaster,
   hardestCards
 } from '@/views/studyProgress/aggregation'
 
@@ -55,15 +57,50 @@ describe('computeProgressStats', () => {
       cardsLearned: 2,
       avgRevisionsToMaster: 1.5,
       totalCards: 5,
-      // 3 cards left unmastered × 1.5 attempts each, rounded.
-      projectedAttemptsToFinish: 5
+      // Only attempt 1 has the 3 cards a curve point needs: avg 0.367. Past it
+      // the curve carries on at that slope, reaching 0.75 at attempt ~2.05:
+      // b (at 0.2, attempt ~0.55) needs ~1.5, d and e (new) ~2.05 each.
+      projectedAttemptsToFinish: 6
     })
   })
 
-  it('reports zeros when nothing has been mastered', () => {
+  it('reports no average to master when nothing has mastered yet', () => {
     const stats = computeProgressStats({ logs: [log('b', 0.1, 1)], progress: [], items: [item('b')] })
     expect(stats.avgRevisionsToMaster).toBe(0)
-    expect(stats.projectedAttemptsToFinish).toBe(0)
+  })
+
+  it('projects nothing without enough history for a curve', () => {
+    expect(computeProgressStats({ logs: [], progress: [], items: [item('a')] }).projectedAttemptsToFinish).toBe(0)
+    const oneCard = computeProgressStats({ logs: [log('b', 0.1, 1)], progress: [], items: [item('b')] })
+    expect(oneCard.projectedAttemptsToFinish).toBe(0)
+  })
+})
+
+describe('learning curve projection', () => {
+  // Three cards, each gaining 0.2 per revision, four revisions each.
+  const steady = ['p', 'q', 'r'].flatMap(id => [1, 2, 3, 4].map(day => log(id, 0.2, day)))
+
+  it('averages strength after each revision number', () => {
+    expect(learningCurve(steady).map(([x, s]) => [x, Math.round(s * 100) / 100])).toEqual([
+      [1, 0.2],
+      [2, 0.4],
+      [3, 0.6],
+      [4, 0.8],
+    ])
+  })
+
+  it('reads the curve backwards from a card\'s strength to mastered (0.75)', () => {
+    const curve = learningCurve(steady)
+    // 0.75 sits three quarters of the way from attempt 3 to 4.
+    expect(revisionsToMaster(0, curve)).toBeCloseTo(3.75)
+    expect(revisionsToMaster(0.4, curve)).toBeCloseTo(1.75)
+    expect(revisionsToMaster(0.9, curve)).toBe(0)
+  })
+
+  it('extends the curve along its last slope when it stops short of mastered', () => {
+    const slow = ['p', 'q', 'r'].flatMap(id => [1, 2].map(day => log(id, 0.1, day)))
+    // 0.1 per revision: 0.75 at attempt 7.5.
+    expect(revisionsToMaster(0, learningCurve(slow))).toBeCloseTo(7.5)
   })
 })
 

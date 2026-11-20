@@ -1,10 +1,6 @@
 import { SCORED_TIERS, STRENGTH_TIER_FLOORS } from '@/utils/strength'
-import { replayCardStrength } from '../aggregation'
+import { learningCurve, replayCardStrength } from '../aggregation'
 import type { ChartContext, ProgressChartData } from './chartRegistry'
-
-// Attempt numbers with fewer cards than this are a noisy tail — excluded from
-// the trend line.
-const MIN_TREND_SAMPLES = 3
 
 export interface StrengthScatterOptions {
   /**
@@ -31,8 +27,6 @@ export function renderStrengthScatterChart(
 
   // Card titles per bucket, shown as labels when the checkbox is on.
   const bucketTitles = new Map<string, string[]>()
-  // Per-attempt totals, for the trend line.
-  const sumByAttempt = new Map<number, { sum: number; count: number }>()
 
   replayCardStrength(logs, (itemId, attempt, strength) => {
     const pct = Math.round(strength * 100)
@@ -40,11 +34,6 @@ export function renderStrengthScatterChart(
     const key = `${attempt}:${band}`
     if (!bucketTitles.has(key)) bucketTitles.set(key, [])
     bucketTitles.get(key)!.push(titleById.get(itemId) ?? 'Untitled')
-
-    const agg = sumByAttempt.get(attempt) ?? { sum: 0, count: 0 }
-    agg.sum += pct
-    agg.count += 1
-    sumByAttempt.set(attempt, agg)
   })
 
   const bubbles = Array.from(bucketTitles.entries()).map(([key, titles]) => {
@@ -53,10 +42,8 @@ export function renderStrengthScatterChart(
     return { x, y, z: titles.length, titleLabel: titles.join('<br/>') }
   })
 
-  const trend: [number, number][] = Array.from(sumByAttempt.entries())
-    .filter(([, agg]) => agg.count >= MIN_TREND_SAMPLES)
-    .sort((a, b) => a[0] - b[0])
-    .map(([x, agg]) => [x, Math.round((agg.sum / agg.count) * 10) / 10])
+  // The same curve the "revisions to master" estimate follows.
+  const trend: [number, number][] = learningCurve(logs).map(([x, s]) => [x, Math.round(s * 1000) / 10])
 
   const existing = registry.get('strengthScatter')
   if (existing) {

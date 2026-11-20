@@ -11,7 +11,7 @@
           v-model="selectedCollectionIds"
           :collections="selectableCollections"
           :categories="categories"
-          label="All collections"
+          :label="selectedCollectionIds.length ? 'Collections' : 'All collections'"
           density="compact"
           hide-details
           class="collection-select"
@@ -39,7 +39,7 @@
       <!-- 2. What should I study? -->
       <StudyNext :collections="weakCollections" :cards="hardCards" @study="goToStudy" @open-card="openCard" />
 
-      <!-- 3. Am I improving? / When do I study? -->
+      <!-- 3. The charts: progress over time first, then the detail -->
       <div class="progress-grid">
         <ChartCard
           title="Strength over time"
@@ -82,21 +82,7 @@
         >
           <div ref="studyHeatmapChartRef" class="chart chart-heatmap"></div>
         </ChartCard>
-      </div>
 
-      <!-- 4. Everything else, out of the way until asked for -->
-      <div class="more-toggle">
-        <v-btn
-          variant="text"
-          :append-icon="showMore ? 'mdi-chevron-up' : 'mdi-chevron-down'"
-          class="more-toggle__btn"
-          @click="showMore = !showMore"
-        >
-          {{ showMore ? 'Fewer charts' : 'More charts' }}
-        </v-btn>
-      </div>
-
-      <div v-if="showMore" class="progress-grid">
         <ChartCard
           full-width
           title="Collections compared"
@@ -157,7 +143,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch, onMounted, onUnmounted, type Ref } from 'vue'
+import { computed, ref, watch, onMounted, onUnmounted, type Ref } from 'vue'
 import { format, startOfDay, subDays } from 'date-fns'
 import { useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
@@ -243,10 +229,6 @@ const compositionChartRef = ref<HTMLElement>()
 const strengthScatterChartRef = ref<HTMLElement>()
 const collectionOverviewChartRef = ref<HTMLElement>()
 
-// Collapsed by default: the page answers the main questions without them.
-const showMore = ref(false)
-const MORE_CHART_KEYS = ['collectionOverview', 'composition', 'strengthScatter']
-
 const showCardTitles = ref(false)
 const collectionOverviewSortBy = ref<CollectionOverviewSort>('strength')
 // Width of the (scrollable) collection overview chart; fills the container when
@@ -261,7 +243,7 @@ const ctx: ChartContext = {
 }
 
 // Binds a chart's render to its container element, skipping it while the
-// element is not mounted (e.g. the collapsed "more charts").
+// element is not mounted yet.
 const draw = (el: Ref<HTMLElement | undefined>, render: (el: HTMLElement) => void) => () => {
   if (el.value) render(el.value)
 }
@@ -309,13 +291,6 @@ const renderCharts = () => {
 
 watch(chartData, renderCharts)
 watch([timelineStartDate, timelineEndDate], renderTimeline)
-
-// Hiding the extra charts removes their elements, so their chart instances go
-// too; showing them again draws fresh ones into the new elements.
-watch(showMore, shown => {
-  if (shown) nextTick(renderCharts)
-  else MORE_CHART_KEYS.forEach(key => ctx.registry.destroy(key))
-})
 
 // Chart colors are baked in at creation and the render functions reuse cached
 // instances via setData, so a theme switch has to tear the charts down rather
@@ -403,16 +378,6 @@ onUnmounted(() => ctx.registry.destroyAll())
   min-height: unset;
 }
 
-.more-toggle {
-  display: flex;
-  justify-content: center;
-}
-
-.more-toggle__btn {
-  text-transform: none !important;
-  letter-spacing: 0.01em !important;
-  color: rgba(var(--v-theme-on-surface), 0.7);
-}
 
 .sort-toggle {
   flex-shrink: 0;

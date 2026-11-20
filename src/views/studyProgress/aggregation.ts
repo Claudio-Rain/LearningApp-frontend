@@ -3,6 +3,7 @@ import type { AttemptLog, CardProgress, LearningItem } from '@/database/types'
 import { knownShare, tierCountsByCollection, totalOf } from '@/utils/collectionProgress'
 import {
   SCORED_TIERS,
+  STRENGTH_THRESHOLDS,
   clampStrength,
   isAtLeastTier,
   strengthTier,
@@ -88,19 +89,90 @@ export function computeProgressStats({ logs, progress, items }: ProgressChartDat
     ? Math.round((masteredCounts.reduce((s, v) => s + v, 0) / masteredCounts.length) * 10) / 10
     : 0
 
-  // Projection: how much work remains to master every card.
-  const totalCards = items.length
-  const masteredCards = progress.filter(p => isAtLeastTier(p.strength_score, 'mastered')).length
-  const remainingCards = Math.max(0, totalCards - masteredCards)
-
   return {
     totalAttempts: logs.length,
     // "Learned" = out of the weak tiers, i.e. 'good' or better.
     cardsLearned: progress.filter(p => isAtLeastTier(p.strength_score, 'good')).length,
     avgRevisionsToMaster,
-    totalCards,
-    projectedAttemptsToFinish: Math.round(remainingCards * avgRevisionsToMaster)
+    totalCards: items.length,
+    projectedAttemptsToFinish: estimateRevisionsToMaster({ logs, progress, items })
   }
+}
+
+// --- Learning curve and revisions left ------------------------------------------
+//
+// The learning curve is the average strength cards have after their 1st, 2nd,
+// 3rd… revision — the blue line in "Strength vs revisions". The estimate of
+// revisions left reads that same curve backwards: a card's current strength
+// says how far along the curve it is, and the curve says how many more
+// revisions it takes from there to reach mastered. A new card needs the whole
+// climb; a card at 60% only the rest of it.
+
+/** Attempt numbers with fewer cards than this are a noisy tail; left out. */
+export const MIN_CURVE_SAMPLES = 3
+/** Revisions a single card is ever projected to need, at most. */
+const MAX_REVISIONS_PER_CARD = 100
+/** Slope the extrapolation never drops below, so a flat tail can't project forever. */
+const MIN_SLOPE = 0.005
+
+export type CurvePoint = [attempt: number, strength: number]
+
+/** Average strength (0..1) after each revision number, from replaying every card. */
+export function learningCurve(logs: AttemptLog[]): CurvePoint[] {
+  const byAttempt = new Map<number, { sum: number; count: number }>()
+  replayCardStrength(logs, (_, attempt, strength) => {
+    const agg = byAttempt.get(attempt) ?? { sum: 0, count: 0 }
+    agg.sum += strength
+    agg.count++
+    byAttempt.set(attempt, agg)
+  })
+  return [...byAttempt.entries()]
+    .filter(([, agg]) => agg.count >= MIN_CURVE_SAMPLES)
+    .sort((a, b) => a[0] - b[0])
+    .map(([attempt, agg]) => [attempt, agg.sum / agg.count])
+}
+
+/**
+ * Where on the curve a strength sits, as a (fractional) revision number: the
+ * point it's interpolated between, or past the end, extended along the
+ * curve's final slope. The curve starts at (0, 0), before any revision, and is
+ * made non-decreasing so each strength has one place on it.
+ */
+function attemptAt(strength: number, curve: CurvePoint[]): number {
+  const points: CurvePoint[] = [[0, 0]]
+  for (const [attempt, s] of curve) points.push([attempt, Math.max(s, points[points.length - 1]![1])])
+  for (let i = 1; i < points.length; i++) {
+    const [x0, y0] = points[i - 1]!
+    const [x1, y1] = points[i]!
+    if (strength <= y1) return y1 === y0 ? x0 : x0 + ((strength - y0) / (y1 - y0)) * (x1 - x0)
+  }
+  // Past the end of the curve: carry on at its last few points' average slope.
+  const tail = points.slice(-4)
+  const [xa, ya] = tail[0]!
+  const [xb, yb] = tail[tail.length - 1]!
+  const slope = Math.max(MIN_SLOPE, xb > xa ? (yb - ya) / (xb - xa) : MIN_SLOPE)
+  return xb + (strength - yb) / slope
+}
+
+/** Revisions left for one card at `strength` to reach mastered, following the curve. */
+export function revisionsToMaster(strength: number, curve: CurvePoint[]): number {
+  const mastered = STRENGTH_THRESHOLDS.good
+  if (strength >= mastered) return 0
+  const left = attemptAt(mastered, curve) - attemptAt(Math.max(0, strength), curve)
+  return Math.min(MAX_REVISIONS_PER_CARD, Math.max(0, left))
+}
+
+/**
+ * Revisions left until every card is mastered, following your learning curve
+ * from each card's current strength (never-studied cards start at 0). 0 when
+ * there isn't enough history for a curve yet.
+ */
+export function estimateRevisionsToMaster({ logs, progress, items }: ProgressChartData): number {
+  const curve = learningCurve(logs)
+  if (!curve.length) return 0
+  const strength = new Map(progress.map(p => [p.learning_item_id, p.strength_score]))
+  const total = items.reduce((sum, item) => sum + revisionsToMaster(strength.get(item.id!) ?? 0, curve), 0)
+  return Math.round(total)
 }
 
 /** Per-card cumulative strength, replayed over that card's attempts in order. */
