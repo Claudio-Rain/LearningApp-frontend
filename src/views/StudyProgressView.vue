@@ -48,6 +48,7 @@
       <ChartCard
         title="Peak Study Hours"
         subtitle="Average attempts in each hour of the day (last 30 days)"
+        :empty-text="noRecentStudy"
       >
         <div ref="studyHoursChartRef" class="chart"></div>
       </ChartCard>
@@ -55,6 +56,7 @@
       <ChartCard
         title="Most Active Days"
         subtitle="Average attempts on each day of the week (last 30 days)"
+        :empty-text="noRecentStudy"
       >
         <div ref="studyDaysChartRef" class="chart"></div>
       </ChartCard>
@@ -85,9 +87,12 @@
         <div ref="timelineChartRef" class="chart"></div>
       </ChartCard>
 
+      <!-- Full width: 30 day columns are cramped in half a row. -->
       <ChartCard
+        full-width
         title="Study Heatmap"
-        subtitle="Attempts by day of month and hour — darker means more study (last 30 days)"
+        subtitle="Attempts by day of month and hour — brighter means more study (last 30 days)"
+        :empty-text="noRecentStudy"
       >
         <div ref="studyHeatmapChartRef" class="chart chart-heatmap"></div>
       </ChartCard>
@@ -165,8 +170,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, type Ref } from 'vue'
-import { format, subDays } from 'date-fns'
+import { computed, ref, watch, onMounted, onUnmounted, type Ref } from 'vue'
+import { format, startOfDay, subDays } from 'date-fns'
+import { recentLogs } from './studyProgress/aggregation'
 import { useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { syncAll } from '@/database'
@@ -213,6 +219,15 @@ const {
 } = useProgressData()
 
 const syncing = ref(false)
+
+// The activity charts look at the last 30 days; with no study in that window
+// they'd be flat lines and an empty grid, so they say so instead.
+const noRecentStudy = computed(() => {
+  const since = startOfDay(subDays(new Date(), 29))
+  return recentLogs(chartData.value.logs, since).length
+    ? undefined
+    : 'No study in the last 30 days — these fill in as you study'
+})
 
 const accuracyChartRef = ref<HTMLElement>()
 const strengthChartRef = ref<HTMLElement>()

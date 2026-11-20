@@ -38,7 +38,11 @@ export interface ChartPalette {
 }
 
 export function createChartPalette(theme: VuetifyTheme): ChartPalette {
-  const color = (token: string) => theme.current.value.colors[token] ?? '#000000'
+  // `global.current`, not `current`: inside <v-app> the injected `current` is
+  // the raw theme definition, which lacks the derived on-* colors. Reading
+  // 'on-surface' from it fell back to black, so every axis label, legend and
+  // subtitle came out black on the dark theme.
+  const color = (token: string) => theme.global.current.value.colors[token] ?? '#000000'
 
   const alpha = (token: string, a: number) => {
     const hex = color(token).replace('#', '')
@@ -109,6 +113,8 @@ export function applyGlobalChartTheme(palette: ChartPalette): void {
       style: { color: palette.alpha('on-surface', 0.87) },
       borderColor: palette.alpha('on-surface', 0.2)
     },
-    plotOptions: { series: { dataLabels: { style: text } } }
+    // No outline on data labels: Highcharts draws a thick contrasting halo by
+    // default, which looks smudged on the dark surface.
+    plotOptions: { series: { dataLabels: { style: { ...text, textOutline: 'none' } } } }
   })
 }

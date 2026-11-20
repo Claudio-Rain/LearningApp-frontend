@@ -93,7 +93,9 @@ async function draw() {
   loading.value = true
   try {
     const mermaid = (await import('mermaid')).default
-    const current = theme.current.value
+    // global.current carries the derived on-* colors; the injected `current`
+    // inside <v-app> is the raw theme without them.
+    const current = theme.global.current.value
     mermaid.initialize({
       startOnLoad: false,
       securityLevel: 'strict',
@@ -129,7 +131,7 @@ const scheduleDraw = () => {
 
 watch(saved, draw)
 watch(draft, () => editing.value && scheduleDraw())
-watch(() => theme.current.value.dark, draw)
+watch(() => theme.global.current.value.dark, draw)
 
 function startEdit() {
   if (!editable.value || editing.value) return

@@ -45,7 +45,8 @@ export function renderAccuracyChart(
         dataLabels: {
           enabled: true,
           format: '{point.percentage:.0f}%',
-          style: { fontSize: '13px', fontWeight: '600' }
+          style: { fontSize: '13px', fontWeight: '600', textOutline: 'none', color: palette.alpha('on-surface', 0.87) },
+          connectorColor: palette.axisLine()
         }
       }
     },

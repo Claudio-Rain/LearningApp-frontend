@@ -13,7 +13,15 @@
       <h3>{{ title }}</h3>
       <p v-if="subtitle" class="chart-subtitle">{{ subtitle }}</p>
     </template>
-    <slot />
+    <!-- With nothing to show, the chart stays mounted (Highcharts needs a
+         sized element) but fades behind a short explanation. -->
+    <div class="chart-body" :class="{ 'chart-body--empty': emptyText }">
+      <slot />
+      <div v-if="emptyText" class="chart-empty">
+        <v-icon size="28">mdi-chart-box-outline</v-icon>
+        <span>{{ emptyText }}</span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -23,8 +31,10 @@ withDefaults(
     title: string
     subtitle?: string
     fullWidth?: boolean
+    /** When set, the chart has no data: this message is shown over it. */
+    emptyText?: string
   }>(),
-  { subtitle: undefined, fullWidth: false }
+  { subtitle: undefined, fullWidth: false, emptyText: undefined }
 )
 </script>
 
@@ -50,6 +60,29 @@ h3 {
   margin: 0 0 16px;
   font-size: 0.8rem;
   color: rgba(var(--v-theme-on-surface), 0.45);
+}
+
+.chart-body {
+  position: relative;
+}
+
+.chart-body--empty > :not(.chart-empty) {
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+.chart-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  text-align: center;
+  font-size: 0.95rem;
+  color: rgba(var(--v-theme-on-surface), 0.6);
 }
 
 .chart-header-row {
