@@ -62,7 +62,7 @@
     :items="shown"
     :items-per-page="-1"
     hide-default-footer
-    density="comfortable"
+    density="compact"
     class="item-table"
     :class="{ 'item-table--dragging': dragId, 'item-table--reorderable': canDrag }"
     hover
@@ -369,9 +369,11 @@ const onRowClick = (_event: unknown, { item }: { item: LearningItem }) => {
   flex-wrap: wrap;
 }
 
-/* Three across when there's room, wrapping on a narrow list. */
+/* Three across, with the search button on the same row, when there's room;
+   wrapping on a narrow list. At 150px each the button dropped to a row of its
+   own in the 520px list. */
 .item-filters__select {
-  flex: 1 1 150px;
+  flex: 1 1 110px;
   min-width: 0;
 }
 
@@ -547,6 +549,12 @@ const onRowClick = (_event: unknown, { item }: { item: LearningItem }) => {
 .item-table :deep(table) {
   table-layout: fixed;
   width: 100%;
+}
+
+/* Between Vuetify's densities: compact (36px) packed the titles together,
+   comfortable (48px) showed few of them on a laptop. */
+.item-table :deep(tbody tr > td) {
+  height: 42px !important;
 }
 
 .empty-state {

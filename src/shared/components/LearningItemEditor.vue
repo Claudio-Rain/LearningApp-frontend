@@ -355,7 +355,18 @@ onBeforeUnmount(() => editor.destroy())
     border-radius: 8px;
     transition: background-color 0.15s ease, color 0.15s ease;
     border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  
+
+    // Compact icon buttons: at 40px the toolbar didn't fit one row of a
+    // laptop's editor column, and the Answer button wrapped onto its own.
+    &.v-btn--icon {
+      width: 34px;
+      height: 34px;
+
+      .v-icon {
+        font-size: 20px;
+      }
+    }
+
     &:hover {
       background-color: rgba(var(--v-theme-on-surface), 0.06);
     }
@@ -462,19 +473,21 @@ onBeforeUnmount(() => editor.destroy())
   h4 {
     font-weight: 700;
     line-height: 1.2;
-    margin: 1.5rem 0 0.5rem;
+    margin: 1.1rem 0 0.35rem;
   }
 
+  // A step down from what they were (1.6 / 1.35 / 1.15rem): a card with
+  // several sections read as a stack of banners.
   h1 {
-    font-size: 1.6rem;
+    font-size: 1.4rem;
   }
 
   h2 {
-    font-size: 1.35rem;
+    font-size: 1.2rem;
   }
 
   h3 {
-    font-size: 1.15rem;
+    font-size: 1.05rem;
   }
 
   h4 {

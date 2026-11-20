@@ -142,7 +142,10 @@ onBeforeUnmount(() => editor.destroy())
 
   /* Title-sized text, but only for prose — a code block keeps its own scale. */
   p {
-    font-size: 1.5rem;
+    // Scales with the screen: 1.5rem on a big monitor, ~1.3rem on a laptop,
+    // 1.2rem on a phone. A fixed 1.5rem took three lines of a laptop's
+    // editor column before the card even started.
+    font-size: clamp(1.2rem, 0.9rem + 0.6vw, 1.5rem);
     font-weight: 600;
     line-height: 1.3;
     margin: 0;

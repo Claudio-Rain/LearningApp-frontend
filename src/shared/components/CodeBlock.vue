@@ -53,26 +53,29 @@ export default {
       appearance: none;
       -webkit-appearance: none;
       -moz-appearance: none;
-      padding: 0.15rem 1.6rem 0.15rem 0.5rem;
+      // Small and quiet until pointed at: it's a setting, not content.
+      font-size: 0.75rem;
+      opacity: 0.7;
+      transition: opacity 0.15s ease;
+      padding: 0.1rem 1.4rem 0.1rem 0.45rem;
       border-radius: 0.35rem;
       color: rgb(var(--v-theme-darkColor));
       background-color: rgb(var(--v-theme-lightColor));
       background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="Black" d="M7 10l5 5 5-5z"/></svg>');
       background-repeat: no-repeat;
       background-position: right 0.25rem center;
-      background-size: 1.1rem;
+      background-size: 1rem;
+
+      &:hover,
+      &:focus {
+        opacity: 1;
+      }
     }
 
-    // On a phone the first line of code reaches the picker and runs under
-    // it, so the code starts below the picker instead.
-    @media (max-width: 599.98px) {
-      select {
-        font-size: 0.8rem;
-      }
-
-      pre {
-        padding-top: 2.6rem;
-      }
+    // A long first line of code ran under the picker (on a laptop's editor
+    // column as much as on a phone), so the code starts below it.
+    pre {
+      padding-top: 2.3rem;
     }
   }
 }
