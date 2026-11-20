@@ -28,7 +28,7 @@
       </div>
     </div>
 
-    <CollectionFilterBar v-model="selectedFilter" :options="filterOptions" />
+    <CollectionFilterBar v-model="selectedFilter" :options="filterOptions" :counts="filterCounts" />
 
     <CollectionsTable
       :collections="filtered"
@@ -100,6 +100,7 @@ const {
 const {
   selected: selectedFilter,
   options: filterOptions,
+  counts: filterCounts,
   filtered,
   scopeLabel,
   validate: validateFilter

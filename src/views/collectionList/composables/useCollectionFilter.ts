@@ -13,6 +13,11 @@ export function useCollectionFilter(collections: Ref<Collection[]>, categories: 
   const options = computed(() => filterOptions(categories.value))
   const filtered = computed(() => filterCollections(collections.value, selected.value))
 
+  /** How many collections each chip would show, keyed by filter value. */
+  const counts = computed(() =>
+    Object.fromEntries(options.value.map(o => [o.value, filterCollections(collections.value, o.value).length]))
+  )
+
   /** The active filter's label, or undefined when showing everything. */
   const scopeLabel = computed(() =>
     selected.value === 'all' ? undefined : options.value.find(o => o.value === selected.value)?.label
@@ -23,5 +28,5 @@ export function useCollectionFilter(collections: Ref<Collection[]>, categories: 
     if (!isValidFilter(selected.value, categories.value)) selected.value = 'all'
   }
 
-  return { selected, options, filtered, scopeLabel, validate }
+  return { selected, options, counts, filtered, scopeLabel, validate }
 }
