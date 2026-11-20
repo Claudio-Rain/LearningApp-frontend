@@ -16,15 +16,19 @@
       </svg>
     </div>
     <div class="metric-group">
+      <!-- A phone gets the short labels and drops the session total, so the
+           metrics stay one line. -->
       <span class="metric" title="Revisions today, across all cards">
-        <v-icon size="14">mdi-flash-outline</v-icon>{{ attemptsToday }} revisions today
+        <v-icon size="14">mdi-flash-outline</v-icon>{{ attemptsToday }}
+        <span class="label-long">revisions today</span><span class="label-short">today</span>
       </span>
       <span class="metric-sep">·</span>
       <span class="metric" title="Revisions of this card">
-        <v-icon size="14">mdi-refresh</v-icon>{{ currentAttempts }} revisions of this card
+        <v-icon size="14">mdi-refresh</v-icon>{{ currentAttempts }}
+        <span class="label-long">revisions of this card</span><span class="label-short">this card</span>
       </span>
-      <span class="metric-sep">·</span>
-      <span class="metric" :title="`${totalRevisions} revisions across the ${cardCount} cards loaded — avg ${avgRevisions} per card`">
+      <span class="metric-sep metric-total">·</span>
+      <span class="metric metric-total" :title="`${totalRevisions} revisions across the ${cardCount} cards loaded — avg ${avgRevisions} per card`">
         <v-icon size="14">mdi-history</v-icon>{{ totalRevisions }} revisions / {{ cardCount }} cards · avg {{ avgRevisions }}
       </span>
     </div>
@@ -207,22 +211,34 @@ const distribution = computed(() =>
   background: rgb(var(--v-theme-barMastered));
 }
 
+.label-short {
+  display: none;
+}
+
 @media (max-width: 600px) {
   .study-metrics {
-    gap: 6px;
+    gap: 8px;
   }
 
   .metric {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
   }
 
-  .metric-sep {
+  .label-long,
+  .metric-total {
     display: none;
+  }
+
+  .label-short {
+    display: inline;
   }
 
   .metric-group {
     gap: 6px;
-    flex-wrap: wrap;
+  }
+
+  .dist-bar {
+    flex: 1 1 60px;
   }
 
   .timer-ring {

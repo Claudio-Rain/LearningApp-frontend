@@ -83,13 +83,6 @@
 
       <StudyCodeAside v-if="codeOpen" ref="codeAside" @close="codeOpen = false" />
     </div>
-
-    <StudyMobileFab
-      v-if="currentItem && !editing"
-      @add="addDialog = true"
-      @edit="editing = true"
-      @delete="deleteDialog = true"
-    />
   </div>
 </template>
 
@@ -112,7 +105,6 @@ import AddQuestionsDialog from './study/components/AddQuestionsDialog.vue'
 import ConfirmItemDialog from './study/components/ConfirmItemDialog.vue'
 import CardChatPanel from './study/components/CardChatPanel.vue'
 import StudyCodeAside from './study/components/StudyCodeAside.vue'
-import StudyMobileFab from './study/components/StudyMobileFab.vue'
 import { useStudySession } from './study/composables/useStudySession'
 import { useCountdown } from './study/composables/useCountdown'
 import { useCardFactory } from './study/composables/useCardFactory'

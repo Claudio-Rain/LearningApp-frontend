@@ -51,6 +51,33 @@
           <v-btn class="header-edit-btn" icon="mdi-delete-outline" variant="text" color="error" @click="emit('delete')" />
           <v-btn class="header-edit-btn" icon="mdi-eye-off-outline" variant="text" color="warning" @click="emit('exclude')" />
         </template>
+        <!-- On a phone the buttons above don't fit; they live in this menu. -->
+        <v-menu location="bottom end">
+          <template #activator="{ props: menuProps }">
+            <v-btn v-bind="menuProps" class="header-more-btn" icon="mdi-dots-vertical" variant="text" title="More" />
+          </template>
+          <v-list density="compact" min-width="230">
+            <v-list-item prepend-icon="mdi-plus" title="Add question" @click="emit('add')" />
+            <v-list-item
+              v-if="hasItem"
+              prepend-icon="mdi-chat-question-outline"
+              title="Ask AI about this card"
+              @click="emit('toggle-chat')"
+            />
+            <v-list-item prepend-icon="mdi-code-braces" title="Code scratchpad" @click="emit('toggle-code')" />
+            <template v-if="hasItem">
+              <v-divider class="my-1" />
+              <v-list-item prepend-icon="mdi-pencil-outline" title="Edit card" @click="emit('edit')" />
+              <v-list-item
+                prepend-icon="mdi-eye-off-outline"
+                title="Exclude from study"
+                base-color="warning"
+                @click="emit('exclude')"
+              />
+              <v-list-item prepend-icon="mdi-delete-outline" title="Delete card" base-color="error" @click="emit('delete')" />
+            </template>
+          </v-list>
+        </v-menu>
       </template>
     </div>
   </div>
@@ -272,9 +299,15 @@ const submitJump = (e: Event) => {
   color: rgb(var(--v-theme-masteryMastered));
 }
 
+/* Only on a phone, where it stands in for the buttons. */
+.header-more-btn {
+  display: none;
+}
+
 @media (max-width: 600px) {
   .study-subtitle {
     font-size: 0.7rem;
+    margin-top: 0;
   }
 
   .stat-badge {
@@ -282,9 +315,13 @@ const submitJump = (e: Event) => {
     padding: 2px 6px;
   }
 
-  /* The mobile menu takes over these actions. */
+  /* The ⋮ menu takes over these actions. */
   .header-edit-btn {
     display: none;
+  }
+
+  .header-more-btn {
+    display: inline-flex;
   }
 }
 </style>

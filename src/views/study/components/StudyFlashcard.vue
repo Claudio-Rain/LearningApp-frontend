@@ -207,13 +207,69 @@ const EMPTY_DOC = { type: 'doc', content: [] }
     font-size: 1.3rem;
   }
 
+  /* One row of four, icon over label: the 2×2 grid took a third of the screen. */
   .rating-buttons {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 6px;
   }
 
   .rating-buttons .v-btn {
-    font-size: 0.75rem;
+    height: 54px;
+    padding: 0 4px;
+    min-width: 0;
+    font-size: 0.72rem;
+    letter-spacing: normal;
+    text-transform: none;
+  }
+
+  .rating-buttons .v-btn :deep(.v-btn__content) {
+    flex-direction: column;
+    gap: 2px;
+    white-space: nowrap;
+  }
+
+  .rating-buttons .v-btn :deep(.v-icon) {
+    margin: 0;
+  }
+
+  .jump-row {
+    gap: 4px;
+  }
+
+  /* The answer at a phone's reading size: the desktop's 1.2rem, plus KaTeX's
+     own 21% bump on formulas, packed the screen edge to edge. Smaller type,
+     more line spacing and air between paragraphs. */
+  .card-content {
+    scrollbar-width: thin;
+    font-size: 1.02rem;
+    line-height: 1.6;
+    /* The bottom padding matches the fade below, so the last line, scrolled
+       into view, is never under it. */
+    padding: 4px 6px 28px;
+  }
+
+  .card-content :deep(.katex) {
+    font-size: 1.08em;
+  }
+
+  .card-content :deep(.ProseMirror p) {
+    margin: 0.6rem 0;
+  }
+
+  .card-content :deep(.ProseMirror h1),
+  .card-content :deep(.ProseMirror h2),
+  .card-content :deep(.ProseMirror h3) {
+    line-height: 1.3;
+    margin: 1.1rem 0 0.4rem;
+  }
+
+  /* The answer fades out above the buttons instead of running into them. */
+  .back .card-content {
+    mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+  }
+
+  .rating-buttons {
+    padding-top: 4px;
   }
 }
 </style>

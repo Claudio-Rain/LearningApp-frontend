@@ -51,7 +51,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 import { TextSelection } from '@tiptap/pm/state'
 import katex from 'katex'
@@ -81,14 +81,54 @@ const render = () => {
     throwOnError: false,
     strict: 'ignore',
   })
+  fitWidth()
 }
+
+// A display formula wider than its column (most of them, on a phone) shrinks
+// to fit instead of being cut off behind a scrollbar. Only down to MIN_SCALE:
+// past that it would be too small to read, so it scrolls sideways instead.
+const MIN_SCALE = 0.6
+let fittedWidth = -1
+
+const fitWidth = () => {
+  const el = output.value
+  const box = el?.parentElement
+  if (!el || !box || !isBlock.value) return
+  fittedWidth = box.clientWidth
+  el.style.fontSize = ''
+  if (box.clientWidth === 0) return
+  // The width doesn't shrink exactly in step with the font size (the indent,
+  // rounding), so measure again after each step; a few steps always settle it.
+  let scale = 1
+  for (let i = 0; i < 4 && box.scrollWidth > box.clientWidth + 1 && scale > MIN_SCALE; i++) {
+    scale = Math.max(MIN_SCALE, Math.floor((scale * box.clientWidth * 100) / box.scrollWidth) / 100)
+    el.style.fontSize = `${scale}em`
+  }
+}
+
+// Refit when the column changes width (rotating the phone, the splitter, a
+// panel opening). Only on a width change: fitting itself changes the height.
+const resizeObserver =
+  typeof ResizeObserver === 'undefined'
+    ? null
+    : new ResizeObserver(entries => {
+        const width = entries[0]?.target.clientWidth
+        if (width !== undefined && width !== fittedWidth) fitWidth()
+      })
 
 watch([latex, draft, editing], render)
 onMounted(() => {
   render()
+  const box = output.value?.parentElement
+  if (isBlock.value && box) {
+    resizeObserver?.observe(box)
+    // KaTeX's fonts change the formula's width once they load.
+    document.fonts?.ready.then(fitWidth)
+  }
   // A freshly inserted empty formula opens straight into editing.
   if (editable.value && !latex.value) startEdit()
 })
+onBeforeUnmount(() => resizeObserver?.disconnect())
 
 function startEdit() {
   if (!editable.value || editing.value) return
@@ -181,9 +221,17 @@ function onKeydown(event: KeyboardEvent) {
     margin: 1rem 0;
     overflow-x: auto;
     overflow-y: hidden;
+    scrollbar-width: thin;
 
     .katex-display {
       margin: 0.25rem 0;
+    }
+
+    // On a phone the usual indent costs width a formula needs.
+    @media (max-width: 599.98px) {
+      .katex-display.fleqn > .katex {
+        padding-left: 0.75em;
+      }
     }
   }
 
