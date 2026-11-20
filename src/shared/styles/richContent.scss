@@ -104,6 +104,11 @@ $latex-colors: (
     // Left-aligned (fleqn), indented a little under the sentence above.
     .katex-display.fleqn > .katex {
       padding-left: 1.5rem;
+
+      // On a phone the indent costs width the formula needs.
+      @media (max-width: 599.98px) {
+        padding-left: 0.75rem;
+      }
     }
   }
 

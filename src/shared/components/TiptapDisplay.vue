@@ -67,6 +67,12 @@ onBeforeUnmount(() => editor.destroy())
 
     :first-child { margin-top: 0; }
 
+    // An image wider than the card shrinks to fit instead of running past it.
+    img {
+      max-width: 100%;
+      height: auto;
+    }
+
     table {
       border-collapse: collapse;
       margin: 0;

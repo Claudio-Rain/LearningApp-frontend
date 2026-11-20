@@ -320,13 +320,20 @@ onBeforeUnmount(() => editor.destroy())
   }
 
   // On a phone the wrapped toolbar took three rows before the card even
-  // started; it becomes one row that scrolls sideways instead.
+  // started; it becomes one row that scrolls sideways instead. It also stays
+  // pinned to the top while the card scrolls, so formatting a line far down
+  // doesn't mean scrolling back up first.
   @media (max-width: 599.98px) {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: rgb(var(--v-theme-surface));
+    padding-top: 6px;
+    box-shadow: 0 1px 0 rgba(var(--v-theme-on-surface), 0.08);
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;
-    margin-inline: -4px;
-    padding: 0 4px 2px;
+    padding-bottom: 2px;
 
     &::-webkit-scrollbar {
       display: none;
@@ -534,6 +541,12 @@ onBeforeUnmount(() => editor.destroy())
       top: 0;
       width: 4px;
     }
+  }
+
+  // An image wider than the column shrinks to fit instead of running past it.
+  img {
+    max-width: 100%;
+    height: auto;
   }
 
   hr {

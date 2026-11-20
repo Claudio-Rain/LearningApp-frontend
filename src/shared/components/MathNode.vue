@@ -226,13 +226,6 @@ function onKeydown(event: KeyboardEvent) {
     .katex-display {
       margin: 0.25rem 0;
     }
-
-    // On a phone the usual indent costs width a formula needs.
-    @media (max-width: 599.98px) {
-      .katex-display.fleqn > .katex {
-        padding-left: 0.75em;
-      }
-    }
   }
 
   &__field--block {

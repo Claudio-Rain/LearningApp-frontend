@@ -189,6 +189,9 @@ onMounted(() => collectionItems.load(itemId))
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  /* Wide content scrolls inside its own block (code, tables, formulas); the
+     panel itself never slides sideways under a finger. */
+  overflow-x: hidden;
   /* Same as the item list: a scrollbar showing up mustn't reflow the card. */
   scrollbar-gutter: stable;
   /* Room below the card, so the assistant button never covers its end. */

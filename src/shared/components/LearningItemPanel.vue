@@ -221,4 +221,25 @@ const handleTitleInput = (doc: JSONContent) => {
   flex: 0 0 auto;
   padding: 8px 0;
 }
+
+/* On a phone: one 16px gutter for everything — title, labels, toolbar and
+   body — instead of the body running almost to the screen's edge while the
+   title sat further in. And more air between paragraphs. */
+@media (max-width: 599.98px) {
+  .content-panel {
+    padding-left: 0;
+  }
+
+  .editor-fill :deep(.editor-menu) {
+    padding-inline: 16px;
+  }
+
+  .editor-fill :deep(.ProseMirror) {
+    padding: 0 16px 24px;
+  }
+
+  .editor-fill :deep(.ProseMirror p) {
+    margin: 0.7rem 0;
+  }
+}
 </style>
