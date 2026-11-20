@@ -85,36 +85,6 @@
 
         <ChartCard
           full-width
-          title="Collections compared"
-          subtitle="Strength, revisions, and card coverage per collection"
-        >
-          <template #actions>
-            <v-btn-toggle
-              v-model="collectionOverviewSortBy"
-              mandatory
-              density="compact"
-              variant="outlined"
-              class="sort-toggle"
-              @update:model-value="renderCollectionOverview"
-            >
-              <v-btn value="name" size="small">Name</v-btn>
-              <v-btn value="strength" size="small">Strength</v-btn>
-              <v-btn value="revisions" size="small">Revisions</v-btn>
-              <v-btn value="revised" size="small">Revised</v-btn>
-              <v-btn value="notRevised" size="small">Not Revised</v-btn>
-            </v-btn-toggle>
-          </template>
-          <div class="chart-hscroll">
-            <div
-              ref="collectionOverviewChartRef"
-              class="chart"
-              :style="{ width: collectionOverviewWidth }"
-            ></div>
-          </div>
-        </ChartCard>
-
-        <ChartCard
-          full-width
           title="Cards over time"
           subtitle="The line is every card you had each day; below it, how well you knew them — the gap is cards not studied yet. Drag to zoom."
         >
@@ -170,10 +140,6 @@ import { renderCompositionChart } from './studyProgress/charts/compositionChart'
 import { renderDailyStrengthChart } from './studyProgress/charts/dailyStrengthChart'
 import { renderStrengthScatterChart } from './studyProgress/charts/strengthScatterChart'
 import { renderStudyHeatmapChart } from './studyProgress/charts/activityCharts'
-import {
-  renderCollectionOverviewChart,
-  type CollectionOverviewSort
-} from './studyProgress/charts/collectionOverviewChart'
 
 const router = useRouter()
 const theme = useTheme()
@@ -227,13 +193,8 @@ const studyHeatmapChartRef = ref<HTMLElement>()
 const timelineChartRef = ref<HTMLElement>()
 const compositionChartRef = ref<HTMLElement>()
 const strengthScatterChartRef = ref<HTMLElement>()
-const collectionOverviewChartRef = ref<HTMLElement>()
 
 const showCardTitles = ref(false)
-const collectionOverviewSortBy = ref<CollectionOverviewSort>('strength')
-// Width of the (scrollable) collection overview chart; fills the container when
-// there are few collections, and grows past it — scrolling — when there are many.
-const collectionOverviewWidth = ref('100%')
 const timelineStartDate = ref(format(subDays(new Date(), 29), 'yyyy-MM-dd'))
 const timelineEndDate = ref(format(new Date(), 'yyyy-MM-dd'))
 
@@ -255,19 +216,10 @@ const renderTimeline = draw(timelineChartRef, el =>
   })
 )
 
-const renderCollectionOverview = draw(collectionOverviewChartRef, el => {
-  const width = renderCollectionOverviewChart(ctx, el, chartData.value, {
-    collections: selectedCollections.value,
-    sortBy: collectionOverviewSortBy.value
-  })
-  if (width) collectionOverviewWidth.value = width
-})
-
 const chartRenderers = [
   draw(dailyStrengthChartRef, el => renderDailyStrengthChart(ctx, el, chartData.value)),
   draw(studyHeatmapChartRef, el => renderStudyHeatmapChart(ctx, el, chartData.value)),
   renderTimeline,
-  renderCollectionOverview,
   draw(compositionChartRef, el => renderCompositionChart(ctx, el, chartData.value)),
   draw(strengthScatterChartRef, el =>
     renderStrengthScatterChart(ctx, el, chartData.value, {
@@ -379,10 +331,6 @@ onUnmounted(() => ctx.registry.destroyAll())
 }
 
 
-.sort-toggle {
-  flex-shrink: 0;
-}
-
 .date-range-filter {
   display: flex;
   gap: 8px;
@@ -391,10 +339,6 @@ onUnmounted(() => ctx.registry.destroyAll())
 
 .date-range-filter :deep(.v-text-field) {
   width: 150px;
-}
-
-.chart-hscroll {
-  overflow-x: auto;
 }
 
 @media (max-width: 1024px) {
