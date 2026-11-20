@@ -1,37 +1,36 @@
-import { formatISO, isAfter, parseISO } from 'date-fns'
+import { formatISO } from 'date-fns'
 import type { ItemLabelPatch, LearningItem } from '../types'
 import * as local from '../local'
 import * as remote from '../remote'
+import { planLearningItemsPull } from '../sync/mergeLearningItems'
+
+async function applyPull(collectionIds: ReadonlySet<string>, remoteItems: LearningItem[]) {
+  await local.reconcileLearningItems(localItems =>
+    planLearningItemsPull(collectionIds, remoteItems, localItems)
+  )
+}
 
 export async function pullLearningItems(collectionId: string) {
   try {
-    const remoteItems = await remote.getLearningItems(collectionId)
-    const localItems = await local.getLearningItems(collectionId)
-    const localMap = new Map(localItems.map(i => [i.id, i]))
+    await applyPull(new Set([collectionId]), await remote.getLearningItems(collectionId))
+  } catch (err) {
+    console.error('Failed to pull learning items:', err)
+  }
+}
 
-    for (const remoteItem of remoteItems) {
-      const localItem = localMap.get(remoteItem.remoteId || remoteItem.id)
-
-      if (localItem?.syncStatus === 'pending' || localItem?.syncStatus === 'error') {
-        continue
-      }
-
-      if (!localItem || isAfter(parseISO(remoteItem.lastModified), parseISO(localItem.lastModified))) {
-        const syncStatus = localItem ? 'synced' : remoteItem.syncStatus
-        await local.updateLearningItem({ ...remoteItem, id: remoteItem.remoteId || remoteItem.id, syncStatus })
-      } else if (localItem && !localItem.syncStatus) {
-        await local.updateLearningItem({ ...localItem, syncStatus: 'synced' })
-      }
-    }
-
-    // Cases 2-4: check local items that vanished from remote
-    const remoteIds = new Set(remoteItems.map(r => r.remoteId || r.id))
-    for (const localItem of localItems) {
-      if (localItem.id && !remoteIds.has(localItem.id) && (localItem.syncStatus === 'synced' || localItem.syncStatus === undefined)) {
-        await local.deleteLearningItem(localItem.id)
-      }
-      // pending/error items are preserved (Cases 3 & 4)
-    }
+/**
+ * Pull the items of every local collection: one Firestore query and one
+ * IndexedDB transaction, instead of a query and a full store scan per
+ * collection. Remote items of collections this device doesn't have are skipped.
+ */
+export async function pullAllLearningItems() {
+  try {
+    const collectionIds = new Set(
+      (await local.getCollections()).map(c => c.id).filter((id): id is string => !!id)
+    )
+    if (collectionIds.size === 0) return
+    const remoteItems = (await remote.getAllLearningItems()).filter(i => collectionIds.has(i.collectionId))
+    await applyPull(collectionIds, remoteItems)
   } catch (err) {
     console.error('Failed to pull learning items:', err)
   }

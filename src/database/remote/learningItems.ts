@@ -25,6 +25,11 @@ export async function getLearningItems(collectionRemoteId: string): Promise<Lear
   return snapshot.docs.map(doc => ({ ...doc.data(), remoteId: doc.id } as LearningItem))
 }
 
+export async function getAllLearningItems(): Promise<LearningItem[]> {
+  const snapshot = await getDocs(collection(db, 'learning_items'))
+  return snapshot.docs.map(doc => ({ ...doc.data(), remoteId: doc.id } as LearningItem))
+}
+
 export async function addLearningItem(item: LearningItem): Promise<string> {
   const docRef = await addDoc(collection(db, 'learning_items'), item)
   return docRef.id

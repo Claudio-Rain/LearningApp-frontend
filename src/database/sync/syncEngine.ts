@@ -4,6 +4,7 @@ import {
   pullCategories,
   pullCollections,
   pullLearningItems,
+  pullAllLearningItems,
   pullCardProgress,
   pullAttemptLogs,
   pullExcludedItems,
@@ -12,14 +13,7 @@ import {
   pushContentWidget
 } from '../operations'
 
-export { pullCategories, pullCollections, pullLearningItems, pullCardProgress, pullAttemptLogs, pullExcludedItems, pullContentWidget, pushContentWidget }
-
-export async function pullAllLearningItems() {
-  const collections = await local.getCollections()
-  for (const col of collections) {
-    if (col.id) await pullLearningItems(col.id)
-  }
-}
+export { pullCategories, pullCollections, pullLearningItems, pullAllLearningItems, pullCardProgress, pullAttemptLogs, pullExcludedItems, pullContentWidget, pushContentWidget }
 
 export async function syncCategories() {
   const categories = await local.getCategories()
@@ -93,20 +87,31 @@ export async function syncAttemptLogs() {
 
 export async function syncAll() {
   if (!navigator.onLine) return
-  await pullCategories()
-  await pullCollections()
-  await pullAllLearningItems()
-  await pullCardProgress()
-  await pullAttemptLogs()
-  await pullExcludedItems()
-  await pullContentWidget()
-  await syncCategories()
-  await syncCollections()
-  await syncLearningItems()
-  await syncCardProgress()
-  await syncAttemptLogs()
-  await pushExcludedItems()
-  await pushContentWidget()
+  // The pulls don't depend on each other, except that items are pulled for the
+  // local collections, so those wait for the collections pull. Each pull
+  // catches its own errors.
+  await Promise.all([
+    pullCategories(),
+    pullCollections().then(pullAllLearningItems),
+    pullCardProgress(),
+    pullAttemptLogs(),
+    pullExcludedItems(),
+    pullContentWidget()
+  ])
+  // Pushes run after every pull, so a pull never reads a half-pushed row.
+  // They write to different stores, so they can run side by side. allSettled
+  // so one failing push doesn't hide the others; the first failure is rethrown.
+  const pushes = await Promise.allSettled([
+    syncCategories(),
+    syncCollections(),
+    syncLearningItems(),
+    syncCardProgress(),
+    syncAttemptLogs(),
+    pushExcludedItems(),
+    pushContentWidget()
+  ])
+  const failed = pushes.find((r): r is PromiseRejectedResult => r.status === 'rejected')
+  if (failed) throw failed.reason
 }
 
 export function startSyncEngine() {

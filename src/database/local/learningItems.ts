@@ -27,6 +27,22 @@ export async function updateLearningItem(item: LearningItem): Promise<void> {
 }
 
 /**
+ * Apply a pull in a single readwrite transaction. `plan` gets the whole store
+ * read inside that same transaction, so a local edit can't slip in between the
+ * read and the writes and be overwritten. `plan` must be synchronous: awaiting
+ * anything but this transaction's requests would let it auto-commit.
+ */
+export async function reconcileLearningItems(
+  plan: (localItems: LearningItem[]) => { puts: LearningItem[]; deletes: string[] },
+): Promise<void> {
+  const tx = (await dbPromise).transaction(LEARNING_ITEMS_STORE, 'readwrite')
+  const { puts, deletes } = plan(await tx.store.getAll())
+  for (const item of puts) tx.store.put(JSON.parse(JSON.stringify(item)))
+  for (const id of deletes) tx.store.delete(id)
+  await tx.done
+}
+
+/**
  * Write both halves of a title at once. Pass `titleContent` only for a rich
  * title; leaving it out drops the field, so the item goes back to plain text
  * rather than keeping a stale document that contradicts `title`.
