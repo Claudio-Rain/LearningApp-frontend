@@ -252,7 +252,8 @@ const EMPTY_DOC = { type: 'doc', content: [] }
     font-size: 1.08em;
   }
 
-  .card-content :deep(.ProseMirror p) {
+  /* Step headings keep their own spacing (richContent.scss). */
+  .card-content :deep(.ProseMirror p:not(.step-heading)) {
     margin: 0.6rem 0;
   }
 

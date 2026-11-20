@@ -23,6 +23,7 @@ import { MathExtensions } from '../tiptap/math'
 import { FunctionPlot } from '../tiptap/plot'
 import { Diagram } from '../tiptap/diagram'
 import { RichFormatExtensions } from '../tiptap/richFormat'
+import { StepHeadings } from '../tiptap/stepHeadings'
 
 const lowlight = createLowlight(all)
 
@@ -44,6 +45,7 @@ const editor = new Editor({
     FunctionPlot,
     Diagram,
     ...RichFormatExtensions,
+    StepHeadings,
   ],
   content: props.content,
   editable: false,

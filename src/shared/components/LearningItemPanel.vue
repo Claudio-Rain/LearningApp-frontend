@@ -238,7 +238,8 @@ const handleTitleInput = (doc: JSONContent) => {
     padding: 0 16px 24px;
   }
 
-  .editor-fill :deep(.ProseMirror p) {
+  /* Step headings keep their own spacing (richContent.scss). */
+  .editor-fill :deep(.ProseMirror p:not(.step-heading)) {
     margin: 0.7rem 0;
   }
 }

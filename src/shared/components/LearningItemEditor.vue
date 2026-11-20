@@ -201,6 +201,7 @@ import { MathExtensions } from '../tiptap/math'
 import { FunctionPlot } from '../tiptap/plot'
 import { Diagram } from '../tiptap/diagram'
 import { RichFormatExtensions } from '../tiptap/richFormat'
+import { StepHeadings } from '../tiptap/stepHeadings'
 import { CALLOUTS, CALLOUT_VARIANTS, HIGHLIGHT_COLORS, TEXT_COLORS, type HighlightColor } from '@/utils/richFormat'
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
@@ -250,6 +251,7 @@ const editor = new Editor({
     FunctionPlot,
     Diagram,
     ...RichFormatExtensions,
+    StepHeadings,
   ],
   content: normalizeContent(props.value),
   onUpdate: ({ editor }) => {

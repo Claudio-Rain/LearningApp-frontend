@@ -92,23 +92,47 @@ $latex-colors: (
     color: rgba(var(--v-theme-on-surface), 0.78);
   }
 
-  // Display math: the block's own margin plus KaTeX's 1em left big holes
-  // between a sentence and the formula it introduces.
+  // --- reading in sections -------------------------------------------------
+  // Body text a notch softer, so steps and formulas stand out from it.
+
+  color: rgba(var(--v-theme-on-surface), 0.84);
+
+  // A paragraph bold all the way through, marked by the StepHeadings
+  // extension (shared/tiptap/stepHeadings.ts): a section heading in the
+  // accent colour, with room above it.
+  p.step-heading {
+    margin: 1.5rem 0 0.35rem;
+    font-size: 0.95em;
+    letter-spacing: 0.01em;
+    color: rgb(var(--v-theme-primary));
+
+    &:first-child {
+      margin-top: 0;
+    }
+  }
+
+  // Display math sits in a soft box of its own, set apart from the sentence
+  // that introduces it. (KaTeX's own 1em margin is dropped: the box spaces it.)
   .math-node--block {
-    margin: 0.4rem 0 0.6rem;
+    margin: 0.5rem 0 0.9rem;
+    // A little deeper below: limit subscripts (x→3) hang under the line.
+    padding: 0.6rem 0.8rem 0.75rem;
+    border-radius: 10px;
+    background: rgba(var(--v-theme-on-surface), 0.045);
 
     .katex-display {
       margin: 0;
     }
 
-    // Left-aligned (fleqn), indented a little under the sentence above.
+    // Left-aligned (fleqn); the box is the indent.
     .katex-display.fleqn > .katex {
-      padding-left: 1.5rem;
+      padding-left: 0;
+    }
 
-      // On a phone the indent costs width the formula needs.
-      @media (max-width: 599.98px) {
-        padding-left: 0.75rem;
-      }
+    // A formula too long for the column scrolls sideways (see MathNode); the
+    // right edge fades out while there's more to see.
+    &.math-node--overflows {
+      mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent);
     }
   }
 

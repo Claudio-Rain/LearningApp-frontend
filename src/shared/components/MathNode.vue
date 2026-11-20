@@ -84,11 +84,22 @@ const render = () => {
   fitWidth()
 }
 
-// A display formula wider than its column (most of them, on a phone) shrinks
-// to fit instead of being cut off behind a scrollbar. Only down to MIN_SCALE:
-// past that it would be too small to read, so it scrolls sideways instead.
-const MIN_SCALE = 0.6
+// A display formula a little too wide for its column shrinks to fit, but only
+// down to SHRINK_TO, where it still reads as the same size as the rest.
+// Anything wider stays one line at that size and scrolls sideways in its box;
+// shrinking it further made long chains of equalities unreadably small, and
+// breaking them onto more lines read as cut up. The box gets the overflows
+// class (a fade on the right edge says there's more) until scrolled to the end.
+const SHRINK_TO = 0.9
 let fittedWidth = -1
+
+const updateScrollHint = () => {
+  const box = output.value?.parentElement
+  if (!box) return
+  const overflows = box.scrollWidth > box.clientWidth + 1
+  const atEnd = box.scrollLeft + box.clientWidth >= box.scrollWidth - 2
+  box.classList.toggle('math-node--overflows', overflows && !atEnd)
+}
 
 const fitWidth = () => {
   const el = output.value
@@ -96,14 +107,16 @@ const fitWidth = () => {
   if (!el || !box || !isBlock.value) return
   fittedWidth = box.clientWidth
   el.style.fontSize = ''
-  if (box.clientWidth === 0) return
-  // The width doesn't shrink exactly in step with the font size (the indent,
-  // rounding), so measure again after each step; a few steps always settle it.
-  let scale = 1
-  for (let i = 0; i < 4 && box.scrollWidth > box.clientWidth + 1 && scale > MIN_SCALE; i++) {
-    scale = Math.max(MIN_SCALE, Math.floor((scale * box.clientWidth * 100) / box.scrollWidth) / 100)
-    el.style.fontSize = `${scale}em`
+  if (box.clientWidth > 0) {
+    // The width doesn't shrink exactly in step with the font size (the indent,
+    // rounding), so measure again after each step; a few steps always settle it.
+    let scale = 1
+    for (let i = 0; i < 4 && box.scrollWidth > box.clientWidth + 1 && scale > SHRINK_TO; i++) {
+      scale = Math.max(SHRINK_TO, Math.floor((scale * box.clientWidth * 100) / box.scrollWidth) / 100)
+      el.style.fontSize = `${scale}em`
+    }
   }
+  updateScrollHint()
 }
 
 // Refit when the column changes width (rotating the phone, the splitter, a
@@ -122,13 +135,20 @@ onMounted(() => {
   const box = output.value?.parentElement
   if (isBlock.value && box) {
     resizeObserver?.observe(box)
-    // KaTeX's fonts change the formula's width once they load.
-    document.fonts?.ready.then(fitWidth)
+    box.addEventListener('scroll', updateScrollHint, { passive: true })
+    // KaTeX's fonts change the formula's width once they load. They load
+    // lazily, when a formula first needs them, so this can be after
+    // fonts.ready has already settled; refit whenever a batch finishes.
+    document.fonts?.addEventListener('loadingdone', fitWidth)
   }
   // A freshly inserted empty formula opens straight into editing.
   if (editable.value && !latex.value) startEdit()
 })
-onBeforeUnmount(() => resizeObserver?.disconnect())
+onBeforeUnmount(() => {
+  resizeObserver?.disconnect()
+  output.value?.parentElement?.removeEventListener('scroll', updateScrollHint)
+  document.fonts?.removeEventListener('loadingdone', fitWidth)
+})
 
 function startEdit() {
   if (!editable.value || editing.value) return
