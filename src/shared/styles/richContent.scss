@@ -4,21 +4,21 @@
 // rule here works in light and dark mode without a second copy.
 
 $text-tones: (
-  blue: inkBlue,
-  green: inkGreen,
-  red: inkRed,
-  orange: inkOrange,
-  purple: inkPurple,
-  teal: inkTeal,
+  'blue': inkBlue,
+  'green': inkGreen,
+  'red': inkRed,
+  'orange': inkOrange,
+  'purple': inkPurple,
+  'teal': inkTeal,
 );
 
 $marks: (
-  yellow: markYellow,
-  green: markGreen,
-  blue: markBlue,
-  pink: markPink,
-  purple: markPurple,
-  orange: markOrange,
+  'yellow': markYellow,
+  'green': markGreen,
+  'blue': markBlue,
+  'pink': markPink,
+  'purple': markPurple,
+  'orange': markOrange,
 );
 
 // `--tone` is an "r,g,b" triple for whatever carries data-tone: coloured
@@ -35,14 +35,14 @@ $marks: (
 // depending on DOM render vs renderToString), so map the names we tell Claude
 // to use onto the same theme inks as coloured text.
 $latex-colors: (
-  blue: inkBlue,
-  green: inkGreen,
-  red: inkRed,
-  orange: inkOrange,
-  purple: inkPurple,
-  teal: inkTeal,
-  magenta: inkPurple,
-  cyan: inkTeal,
+  'blue': inkBlue,
+  'green': inkGreen,
+  'red': inkRed,
+  'orange': inkOrange,
+  'purple': inkPurple,
+  'teal': inkTeal,
+  'magenta': inkPurple,
+  'cyan': inkTeal,
 );
 
 @each $name, $token in $latex-colors {
