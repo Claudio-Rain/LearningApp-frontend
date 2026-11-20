@@ -54,6 +54,32 @@ export function useCollectionList() {
     await afterCollectionWrite()
   }
 
+  /**
+   * Add a collection next to another one: inside it (as its last
+   * sub-collection) or right after it on the same level. Categories only
+   * apply at the top level, so a top-level sibling takes the target's.
+   * Returns the new collection's id.
+   */
+  const addCollectionAt = async (title: string, targetId: string, position: 'inside' | 'after') => {
+    const target = collections.value.find(c => c.id === targetId)
+    if (!target) return
+    const parentId = position === 'inside' ? targetId : (target.parentId ?? null)
+    const at = now()
+    const id = await createCollection({
+      title,
+      parentId,
+      categoryId: parentId ? null : (target.categoryId ?? null),
+      dateCreated: at,
+      lastModified: at,
+      numberOfItems: 0
+    })
+    await loadCollections()
+    // A new collection lands at the end of its level; put it right after the target.
+    if (position === 'after') await moveCollection(id, targetId, 'after')
+    else await afterCollectionWrite()
+    return id
+  }
+
   /** Change some fields of a collection (title, description, star, category). */
   const updateCollection = async (collection: Collection, changes: Partial<Collection>) => {
     await editCollection({ ...collection, ...changes, lastModified: now() })
@@ -132,6 +158,7 @@ export function useCollectionList() {
     loadCollections,
     loadCategories,
     addCollection,
+    addCollectionAt,
     updateCollection,
     renameCollections,
     moveCollection,

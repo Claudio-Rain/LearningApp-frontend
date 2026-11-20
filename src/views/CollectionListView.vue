@@ -22,7 +22,7 @@
         <v-btn variant="text" prepend-icon="mdi-tag-multiple" @click="categoriesDialog = true">
           Categories
         </v-btn>
-        <v-btn variant="text" prepend-icon="mdi-refresh" :loading="isSyncing" @click="pull(validateFilter)">
+        <v-btn variant="text" prepend-icon="mdi-refresh" :loading="isSyncing" @click="handlePull">
           Pull
         </v-btn>
       </div>
@@ -34,6 +34,8 @@
       :collections="filtered"
       :all-collections="collections"
       :categories="categories"
+      :progress="tiersByCollection"
+      :add-collection-at="addCollectionAt"
       @open="goToCollection"
       @study="goToStudy"
       @rename="handleRename"
@@ -72,6 +74,7 @@ import CollectionsTable from './collectionList/components/CollectionsTable.vue'
 import CategoriesDialog from './collectionList/components/CategoriesDialog.vue'
 import { useCollectionList } from './collectionList/composables/useCollectionList'
 import { useCollectionFilter } from './collectionList/composables/useCollectionFilter'
+import { useCollectionProgress } from './collectionList/composables/useCollectionProgress'
 
 const router = useRouter()
 const { setStudyViewCollectionIds } = useStudyViewCollection()
@@ -83,6 +86,7 @@ const {
   loadCollections,
   loadCategories,
   addCollection,
+  addCollectionAt,
   updateCollection,
   renameCollections,
   moveCollection,
@@ -100,6 +104,8 @@ const {
   scopeLabel,
   validate: validateFilter
 } = useCollectionFilter(collections, categories)
+
+const { tiersByCollection, loadProgress } = useCollectionProgress()
 
 const categoriesDialog = ref(false)
 
@@ -122,6 +128,11 @@ const handleAdd = async () => {
   if (!title) return
   const inCategory = categories.value.some(c => c.id === selectedFilter.value)
   await addCollection(title, inCategory ? selectedFilter.value : null)
+}
+
+const handlePull = async () => {
+  await pull(validateFilter)
+  await loadProgress()
 }
 
 const handleRename = async (collection: Collection) => {
@@ -163,7 +174,9 @@ onMounted(async () => {
   await loadCategories()
   validateFilter()
   await loadCollections()
-  syncAll()
+  await loadProgress()
+  // Study done on another device shows up once the background sync lands.
+  syncAll().then(loadProgress)
 })
 </script>
 

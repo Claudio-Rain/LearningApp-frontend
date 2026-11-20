@@ -26,6 +26,17 @@
         <span class="resize-handle" @mousedown.stop="startResize($event, col)" />
       </template>
 
+      <!-- One calm bar: how much of it you know well. The per-tier breakdown
+           is in the tooltip; empty collections show nothing at all. -->
+      <template #item.progress="{ item }">
+        <div v-if="progressOf(item)?.total" class="progress-cell" :title="progressOf(item)!.summary">
+          <div class="progress-bar">
+            <div class="progress-fill" :style="{ width: `${progressOf(item)!.known}%` }" />
+          </div>
+          <span class="progress-pct">{{ progressOf(item)!.known }}%</span>
+        </div>
+      </template>
+
       <template #item.starred="{ item }">
         <v-btn
           :icon="item.starred ? 'mdi-star' : 'mdi-star-outline'"
@@ -78,11 +89,9 @@
         />
       </template>
 
+      <!-- One number: everything inside, sub-collections included. -->
       <template #item.numberOfItems="{ item }">
-        <span :title="itemsTitle(item)">
-          {{ item.numberOfItems }}
-          <span v-if="item.totalItems !== item.numberOfItems" class="total-items">/ {{ item.totalItems }}</span>
-        </span>
+        <span :title="itemsTitle(item)" :class="{ 'items-empty': !item.totalItems }">{{ item.totalItems }}</span>
       </template>
 
       <template #item.actions="{ item }">
@@ -93,13 +102,68 @@
         </div>
       </template>
     </v-data-table>
+
+    <!-- Right-click a row: add a collection inside it or right after it (named
+         in the menu itself), plus the row's usual actions. -->
+    <v-menu v-model="menu.open" :target="[menu.x, menu.y]" location="bottom start" :close-on-content-click="false">
+      <v-card v-if="menu.row" class="row-menu" min-width="260">
+        <v-list v-if="!menu.adding" density="compact">
+          <v-list-subheader class="row-menu__title">{{ menu.row.label }}</v-list-subheader>
+          <v-list-item
+            prepend-icon="mdi-folder-plus-outline"
+            title="Add collection inside"
+            @click="startAdd('inside')"
+          />
+          <v-list-item
+            prepend-icon="mdi-plus"
+            title="Add collection after"
+            @click="startAdd('after')"
+          />
+          <v-divider class="my-1" />
+          <v-list-item prepend-icon="mdi-school" title="Study" @click="runAndClose(() => emit('study', menu.row!.id!))" />
+          <v-list-item
+            prepend-icon="mdi-pencil"
+            title="Rename"
+            @click="runAndClose(() => emit('rename', stored(menu.row!)))"
+          />
+          <v-list-item
+            prepend-icon="mdi-delete"
+            title="Delete"
+            base-color="error"
+            @click="runAndClose(() => emit('delete', menu.row!.id!))"
+          />
+        </v-list>
+        <div v-else class="row-menu__form">
+          <div class="row-menu__hint">
+            {{ menu.adding === 'inside' ? `New collection inside "${menu.row.label}"` : `New collection after "${menu.row.label}"` }}
+          </div>
+          <v-text-field
+            ref="nameField"
+            v-model="menu.title"
+            placeholder="Collection name"
+            variant="outlined"
+            density="compact"
+            hide-details
+            :loading="menu.saving"
+            :disabled="menu.saving"
+            @keydown.enter.prevent="confirmAdd"
+            @keydown.esc.prevent="closeMenu"
+          />
+          <div class="row-menu__actions">
+            <v-btn size="small" variant="text" @click="closeMenu">Cancel</v-btn>
+            <v-btn size="small" color="primary" variant="flat" :disabled="!menu.title.trim()" @click="confirmAdd">Add</v-btn>
+          </div>
+        </div>
+      </v-card>
+    </v-menu>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import type { Category, Collection } from '@/database/types'
 import { parentsOf, withSubCollections } from '@/utils/subCollections'
+import { knownShare, sumTierCounts, tierSummary, totalOf, type TierCounts } from '@/utils/collectionProgress'
 import {
   collectionRows,
   type CollectionRow,
@@ -115,6 +179,10 @@ const props = defineProps<{
   /** Every collection, to place the shown ones in the tree and check moves. */
   allCollections: Collection[]
   categories: Category[]
+  /** Items per strength tier, by collection id (its own items only). */
+  progress: Map<string, TierCounts>
+  /** Creates a collection inside or right after another; resolves once saved. */
+  addCollectionAt: (title: string, targetId: string, position: 'inside' | 'after') => Promise<unknown>
 }>()
 
 const emit = defineEmits<{
@@ -129,7 +197,7 @@ const emit = defineEmits<{
 }>()
 
 const INDENT = 20
-const RESIZABLE_COLUMNS = ['title', 'description', 'categoryId', 'numberOfItems', 'actions']
+const RESIZABLE_COLUMNS = ['title', 'description', 'categoryId', 'numberOfItems', 'progress', 'actions']
 const ACTIONS_WIDTH = 124
 const STAR_WIDTH = 52
 
@@ -138,6 +206,7 @@ const { widths, startResize } = useResizableColumns({
   description: 320,
   categoryId: 160,
   numberOfItems: 80,
+  progress: 150,
   actions: 120
 })
 
@@ -149,6 +218,7 @@ const headers = computed(() => [
   { title: 'Description', key: 'description', sortable: false, width: widths.value.description },
   { title: 'Category', key: 'categoryId', sortable: false, width: widths.value.categoryId },
   { title: 'Items', key: 'numberOfItems', sortable: false, align: 'center' as const, width: widths.value.numberOfItems },
+  { title: 'Progress', key: 'progress', sortable: false, width: widths.value.progress },
   { title: '', key: 'actions', sortable: false, align: 'center' as const, width: ACTIONS_WIDTH, minWidth: ACTIONS_WIDTH }
 ])
 
@@ -161,6 +231,73 @@ const itemsTitle = (row: CollectionRow) =>
   row.totalItems === row.numberOfItems
     ? undefined
     : `${row.numberOfItems} in this collection, ${row.totalItems} including sub-collections`
+
+// --- Progress ----------------------------------------------------------------
+
+// A row counts its sub-collections too, like the item total beside it.
+// Worked out once per row, not on every cell render.
+const rowProgress = (row: CollectionRow) => {
+  const ids = withSubCollections([row.id!], props.allCollections)
+  const counts = sumTierCounts([...ids].map(id => props.progress.get(id)))
+  const known = Math.round((knownShare(counts) ?? 0) * 100)
+  return {
+    counts,
+    total: totalOf(counts),
+    known,
+    summary: `${tierSummary(counts)} — ${known}% known well (good or mastered)`,
+  }
+}
+const progressByRow = computed(() => new Map(rows.value.map(row => [row.id, rowProgress(row)])))
+const progressOf = (row: CollectionRow) => progressByRow.value.get(row.id)
+
+// --- Right-click menu --------------------------------------------------------
+
+const menu = reactive({
+  open: false,
+  x: 0,
+  y: 0,
+  row: null as CollectionRow | null,
+  /** Set once "Add collection…" is picked: the menu turns into a name field. */
+  adding: null as 'inside' | 'after' | null,
+  title: '',
+  saving: false,
+})
+const nameField = ref<{ focus: () => void } | null>(null)
+
+const openMenu = (event: MouseEvent, row: CollectionRow) => {
+  event.preventDefault()
+  Object.assign(menu, { open: true, x: event.clientX, y: event.clientY, row, adding: null, title: '', saving: false })
+}
+
+const closeMenu = () => {
+  menu.open = false
+}
+
+const runAndClose = (action: () => void) => {
+  closeMenu()
+  action()
+}
+
+const startAdd = (position: 'inside' | 'after') => {
+  menu.adding = position
+  nextTick(() => nameField.value?.focus())
+}
+
+const confirmAdd = async () => {
+  const title = menu.title.trim()
+  const row = menu.row
+  if (!title || !row?.id || !menu.adding || menu.saving) return
+  const position = menu.adding
+  menu.saving = true
+  try {
+    await props.addCollectionAt(title, row.id, position)
+    // Show the new sub-collection rather than hiding it in a collapsed parent.
+    if (position === 'inside') setCollapsed(row.id, false)
+    closeMenu()
+  } finally {
+    menu.saving = false
+  }
+}
 
 // --- Tree --------------------------------------------------------------------
 
@@ -351,7 +488,8 @@ const rowProps = ({ item }: { item: CollectionRow }) => ({
   onDragover: (e: DragEvent) => onDragover(e, item.id!, positionIn(e, item)),
   onDragleave,
   onDrop: (e: DragEvent) => onDrop(e, item.id!, positionIn(e, item)),
-  onDragend
+  onDragend,
+  onContextmenu: (e: MouseEvent) => openMenu(e, item)
 })
 </script>
 
@@ -362,6 +500,15 @@ const rowProps = ({ item }: { item: CollectionRow }) => ({
 
 .collections-table {
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}
+
+/* Vuetify tables default to 0.875rem; match the item list's 1rem titles. */
+.collections-table :deep(td) {
+  font-size: 1rem;
+}
+
+.collections-table :deep(th) {
+  font-size: 0.9rem;
 }
 
 .collections-table :deep(tbody tr) {
@@ -420,10 +567,6 @@ const rowProps = ({ item }: { item: CollectionRow }) => ({
   color: rgba(var(--v-theme-on-surface), 0.82);
 }
 
-.total-items {
-  color: rgba(var(--v-theme-on-surface), 0.45);
-}
-
 .top-level-drop {
   position: absolute;
   left: 0;
@@ -474,7 +617,73 @@ const rowProps = ({ item }: { item: CollectionRow }) => ({
   overflow: visible !important;
 }
 
+/* --- progress column --- */
+.progress-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: help;
+}
+
+.progress-bar {
+  flex: 1;
+  min-width: 40px;
+  height: 5px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: rgba(var(--v-theme-on-surface), 0.08);
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: rgb(var(--v-theme-barGood));
+}
+
+.progress-pct {
+  min-width: 3ch;
+  text-align: right;
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+  color: rgba(var(--v-theme-on-surface), 0.65);
+}
+
+.items-empty {
+  color: rgba(var(--v-theme-on-surface), 0.3);
+}
+
+/* --- right-click menu --- */
+.row-menu__title {
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-menu__form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  width: 300px;
+}
+
+.row-menu__hint {
+  font-size: 0.85rem;
+  color: rgba(var(--v-theme-on-surface), 0.7);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-menu__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
 .description-field :deep(input) {
+  font-size: 0.95rem;
   color: rgba(var(--v-theme-on-surface), 0.55) !important;
 }
 
