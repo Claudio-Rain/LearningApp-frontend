@@ -44,10 +44,10 @@ export function useExclusionTable() {
     return collections.value.map(c => {
       const ids = [...withSubCollections([c.id], collections.value)]
         .flatMap(id => [...(collectionItemIds.value.get(id) ?? [])])
-      if (!ids.length) return { id: c.id, title: c.title, categoryId: c.categoryId }
+      if (!ids.length) return { id: c.id, title: c.title, categoryId: c.categoryId, parentId: c.parentId }
       const excludedCount = ids.filter(id => excluded.has(id)).length
       const label = excludedCount > 0 ? `${c.title} (${excludedCount} excluded)` : c.title
-      return { id: c.id, title: label, categoryId: c.categoryId }
+      return { id: c.id, title: label, categoryId: c.categoryId, parentId: c.parentId }
     })
   })
 

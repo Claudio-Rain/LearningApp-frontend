@@ -58,7 +58,25 @@
           </v-list-item-title>
         </v-list-item>
       </template>
-      <v-list-item v-else v-bind="itemProps" class="collection-group-child" />
+      <!-- Indented under its parent. Inside a chosen collection it shows as
+           included (it's studied/counted with it) without being chosen itself. -->
+      <v-list-item
+        v-else
+        v-bind="itemProps"
+        :title="undefined"
+        class="collection-group-child"
+        :style="{ paddingInlineStart: `${16 + item.raw.depth! * 20 + (grouped ? 16 : 0)}px` }"
+      >
+        <template #prepend>
+          <v-checkbox-btn
+            :model-value="selectedSet.has(item.raw.id) || includedViaParent(item.raw.id)"
+            :class="{ 'included-via-parent': !selectedSet.has(item.raw.id) && includedViaParent(item.raw.id) }"
+            color="primary"
+            readonly
+          />
+        </template>
+        <v-list-item-title :class="{ 'font-weight-medium': item.raw.depth === 0 }">{{ item.raw.title }}</v-list-item-title>
+      </v-list-item>
     </template>
     <template #chip="{ item, index, props: chipProps }">
       <v-chip v-if="index < 4" v-bind="chipProps" :text="item.title" />
@@ -72,10 +90,19 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Category } from '../../database'
+import { parentsOf } from '@/utils/subCollections'
+
+type PickableCollection = {
+  id: string
+  title: string
+  categoryId?: string | null
+  parentId?: string | null
+  order?: number
+}
 
 const props = withDefaults(defineProps<{
   modelValue: string[]
-  collections: { id: string; title: string; categoryId?: string | null }[]
+  collections: PickableCollection[]
   categories: Category[]
   label: string
   loading?: boolean
@@ -97,22 +124,48 @@ const emit = defineEmits<{
 const GROUP_HEADER_PREFIX = '__group:'
 const UNCATEGORIZED_KEY = '__uncategorized'
 
-type CollectionGroup = { key: string; title: string; color?: string; items: { id: string; title: string }[] }
+type TreeItem = { id: string; title: string; depth: number }
+// `top` is the group's top-level collections: what its header checkbox picks
+// (choosing a collection already includes everything inside it).
+type CollectionGroup = { key: string; title: string; color?: string; items: TreeItem[]; top: string[] }
 
+const parents = computed(() => parentsOf(props.collections))
+
+// Same order as the collections list: the dragged order, then by title.
+const byOrder = (a: PickableCollection, b: PickableCollection) =>
+  (a.order ?? Infinity) - (b.order ?? Infinity) || a.title.localeCompare(b.title)
+
+/**
+ * Collections as a tree, grouped by category. A sub-collection has no
+ * category of its own — it belongs to its top-level collection's — so it is
+ * listed under that collection, indented, instead of falling into
+ * "Uncategorized".
+ */
 const groups = computed<CollectionGroup[]>(() => {
-  const byKey = new Map<string, CollectionGroup>()
+  const children = new Map<string | undefined, PickableCollection[]>()
   for (const col of props.collections) {
-    const key = col.categoryId ?? UNCATEGORIZED_KEY
+    const parent = parents.value.get(col.id)
+    children.set(parent, [...(children.get(parent) ?? []), col])
+  }
+
+  const byKey = new Map<string, CollectionGroup>()
+  for (const top of (children.get(undefined) ?? []).sort(byOrder)) {
+    const key = top.categoryId ?? UNCATEGORIZED_KEY
     let group = byKey.get(key)
     if (!group) {
       const cat = key === UNCATEGORIZED_KEY ? undefined : props.categories.find(c => c.id === key)
-      group = { key, title: cat?.title ?? 'Uncategorized', color: cat?.color, items: [] }
+      group = { key, title: cat?.title ?? 'Uncategorized', color: cat?.color, items: [], top: [] }
       byKey.set(key, group)
     }
-    group.items.push({ id: col.id, title: col.title })
+    group.top.push(top.id)
+    const place = (col: PickableCollection, depth: number) => {
+      group!.items.push({ id: col.id, title: col.title, depth })
+      ;(children.get(col.id) ?? []).sort(byOrder).forEach(sub => place(sub, depth + 1))
+    }
+    place(top, 0)
   }
-  // Categories alphabetically, uncategorized last. Items keep the collections'
-  // global alphabetical order.
+
+  // Categories alphabetically, uncategorized last.
   return [...byKey.values()].sort((a, b) => {
     if (a.key === UNCATEGORIZED_KEY) return 1
     if (b.key === UNCATEGORIZED_KEY) return -1
@@ -120,16 +173,38 @@ const groups = computed<CollectionGroup[]>(() => {
   })
 })
 
-type GroupedItem = { id: string; title: string; header?: boolean; groupKey?: string; color?: string; count?: number }
+type GroupedItem = {
+  id: string
+  title: string
+  depth?: number
+  header?: boolean
+  groupKey?: string
+  color?: string
+  count?: number
+}
+
+// With a single group (or no categories at all) headers are pure noise.
+const grouped = computed(() => groups.value.length > 1)
 
 const groupedItems = computed<GroupedItem[]>(() => {
-  // With a single group (or no categories at all) headers are pure noise.
-  if (groups.value.length <= 1) return groups.value[0]?.items ?? []
+  if (!grouped.value) return groups.value[0]?.items ?? []
   return groups.value.flatMap(g => [
-    { id: `${GROUP_HEADER_PREFIX}${g.key}`, title: g.title, header: true, groupKey: g.key, color: g.color, count: g.items.length },
+    { id: `${GROUP_HEADER_PREFIX}${g.key}`, title: g.title, header: true, groupKey: g.key, color: g.color, count: g.top.length },
     ...g.items,
   ])
 })
+
+const selectedSet = computed(() => new Set(props.modelValue))
+
+/** Inside a chosen collection (at any depth), so already included with it. */
+function includedViaParent(id: string): boolean {
+  const seen = new Set([id])
+  for (let p = parents.value.get(id); p && !seen.has(p); p = parents.value.get(p)) {
+    if (selectedSet.value.has(p)) return true
+    seen.add(p)
+  }
+  return false
+}
 
 // Keep a group header visible while any of its collections still matches the query.
 function collectionFilter(value: string, query: string, item?: { raw?: GroupedItem }) {
@@ -142,23 +217,24 @@ function collectionFilter(value: string, query: string, item?: { raw?: GroupedIt
   return String(value).toLowerCase().includes(q)
 }
 
+// A category is fully chosen when all its top-level collections are (which
+// brings everything inside them along); partly when anything in it is.
 function categorySelectionState(groupKey: string): 'all' | 'some' | 'none' {
   const group = groups.value.find(g => g.key === groupKey)
-  if (!group || !group.items.length) return 'none'
-  const selected = new Set(props.modelValue)
-  const count = group.items.filter(i => selected.has(i.id)).length
-  return count === group.items.length ? 'all' : count > 0 ? 'some' : 'none'
+  if (!group || !group.top.length) return 'none'
+  if (group.top.every(id => selectedSet.value.has(id))) return 'all'
+  return group.items.some(i => selectedSet.value.has(i.id)) ? 'some' : 'none'
 }
 
+// Picks or drops the whole category. Picking chooses its top-level collections
+// and drops any sub-collections chosen on their own, since those are now
+// included anyway.
 function toggleCategory(groupKey: string) {
   const group = groups.value.find(g => g.key === groupKey)
   if (!group) return
   const selected = new Set(props.modelValue)
-  if (categorySelectionState(groupKey) === 'all') {
-    group.items.forEach(i => selected.delete(i.id))
-  } else {
-    group.items.forEach(i => selected.add(i.id))
-  }
+  group.items.forEach(i => selected.delete(i.id))
+  if (categorySelectionState(groupKey) !== 'all') group.top.forEach(id => selected.add(id))
   emit('update:modelValue', [...selected])
 }
 
@@ -174,7 +250,12 @@ function toggleAll() {
   min-height: 36px;
 }
 
-.collection-group-child {
-  padding-inline-start: 32px !important;
+.collection-group-child :deep(.v-list-item__prepend > .v-list-item__spacer) {
+  width: 8px;
+}
+
+/* Ticked because a parent is chosen, not chosen itself: shown fainter. */
+.included-via-parent {
+  opacity: 0.45;
 }
 </style>
