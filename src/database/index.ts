@@ -27,6 +27,7 @@ export {
   setLearningItemLabels,
   setLearningItemPriority,
   setLearningItemDifficulty,
+  setLearningItemPositions,
   removeLearningItem,
   createCardProgress,
   updateCardProgress,

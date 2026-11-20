@@ -132,6 +132,24 @@
               </ul>
             </template>
 
+            <!-- Reorder: one change to the whole list, so no per-item checkboxes -->
+            <template v-else-if="m.proposal.kind === 'reorder'">
+              <div class="proposal-head">
+                <v-icon size="16" color="primary">mdi-sort</v-icon>
+                Reorder {{ m.proposal.items.length }} item{{ m.proposal.items.length === 1 ? '' : 's' }}
+              </div>
+              <div v-if="m.proposal.reason" class="proposal-item-body reorder-reason">{{ m.proposal.reason }}</div>
+              <ul class="proposal-list">
+                <li v-for="it in m.proposal.items" :key="it.id">
+                  <span class="reorder-pos">#{{ it.to }}</span>
+                  <div class="proposal-item-text">
+                    <MathText tag="div" class="proposal-item-title" :text="it.title" />
+                    <div class="proposal-item-body">was #{{ it.from }}</div>
+                  </div>
+                </li>
+              </ul>
+            </template>
+
             <!-- Labels -->
             <template v-else-if="m.proposal.kind === 'label'">
               <div class="proposal-head">
@@ -206,7 +224,7 @@
               </v-btn>
               <v-spacer />
               <button
-                v-if="m.proposal.items.length > 1"
+                v-if="m.proposal.items.length > 1 && m.proposal.kind !== 'reorder'"
                 class="link-btn" :disabled="applying" @click="toggleAll(m)"
               >
                 {{ allSelected(m) ? 'Clear all' : 'Select all' }}
@@ -276,6 +294,7 @@ const props = defineProps<{
   applyUpdate: (id: string, patch: { title?: string; content?: string }) => Promise<void>
   applyLabels: (id: string, patch: ItemLabelPatch) => Promise<void>
   applyMove: (ids: string[], target: MoveTarget) => Promise<void>
+  applyReorder: (ids: string[], place: 'start' | 'end') => Promise<void>
 }>()
 
 const targetName = (target: MoveTarget) =>
@@ -359,6 +378,7 @@ const applyLabel = (m: ProposalMessage): string => {
   if (m.proposal.kind === 'update') return `Save selected (${n})`
   if (m.proposal.kind === 'label') return `Apply labels (${n})`
   if (m.proposal.kind === 'move') return `Move selected (${n})`
+  if (m.proposal.kind === 'reorder') return 'Apply order'
   return `Add selected (${n})`
 }
 
@@ -504,6 +524,10 @@ const runProposal = async (m: ProposalMessage): Promise<string> => {
   // Create items have no id, so their checkbox key is their index.
   if (m.proposal.kind === 'create') {
     return runCreate(m.proposal.items.filter((_, j) => m.selected[String(j)]))
+  }
+  if (m.proposal.kind === 'reorder') {
+    await props.applyReorder(m.proposal.ids, m.proposal.place)
+    return `Reordered ${count(m.proposal.items.length, 'item')}`
   }
   const chosen = m.proposal.items.filter((it) => m.selected[it.id])
   if (m.proposal.kind === 'delete') return runDelete(chosen as DeleteProposalItem[])

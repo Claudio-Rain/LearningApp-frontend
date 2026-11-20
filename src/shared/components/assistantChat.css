@@ -242,6 +242,20 @@
   margin-top: 2px;
 }
 
+/* Reorder card: the new list position where the checkbox would be. */
+.reorder-pos {
+  flex-shrink: 0;
+  min-width: 2.2em;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(var(--v-theme-primary));
+  line-height: 1.6;
+}
+
+.reorder-reason {
+  margin: -4px 0 8px;
+}
+
 .label-changes {
   display: flex;
   flex-wrap: wrap;

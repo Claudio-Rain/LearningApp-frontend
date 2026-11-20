@@ -67,3 +67,14 @@ export async function updateLearningItemLabels(
   }
   await db.put(LEARNING_ITEMS_STORE, merged)
 }
+
+/** Set one item's list position (see utils/itemOrder.ts) without touching the rest. */
+export async function updateLearningItemPosition(
+  id: string,
+  patch: Partial<Pick<LearningItem, 'position' | 'lastModified' | 'syncStatus'>>,
+): Promise<void> {
+  const db = await dbPromise
+  const item = await db.get(LEARNING_ITEMS_STORE, id)
+  if (!item) return
+  await db.put(LEARNING_ITEMS_STORE, { ...item, ...patch })
+}

@@ -57,6 +57,17 @@ export interface MoveProposalItem {
   reason?: string
 }
 
+/**
+ * One item the assistant wants placed in the list. `from` and `to` are 1-based
+ * list positions (today's and after the change), for the card to show.
+ */
+export interface ReorderProposalItem {
+  id: string
+  title: string
+  from: number
+  to: number
+}
+
 export type MoveTarget = { id: string; title: string } | { newTitle: string }
 
 export interface CollectionRef {
@@ -71,6 +82,11 @@ export type Proposal =
   | { kind: 'update'; items: UpdateProposalItem[] }
   | { kind: 'label'; items: LabelProposalItem[] }
   | { kind: 'move'; target: MoveTarget; items: MoveProposalItem[] }
+  /**
+   * All-or-nothing: `ids` go to the start/end of the list in that order.
+   * `items` is only the ones that end up somewhere new, for the card.
+   */
+  | { kind: 'reorder'; place: 'start' | 'end'; ids: string[]; items: ReorderProposalItem[]; reason?: string }
 
 /**
  * One step of work the assistant is doing, so a long silent turn still shows

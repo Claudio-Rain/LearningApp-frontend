@@ -57,6 +57,11 @@ export interface LearningItem extends Syncable {
   // `priority` is relative to the user's current goal ("my focus is work").
   priority?: number
   difficulty?: number
+  // Where the user dragged the item to in its collection's list (ascending).
+  // Absent until the user first reorders that collection; items without one
+  // sort after the placed ones, by title. Fractional, so a move rewrites only
+  // the moved item. See utils/itemOrder.ts.
+  position?: number
   dateCreated: string
   lastModified: string
 }

@@ -1,22 +1,37 @@
 <template>
+  <!-- Rows are in the user's own order (see utils/itemOrder.ts) and can be
+       dragged into place. Sorting by the Title header is a temporary view;
+       dragging is off while it's on, since a drop there would mean nothing. -->
   <v-data-table
     v-if="items.length > 0"
+    v-model:sort-by="sortBy"
     :headers="headers"
-    :items="items"
+    :items="sorted"
     :items-per-page="-1"
     hide-default-footer
-    :sort-by="[{ key: 'title', order: 'asc' }]"
     density="comfortable"
     class="item-table"
+    :class="{ 'item-table--dragging': dragId, 'item-table--reorderable': canDrag }"
     hover
     :row-props="rowProps"
     @click:row="onRowClick"
   >
-    <template #item.rowNumber="{ index }">
+    <template #item.rowNumber="{ item, index }">
       <span class="row-number">{{ index + 1 }}</span>
+      <span
+        v-if="canDrag"
+        class="drag-handle"
+        title="Drag to reorder"
+        @pointerdown="startDrag($event, item)"
+        @click.stop
+      >
+        <v-icon size="18">mdi-drag</v-icon>
+      </span>
     </template>
     <template #item.title="{ item }">
-      <v-tooltip location="top" open-delay="300" max-width="600">
+      <!-- Keyed by drop count: a moved row's tooltip never sees the mouse
+           leave, so after each drop they're all remounted closed. -->
+      <v-tooltip :key="`${item.id}-${drops}`" location="top" open-delay="300" max-width="600" :disabled="!!dragId">
         <template #activator="{ props: tooltipProps }">
           <MathText v-bind="tooltipProps" class="item-title" :text="item.title" />
         </template>
@@ -39,11 +54,20 @@
     <v-icon size="40" color="grey-lighten-1">mdi-book-open-outline</v-icon>
     <p>No learning items yet</p>
   </div>
+
+  <!-- The title riding along under the pointer while a row is dragged. -->
+  <Teleport to="body">
+    <div v-if="dragItem" class="drag-ghost" :style="{ left: `${ghost.x + 14}px`, top: `${ghost.y + 10}px` }">
+      <MathText :text="dragItem.title" />
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
+import { computed, onBeforeUnmount, reactive, ref } from 'vue'
 import type { LearningItem } from '@/database/types'
 import MathText from '@/shared/components/MathText.vue'
+import { sortByPosition } from '@/utils/itemOrder'
 
 const props = defineProps<{
   items: LearningItem[]
@@ -53,6 +77,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   select: [item: LearningItem]
   delete: [item: LearningItem]
+  /** Move the item so it ends up at `toIndex` in the list. */
+  reorder: [id: string, toIndex: number]
 }>()
 
 const headers = [
@@ -61,8 +87,122 @@ const headers = [
   { title: '', key: 'actions', sortable: false, align: 'center' as const, width: '48px' },
 ]
 
-const rowProps = ({ item }: { item: LearningItem }) => ({
-  class: props.selectedId && props.selectedId === item.id ? 'selected-row' : ''
+const sortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([])
+const sorted = computed(() => sortByPosition(props.items))
+const canDrag = computed(() => sortBy.value.length === 0)
+
+// --- drag and drop ----------------------------------------------------------
+//
+// Pointer events from the grip, not the browser's native drag and drop: a
+// native drag swallows every mouse event while it runs, which left the title
+// tooltips stuck open and let a slightly shaky click on a row start a drag.
+
+const dragId = ref<string | null>(null)
+const dragItem = computed(() => sorted.value.find(i => i.id === dragId.value) ?? null)
+// Where the dragged row would land, as a gap index: 0 is above the first row,
+// sorted.length below the last.
+const dropAt = ref<number | null>(null)
+const ghost = reactive({ x: 0, y: 0 })
+const drops = ref(0)
+
+let scroller: HTMLElement | null = null
+let scrollFrame = 0
+
+const fromIndex = () => sorted.value.findIndex(i => i.id === dragId.value)
+
+// Which gap the pointer is over. Dropping a row right above or below itself
+// changes nothing, so those gaps show no line.
+const updateDropAt = () => {
+  const el = document.elementFromPoint(ghost.x, ghost.y)
+  const row = el?.closest<HTMLElement>('tr[data-index]')
+  if (!row || !scroller?.contains(row)) return
+  const index = Number(row.dataset.index)
+  const { top, height } = row.getBoundingClientRect()
+  const gap = ghost.y < top + height / 2 ? index : index + 1
+  const from = fromIndex()
+  dropAt.value = gap === from || gap === from + 1 ? null : gap
+}
+
+// Near the top or bottom edge of the list, scroll it so a row can be carried
+// to the far end of a long list.
+const EDGE = 48
+const autoScroll = () => {
+  scrollFrame = 0
+  if (!dragId.value || !scroller) return
+  const { top, bottom } = scroller.getBoundingClientRect()
+  const speed =
+    ghost.y < top + EDGE ? -Math.ceil((top + EDGE - ghost.y) / 4) :
+    ghost.y > bottom - EDGE ? Math.ceil((ghost.y - (bottom - EDGE)) / 4) : 0
+  if (speed === 0) return
+  scroller.scrollTop += speed
+  updateDropAt()
+  scrollFrame = requestAnimationFrame(autoScroll)
+}
+
+const onPointerMove = (event: PointerEvent) => {
+  ghost.x = event.clientX
+  ghost.y = event.clientY
+  updateDropAt()
+  if (!scrollFrame) scrollFrame = requestAnimationFrame(autoScroll)
+}
+
+const stopDrag = () => {
+  window.removeEventListener('pointermove', onPointerMove)
+  window.removeEventListener('pointerup', onPointerUp)
+  window.removeEventListener('pointercancel', stopDrag)
+  window.removeEventListener('keydown', onKeydown, true)
+  cancelAnimationFrame(scrollFrame)
+  scrollFrame = 0
+  scroller = null
+  document.body.classList.remove('item-table-dragging')
+  dragId.value = null
+  dropAt.value = null
+}
+
+const onPointerUp = () => {
+  const id = dragId.value
+  const gap = dropAt.value
+  const from = fromIndex()
+  stopDrag()
+  drops.value++
+  if (!id || gap === null || from < 0) return
+  // The gap counts the dragged row itself; the target index doesn't.
+  emit('reorder', id, gap > from ? gap - 1 : gap)
+}
+
+const onKeydown = (event: KeyboardEvent) => {
+  if (event.key !== 'Escape') return
+  event.preventDefault()
+  event.stopPropagation()
+  stopDrag()
+}
+
+const startDrag = (event: PointerEvent, item: LearningItem) => {
+  if (event.button !== 0 || !item.id || dragId.value) return
+  // No text selection, no row click, no splitter or other drag starting.
+  event.preventDefault()
+  event.stopPropagation()
+  scroller = (event.currentTarget as HTMLElement).closest<HTMLElement>('.v-table__wrapper')
+  dragId.value = item.id
+  ghost.x = event.clientX
+  ghost.y = event.clientY
+  document.body.classList.add('item-table-dragging')
+  window.addEventListener('pointermove', onPointerMove)
+  window.addEventListener('pointerup', onPointerUp)
+  window.addEventListener('pointercancel', stopDrag)
+  window.addEventListener('keydown', onKeydown, true)
+}
+
+onBeforeUnmount(stopDrag)
+
+const rowProps = ({ item, index }: { item: LearningItem; index: number }) => ({
+  'data-index': index,
+  class: [
+    props.selectedId && props.selectedId === item.id ? 'selected-row' : '',
+    item.id === dragId.value ? 'dragged-row' : '',
+    dropAt.value === index ? 'drop-before' : '',
+    dropAt.value === sorted.value.length && index === sorted.value.length - 1 ? 'drop-after' : '',
+  ],
 })
 
 const onRowClick = (_event: unknown, { item }: { item: LearningItem }) => emit('select', item)
@@ -83,6 +223,61 @@ const onRowClick = (_event: unknown, { item }: { item: LearningItem }) => emit('
   color: rgba(var(--v-theme-on-surface), 0.5);
 }
 
+/* On hover the row number gives way to a grip, so the row reads as movable. */
+.drag-handle {
+  display: none;
+  cursor: grab;
+  color: rgba(var(--v-theme-on-surface), 0.55);
+}
+
+.item-table--reorderable :deep(tr:hover) .row-number {
+  display: none;
+}
+
+.item-table--reorderable :deep(tr:hover) .drag-handle {
+  display: inline-flex;
+  touch-action: none;
+}
+
+/* Mid-drag, every row shows its number again; only the line moves. */
+.item-table--dragging :deep(tr) .drag-handle {
+  display: none !important;
+}
+
+.item-table--dragging :deep(tr) .row-number {
+  display: inline !important;
+}
+
+:deep(tr.dragged-row) {
+  opacity: 0.4;
+}
+
+/* The landing spot: a primary-coloured line above (or below) a row. Doubled
+   class so it beats the selected row's own inset bar. */
+:deep(tr.drop-before.drop-before) {
+  box-shadow: inset 0 3px 0 0 rgb(var(--v-theme-primary));
+}
+
+:deep(tr.drop-after.drop-after) {
+  box-shadow: inset 0 -3px 0 0 rgb(var(--v-theme-primary));
+}
+
+.drag-ghost {
+  position: fixed;
+  z-index: 3000;
+  max-width: 420px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.85rem;
+  background: rgb(var(--v-theme-surface-variant));
+  color: rgb(var(--v-theme-on-surface-variant));
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
 .item-title {
   white-space: nowrap;
   overflow: hidden;
@@ -92,9 +287,17 @@ const onRowClick = (_event: unknown, { item }: { item: LearningItem }) => emit('
   font-size: 1rem;
 }
 
-:deep(.item-table .v-table__wrapper) {
+/* .item-table is this component's root, so it goes outside :deep() — inside
+   it the selector would look for .item-table *below* the root and never match. */
+.item-table :deep(.v-table__wrapper) {
   flex: 1;
   overflow-y: auto;
+  /* Titles already end in an ellipsis; a few stray pixels of width must not
+     add a horizontal scrollbar that slides the whole list sideways. */
+  overflow-x: hidden;
+  /* Room for the scrollbar is kept even when it isn't showing, so the rows
+     don't jump narrower/wider as it comes and goes. */
+  scrollbar-gutter: stable;
   border: none;
 }
 
@@ -112,12 +315,12 @@ const onRowClick = (_event: unknown, { item }: { item: LearningItem }) => emit('
   opacity: 1;
 }
 
-:deep(.v-table td),
-:deep(.v-table th) {
+.item-table :deep(td),
+.item-table :deep(th) {
   border: none !important;
 }
 
-:deep(.v-table table) {
+.item-table :deep(table) {
   table-layout: fixed;
   width: 100%;
 }
@@ -133,5 +336,15 @@ const onRowClick = (_event: unknown, { item }: { item: LearningItem }) => emit('
   font-size: 0.85rem;
   padding: 32px;
   text-align: center;
+}
+</style>
+
+<style>
+/* While a row is carried: grabbing cursor everywhere, and no text gets
+   selected as the pointer sweeps across the page. */
+body.item-table-dragging,
+body.item-table-dragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
 }
 </style>

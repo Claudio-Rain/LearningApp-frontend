@@ -19,6 +19,7 @@
         :selected-id="selectedItem?.id"
         @select="selectItem"
         @delete="handleDeleteLearningItem"
+        @reorder="collectionItems.reorderItem"
       />
     </div>
 
@@ -42,6 +43,7 @@
       :apply-update="applyUpdate"
       :apply-labels="applyLabels"
       :apply-move="applyMove"
+      :apply-reorder="applyReorder"
       :collections="allCollections"    />
   </div>
 </template>
@@ -71,7 +73,7 @@ const collectionItems = useCollectionItems(collectionId, {
   onMissing: () => router.push({ name: 'collections' })
 })
 const { collection, allCollections, learningItems, selectedItem, isPulling, pull, applyLocalEdit } = collectionItems
-const { applyCreate, applyDelete, applyUpdate, applyLabels, applyMove } = useAssistantActions(collectionItems)
+const { applyCreate, applyDelete, applyUpdate, applyLabels, applyMove, applyReorder } = useAssistantActions(collectionItems)
 const { isClearing, progress: clearProgress, clear: clearStudyHistory } =
   useStudyHistoryReset(collection, learningItems)
 const { leftWidth, isDragging, startDrag } = useSplitPane()
@@ -128,5 +130,7 @@ onMounted(() => collectionItems.load(itemId))
   display: flex;
   flex-direction: column;
   overflow-y: auto;
+  /* Same as the item list: a scrollbar showing up mustn't reflow the card. */
+  scrollbar-gutter: stable;
 }
 </style>

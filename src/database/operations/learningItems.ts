@@ -105,6 +105,33 @@ export async function setLearningItemDifficulty(id: string, difficulty: number) 
   await writeLabel(id, { difficulty })
 }
 
+/**
+ * Save new list positions from a drag (see utils/itemOrder.ts). Like the
+ * labels, a partial write on both sides. If we're offline or the remote write
+ * fails (e.g. an item that was never pushed, which a batch update can't
+ * create) the items stay `pending`, so syncLearningItems() pushes them whole.
+ * Returns the `lastModified` stamp written.
+ */
+export async function setLearningItemPositions(writes: { id: string; position: number }[]): Promise<string> {
+  const lastModified = formatISO(new Date())
+  if (writes.length === 0) return lastModified
+
+  for (const { id, position } of writes) {
+    await local.updateLearningItemPosition(id, { position, lastModified, syncStatus: 'pending' })
+  }
+  if (!navigator.onLine) return lastModified
+
+  try {
+    await remote.updateLearningItemPositions(writes, lastModified)
+  } catch {
+    return lastModified
+  }
+  for (const { id } of writes) {
+    await local.updateLearningItemPosition(id, { syncStatus: 'synced' })
+  }
+  return lastModified
+}
+
 export async function removeLearningItem(id: string) {
   // Cascade: drop card progress for this item (single row keyed by learning_item_id).
   const progress = await local.getCardProgress(id)

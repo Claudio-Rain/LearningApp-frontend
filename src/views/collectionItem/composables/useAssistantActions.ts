@@ -2,6 +2,7 @@ import { formatISO } from 'date-fns'
 import { editLearningItem } from '@/database'
 import { markdownToTiptap } from '@/utils/markdown'
 import { applyTitleDoc, titleDocFromMarkdown, titleFieldsFromMarkdown } from '@/utils/itemTitle'
+import { mergeOrder } from '@/utils/itemOrder'
 import type { ItemLabelPatch } from '@/database/types'
 import type { MoveTarget } from '@/utils/collectionAssistant'
 import type { CollectionItems } from './useCollectionItems'
@@ -52,5 +53,15 @@ export function useAssistantActions(collectionItems: CollectionItems) {
 
   const applyMove = async (ids: string[], target: MoveTarget) => collectionItems.moveItems(ids, target)
 
-  return { applyCreate, applyDelete, applyUpdate, applyLabels, applyMove }
+  /**
+   * Place the listed items at the start (or end) of the list, in that order;
+   * the rest keep theirs. Worked out against the list as it is now, not as
+   * it was when the assistant proposed it.
+   */
+  const applyReorder = async (ids: string[], place: 'start' | 'end') => {
+    const current = collectionItems.learningItems.value.flatMap(i => (i.id ? [i.id] : []))
+    await collectionItems.setOrder(mergeOrder(current, ids, place))
+  }
+
+  return { applyCreate, applyDelete, applyUpdate, applyLabels, applyMove, applyReorder }
 }

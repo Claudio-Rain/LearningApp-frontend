@@ -26,6 +26,7 @@ export type {
   UpdateProposalItem,
   LabelProposalItem,
   MoveProposalItem,
+  ReorderProposalItem,
   MoveTarget,
   CollectionRef,  Proposal,
   AssistantActivity,

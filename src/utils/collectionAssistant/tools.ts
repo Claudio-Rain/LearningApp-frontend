@@ -163,6 +163,32 @@ export const WRITE_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: 'propose_reorder_items',
+    description:
+      "Propose a new order for the collection's list (the order the user sees and can also drag). This does NOT save — it shows the user ONE approval card. Items are listed to you in their current order, top first. Give `ids` in the order they should appear; they are placed at the start of the list (or the end, with place: \"end\") and every item you leave out keeps its current relative order after (or before) them. To sort the whole collection, list every id. To move a single item to the top, list just that id.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        ids: {
+          type: 'array',
+          description: 'Item ids in the order they should appear.',
+          items: { type: 'string' },
+        },
+        place: {
+          type: 'string',
+          enum: ['start', 'end'],
+          description: 'Where the listed items go. Defaults to "start".',
+        },
+        reason: {
+          type: 'string',
+          description: 'Briefly, the logic of the new order (e.g. "basics first, then advanced topics").',
+        },
+      },
+      required: ['ids'],
+      additionalProperties: false,
+    },
+  },
+  {
     name: 'propose_label_items',
     description:
       "Propose priority and/or difficulty labels for existing items. This does NOT save — it shows the user ONE approval card listing every item's current label next to the proposed one, which they confirm together. Use this instead of propose_update_items whenever you are only labeling: it leaves the card's title and content untouched. Labels are cheap to propose, so cover every item you mean to label in a single call.",

@@ -21,8 +21,10 @@ import type {
   LabelProposalItem,
   MoveProposalItem,
   MoveTarget,
+  ReorderProposalItem,
   UpdateProposalItem,
 } from './types'
+import { mergeOrder } from '../itemOrder'
 
 const PREVIEW_CHARS = 200
 
@@ -236,6 +238,43 @@ const proposeMove = (input: any, handlers: AssistantHandlers): ToolOutcome => {
   )
 }
 
+type ReorderInput = { ids?: unknown; place?: unknown; reason?: unknown } | undefined
+
+const proposeReorder = (input: ReorderInput, handlers: AssistantHandlers): ToolOutcome => {
+  const live = handlers.getItems()
+  const currentIds = live.map((it) => it.id)
+  const place = input?.place === 'end' ? 'end' : 'start'
+  const listed = (Array.isArray(input?.ids) ? input.ids : []).map((id) => String(id))
+  const next = mergeOrder(currentIds, listed, place)
+  const listedSet = new Set(listed)
+
+  // Only the items that actually change place go on the card.
+  const items: ReorderProposalItem[] = []
+  next.forEach((id, to) => {
+    const from = currentIds.indexOf(id)
+    if (!listedSet.has(id) || from === to) return
+    items.push({ id, title: live[from]!.title, from: from + 1, to: to + 1 })
+  })
+
+  if (items.length === 0) {
+    return failed(
+      'Nothing to reorder: the ids matched no items in this collection, or the list is already in that order.',
+      'Order already matches',
+    )
+  }
+  handlers.onProposal({
+    kind: 'reorder',
+    place,
+    ids: listed.filter((id) => currentIds.includes(id)),
+    items,
+    reason: input?.reason ? String(input.reason) : undefined,
+  })
+  return ok(
+    `Showed the user an approval card to reorder ${items.length} item${plural(items.length)}. Awaiting their review.`,
+    `Suggested a new order for ${items.length} item${plural(items.length)}`,
+  )
+}
+
 // Turn a write tool call into a Proposal for the UI. The result text tells the
 // model the card is up. Never touches the DB — the actual write happens only
 // when the user approves the card.
@@ -246,6 +285,7 @@ const runWriteTool = (name: string, input: any, handlers: AssistantHandlers): To
     case 'propose_update_items': return proposeUpdates(input, handlers)
     case 'propose_label_items': return proposeLabels(input, handlers)
     case 'propose_move_items': return proposeMove(input, handlers)
+    case 'propose_reorder_items': return proposeReorder(input as ReorderInput, handlers)
     default: return failed(`Unknown tool: ${name}`, `Unknown tool: ${name}`)
   }
 }

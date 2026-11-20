@@ -9,7 +9,8 @@ import {
   query,
   where,
   setDoc,
-  deleteField
+  deleteField,
+  writeBatch
 } from 'firebase/firestore'
 import { db } from './firebase'
 import type { JSONContent } from '@tiptap/vue-3'
@@ -70,6 +71,24 @@ export async function updateLearningItemLabels(
     Object.entries(patch).map(([key, value]) => [key, value === null ? deleteField() : value])
   )
   await updateDoc(doc(db, 'learning_items', remoteId), data)
+}
+
+/**
+ * Write list positions (see utils/itemOrder.ts) without sending content. The
+ * first reorder of a collection numbers every item, so these go out in
+ * batches (Firestore allows 500 writes per batch) instead of one by one.
+ */
+export async function updateLearningItemPositions(
+  writes: { id: string; position: number }[],
+  lastModified: string,
+): Promise<void> {
+  for (let start = 0; start < writes.length; start += 500) {
+    const batch = writeBatch(db)
+    for (const { id, position } of writes.slice(start, start + 500)) {
+      batch.update(doc(db, 'learning_items', id), { position, lastModified })
+    }
+    await batch.commit()
+  }
 }
 
 export async function setLearningItem(item: LearningItem): Promise<void> {

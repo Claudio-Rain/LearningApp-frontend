@@ -12,10 +12,12 @@ import {
   syncLearningItems,
   syncCollections,
   pullLearningItems,
-  setLearningItemLabels
+  setLearningItemLabels,
+  setLearningItemPositions
 } from '@/database'
 import type { Collection, ItemEditPatch, ItemLabelPatch, LearningItem } from '@/database/types'
 import { toLabelPatch } from '@/utils/itemLabels'
+import { planMove, planOrder, sortByPosition, type PositionWrite } from '@/utils/itemOrder'
 
 export type CollectionItems = ReturnType<typeof useCollectionItems>
 
@@ -41,7 +43,7 @@ export function useCollectionItems(collectionId: string, options: { onMissing: (
       return
     }
 
-    learningItems.value = await getLearningItems(collectionId)
+    learningItems.value = sortByPosition(await getLearningItems(collectionId))
     if (learningItems.value.length === 0) {
       selectedItem.value = null
       return
@@ -185,6 +187,36 @@ export function useCollectionItems(collectionId: string, options: { onMissing: (
     mergeLocalItem(id, clean, lastModified)
   }
 
+  /**
+   * Move one item to `toIndex` in the list. The list updates at once; the
+   * positions are then saved, and anything the remote write couldn't take is
+   * pushed by the sync that follows. Like labels, the collection's own
+   * timestamp is left alone — the order lives on the items.
+   */
+  const reorderItem = async (id: string, toIndex: number) =>
+    savePositions(planMove(sortByPosition(learningItems.value), id, toIndex))
+
+  /** Put the whole list in exactly this order (the assistant's reorder). */
+  const setOrder = async (orderedIds: string[]) =>
+    savePositions(planOrder(sortByPosition(learningItems.value), orderedIds))
+
+  const savePositions = async (writes: PositionWrite[]) => {
+    if (writes.length === 0) return
+    const byId = new Map(learningItems.value.map(i => [i.id, i]))
+    for (const { id: itemId, position } of writes) {
+      const item = byId.get(itemId)
+      if (item) item.position = position
+    }
+    learningItems.value = sortByPosition(learningItems.value)
+
+    const lastModified = await setLearningItemPositions(writes)
+    for (const { id: itemId } of writes) {
+      const item = byId.get(itemId)
+      if (item) item.lastModified = lastModified
+    }
+    await syncLearningItems()
+  }
+
   const pull = async () => {
     if (!navigator.onLine) return
     isPulling.value = true
@@ -212,6 +244,8 @@ export function useCollectionItems(collectionId: string, options: { onMissing: (
     deleteItems,
     applyLocalEdit,
     setLabels,
+    reorderItem,
+    setOrder,
     touchCollection,
     pull
   }
