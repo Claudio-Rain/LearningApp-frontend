@@ -10,6 +10,7 @@ import {
   strengthBuckets,
   weakestCollections,
   learningCurve,
+  cardsOverTime,
   revisionsToMaster,
   hardestCards
 } from '@/views/studyProgress/aggregation'
@@ -167,5 +168,37 @@ describe('what to study next', () => {
 
   it('lists studied cards below good, weakest first', () => {
     expect(hardestCards(progressRows, items).map(c => c.id)).toEqual(['c', 'b'])
+  })
+})
+
+describe('cardsOverTime', () => {
+  const card = (id: string, created: string): LearningItem => ({ ...item(id), dateCreated: `${created}T09:00:00` })
+  const rev = (id: string, ease: number, at: string): AttemptLog => ({
+    learning_item_id: id,
+    ease_score: ease,
+    is_correct: ease > 0,
+    created_at: `${at}T12:00:00`
+  })
+
+  it('counts cards created each day and where studied ones stood', () => {
+    const items = [card('a', '2026-03-01'), card('b', '2026-03-01'), card('c', '2026-03-03')]
+    const logs = [rev('a', 0.1, '2026-03-02'), rev('a', 0.7, '2026-03-03'), rev('b', 0.3, '2026-03-03')]
+    const days = cardsOverTime(items, logs, new Date('2026-03-04T10:00:00'))
+    expect(days.map(d => [d.day, d.total, d.weak, d.fair, d.good, d.mastered])).toEqual([
+      ['2026-03-01', 2, 0, 0, 0, 0],
+      ['2026-03-02', 2, 1, 0, 0, 0],
+      // a moves from weak to mastered (0.8); b lands in fair; c is created.
+      ['2026-03-03', 3, 0, 1, 0, 1],
+      ['2026-03-04', 3, 0, 1, 0, 1],
+    ])
+  })
+
+  it('counts a card studied before its recorded creation from that study on', () => {
+    const days = cardsOverTime([card('a', '2026-03-03')], [rev('a', 0.1, '2026-03-01')], new Date('2026-03-03T10:00:00'))
+    expect(days.map(d => d.total)).toEqual([1, 1, 1])
+  })
+
+  it('is empty without cards or revisions', () => {
+    expect(cardsOverTime([], [])).toEqual([])
   })
 })

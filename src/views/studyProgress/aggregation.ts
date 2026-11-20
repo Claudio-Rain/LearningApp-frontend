@@ -1,4 +1,4 @@
-import { parseISO } from 'date-fns'
+import { eachDayOfInterval, format, parseISO } from 'date-fns'
 import type { AttemptLog, CardProgress, LearningItem } from '@/database/types'
 import { knownShare, tierCountsByCollection, totalOf } from '@/utils/collectionProgress'
 import {
@@ -188,6 +188,73 @@ export function replayCardStrength(
       onStep(itemId, i + 1, strength)
     })
   }
+}
+
+// --- Cards over time ------------------------------------------------------------
+
+/** The collection on one day: how many cards existed, and how many sat in each level. */
+export interface DaySnapshot {
+  /** `yyyy-MM-dd`, local time */
+  day: string
+  /** Cards created by the end of the day (or already studied, if older than their record). */
+  total: number
+  weak: number
+  fair: number
+  good: number
+  mastered: number
+}
+
+const localDay = (iso: string) => format(parseISO(iso), 'yyyy-MM-dd')
+
+/**
+ * One snapshot per day, from the first card or revision to `today`. Each
+ * card's strength is replayed revision by revision, so a day's levels are
+ * where every card stood at the end of it; cards never studied by then are
+ * the gap between the levels and `total`.
+ */
+export function cardsOverTime(
+  items: readonly LearningItem[],
+  logs: readonly AttemptLog[],
+  today = new Date()
+): DaySnapshot[] {
+  const created = items.map(i => localDay(i.dateCreated)).sort()
+  const sortedLogs = [...logs].sort(byCreatedAt)
+  const firstDay = [created[0], sortedLogs[0] && localDay(sortedLogs[0].created_at)].filter(Boolean).sort()[0]
+  if (!firstDay) return []
+
+  const levels = { weak: 0, fair: 0, good: 0, mastered: 0 } as Record<ScoredTier, number>
+  const strength = new Map<string, number>()
+  const createdOn = new Map(items.map(i => [i.id, localDay(i.dateCreated)]))
+  // Cards studied before their own creation date (e.g. re-imported): they
+  // count towards `total` from their first revision instead.
+  const studiedEarly = new Set<string>()
+  const notCreatedBy = (id: string, day: string) => (createdOn.get(id) ?? '￿') > day
+
+  // Moves the card from the level it was in to the one this revision puts it in.
+  const apply = (log: AttemptLog, day: string) => {
+    const id = log.learning_item_id
+    const before = strength.get(id)
+    const after = clampStrength((before ?? 0) + log.ease_score)
+    if (before === undefined && notCreatedBy(id, day)) studiedEarly.add(id)
+    if (before !== undefined) levels[strengthTier(before) as ScoredTier]--
+    levels[strengthTier(after) as ScoredTier]++
+    strength.set(id, after)
+  }
+
+  const snapshots: DaySnapshot[] = []
+  let nextCreated = 0
+  let nextLog = 0
+  for (const date of eachDayOfInterval({ start: parseISO(firstDay), end: today })) {
+    const day = format(date, 'yyyy-MM-dd')
+    while (nextCreated < created.length && created[nextCreated]! <= day) nextCreated++
+    for (let log = sortedLogs[nextLog]; log && localDay(log.created_at) <= day; log = sortedLogs[++nextLog]) {
+      apply(log, day)
+    }
+    // Once an early card's own creation day comes round, `created` counts it.
+    const early = [...studiedEarly].filter(id => notCreatedBy(id, day)).length
+    snapshots.push({ day, total: nextCreated + early, ...levels })
+  }
+  return snapshots
 }
 
 /** Attempt logs at or after `cutoff`. */

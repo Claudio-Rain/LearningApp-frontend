@@ -115,8 +115,8 @@
 
         <ChartCard
           full-width
-          title="Strength mix over time"
-          subtitle="How your cards shifted between strength levels"
+          title="Cards over time"
+          subtitle="The line is every card you had each day; below it, how well you knew them — the gap is cards not studied yet. Drag to zoom."
         >
           <div ref="compositionChartRef" class="chart"></div>
         </ChartCard>

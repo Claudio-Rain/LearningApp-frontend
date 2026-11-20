@@ -15,7 +15,7 @@
       </div>
 
       <div class="overview__bar" :title="barTitle">
-        <template v-for="tier in STRENGTH_TIERS" :key="tier">
+        <template v-for="tier in FILL_ORDER" :key="tier">
           <div
             v-if="tiers[tier] > 0"
             class="overview__seg"
@@ -24,7 +24,7 @@
         </template>
       </div>
       <div class="overview__legend">
-        <span v-for="tier in STRENGTH_TIERS" :key="tier" class="overview__legend-item">
+        <span v-for="tier in FILL_ORDER" :key="tier" class="overview__legend-item">
           <i class="overview__dot" :style="{ background: `rgb(var(--v-theme-${STRENGTH_TIER_META[tier].bar}))` }" />
           {{ STRENGTH_TIER_META[tier].label }} <b>{{ tiers[tier].toLocaleString() }}</b>
         </span>
@@ -71,12 +71,16 @@ const props = defineProps<{
   remaining: number
 }>()
 
+// Strongest first, so the bar reads as a fill: mastered and good grow from
+// the left, new cards are what's still empty on the right.
+const FILL_ORDER = [...STRENGTH_TIERS].reverse()
+
 const total = computed(() => STRENGTH_TIERS.reduce((n, t) => n + props.tiers[t], 0))
 const known = computed(() => props.tiers.good + props.tiers.mastered)
 const knownPct = computed(() => (total.value ? Math.round((known.value / total.value) * 100) : 0))
 
 const barTitle = computed(() =>
-  STRENGTH_TIERS.map(t => `${STRENGTH_TIER_META[t].label} ${props.tiers[t]}`).join(' · ')
+  FILL_ORDER.map(t => `${STRENGTH_TIER_META[t].label} ${props.tiers[t]}`).join(' · ')
 )
 </script>
 

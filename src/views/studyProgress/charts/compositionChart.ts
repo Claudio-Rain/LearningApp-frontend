@@ -1,82 +1,107 @@
-import { SCORED_TIERS, STRENGTH_TIER_META, clampStrength, strengthTier, type ScoredTier } from '@/utils/strength'
-import { byCreatedAt, emptyTierCounts } from '../aggregation'
+import { STRENGTH_TIER_META, type StrengthTier } from '@/utils/strength'
+import { cardsOverTime, type DaySnapshot } from '../aggregation'
 import type { ChartContext, ProgressChartData } from './chartRegistry'
 
-// One snapshot of the tier distribution every N attempts.
-const SNAPSHOT_EVERY = 5
+// Bottom to top, so the stack fills up like the overview bar: mastered at the
+// base, then good, fair, weak, and the cards not studied yet on top — which
+// brings the stack exactly up to the total line.
+const STACK_ORDER: StrengthTier[] = ['mastered', 'good', 'fair', 'weak', 'new']
 
-/** Stacked bands showing how the tier mix shifted as attempts accumulated. */
+const notStudied = (s: DaySnapshot) => Math.max(0, s.total - (s.weak + s.fair + s.good + s.mastered))
+const levelOf = (s: DaySnapshot, tier: StrengthTier) => (tier === 'new' ? notStudied(s) : s[tier])
+
+/** Midnight UTC of a local `yyyy-MM-dd`, which Highcharts' datetime axis shows as that date. */
+const dayToUtc = (day: string) => {
+  const [y, m, d] = day.split('-').map(Number)
+  return Date.UTC(y!, m! - 1, d!)
+}
+
+// The snapshots behind the chart, for the shared tooltip (bound once at creation).
+let snapshotsByX = new Map<number, DaySnapshot>()
+
+/**
+ * Cards over time, in absolute numbers: a line for how many cards existed each
+ * day (it climbs as cards are added), and under it the cards stacked by how
+ * well they were known that day.
+ */
 export function renderCompositionChart(
   { registry, palette }: ChartContext,
   el: HTMLElement,
-  { logs }: ProgressChartData
+  { items, logs }: ProgressChartData
 ): void {
-  if (logs.length === 0) return
+  const snapshots = cardsOverTime(items, logs)
+  if (!snapshots.length) return
+  snapshotsByX = new Map(snapshots.map(s => [dayToUtc(s.day), s]))
 
-  const sortedLogs = [...logs].sort(byCreatedAt)
-  const runningStrength = new Map<string, number>()
-  const snapshots: Array<Record<ScoredTier, number>> = []
-  const labels: string[] = []
-  const seenCards = new Set<string>()
-
-  sortedLogs.forEach((log, index) => {
-    seenCards.add(log.learning_item_id)
-    const prev = runningStrength.get(log.learning_item_id) ?? 0
-    runningStrength.set(log.learning_item_id, clampStrength(prev + log.ease_score))
-    if ((index + 1) % SNAPSHOT_EVERY === 0) {
-      const buckets = emptyTierCounts()
-      // Every seen card has been revised at least once, so none is 'new'.
-      seenCards.forEach(id => buckets[strengthTier(runningStrength.get(id) ?? 0) as ScoredTier]++)
-      snapshots.push(buckets)
-      labels.push(`After ${index + 1} attempts`)
-    }
-  })
-
-  const pct = (snapshot: Record<ScoredTier, number>, key: ScoredTier) => {
-    const total = SCORED_TIERS.reduce((sum, t) => sum + snapshot[t], 0)
-    return total > 0 ? Math.round((snapshot[key] / total) * 100) : 0
-  }
-  // One stacked band per scored tier, low→high.
-  const tierSeries = SCORED_TIERS.map(tier => snapshots.map(s => pct(s, tier)))
+  const levelData = STACK_ORDER.map(tier => snapshots.map(s => [dayToUtc(s.day), levelOf(s, tier)] as [number, number]))
+  const totalData = snapshots.map(s => [dayToUtc(s.day), s.total] as [number, number])
 
   const existing = registry.get('composition')
   if (existing) {
-    existing.xAxis[0]?.setCategories(labels, false)
-    tierSeries.forEach((data, i) => {
-      const isLast = i === tierSeries.length - 1
-      existing.series[i]?.setData(data, isLast, isLast ? { duration: 300 } : undefined)
-    })
+    levelData.forEach((data, i) => existing.series[i]?.setData(data, false))
+    existing.series[STACK_ORDER.length]?.setData(totalData, true, { duration: 300 })
     return
   }
 
   registry.create('composition', el, {
-    chart: { type: 'areaspline' },
+    chart: { zooming: { type: 'x' } },
     title: { text: '' },
-    xAxis: { categories: labels, tickInterval: Math.max(1, Math.floor(labels.length / 8)) },
+    xAxis: { type: 'datetime', crosshair: { color: palette.axisLine() } },
     yAxis: {
-      title: { text: 'Composition (%)' },
+      title: { text: 'Cards' },
       min: 0,
-      max: 100,
-      stackLabels: { enabled: false },
+      allowDecimals: false,
+      // First series at the bottom of the stack.
+      reversedStacks: false,
       gridLineWidth: 1,
       gridLineColor: palette.gridLine()
     },
     plotOptions: {
-      areaspline: {
-        stacking: 'percent',
+      area: {
+        stacking: 'normal',
         lineWidth: 0,
+        fillOpacity: 0.85,
         marker: { enabled: false },
-        dataLabels: { enabled: false }
-      }
+        states: { hover: { lineWidth: 0 } }
+      },
+      series: { animation: { duration: 300 } }
     },
-    series: SCORED_TIERS.map((tier, i) => ({
-      name: STRENGTH_TIER_META[tier].label,
-      data: tierSeries[i],
-      color: palette.tierColor(tier),
-      type: 'areaspline'
-    })),
+    series: [
+      ...STACK_ORDER.map((tier, i) => ({
+        name: tier === 'new' ? 'Not studied yet' : STRENGTH_TIER_META[tier].label,
+        type: 'area',
+        data: levelData[i],
+        color: palette.tierColor(tier)
+      })),
+      {
+        name: 'All cards',
+        type: 'line',
+        data: totalData,
+        color: palette.alpha('on-surface', 0.85),
+        lineWidth: 2,
+        marker: { enabled: false },
+        zIndex: 5
+      }
+    ],
     legend: { enabled: true },
     credits: { enabled: false },
-    tooltip: { pointFormat: '<b>{point.percentage:.0f}%</b> {series.name}' }
+    tooltip: {
+      shared: true,
+      formatter: function(this: { x: number }) {
+        const s = snapshotsByX.get(this.x)
+        if (!s) return false
+        const date = new Date(this.x).toLocaleDateString(undefined, { timeZone: 'UTC', dateStyle: 'medium' })
+        const row = (label: string, value: number, color?: string) =>
+          `<br/>${color ? `<span style="color:${color}">●</span> ` : ''}${label}: <b>${value}</b>`
+        // Strongest first, matching the legend under the overview bar.
+        return (
+          `<span style="font-size:11px">${date}</span>` +
+          row('All cards', s.total) +
+          STACK_ORDER.map(t =>
+            row(t === 'new' ? 'Not studied yet' : STRENGTH_TIER_META[t].label, levelOf(s, t), palette.tierColor(t))
+          ).join('')
+        )
+      }
+    }
   })
 }
