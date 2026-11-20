@@ -1,12 +1,23 @@
 <template>
   <div class="progress-view">
-    <!-- Header -->
+    <!-- Header: title, the collection filter and sync in one row -->
     <div class="progress-header">
-      <div>
+      <div class="progress-header__title">
+        <v-btn icon="mdi-arrow-left" variant="text" size="small" title="Back to collections" @click="goBack" />
         <h1>Study Progress</h1>
-        <p class="subtitle">Track your learning journey</p>
       </div>
-      <div class="header-actions">
+      <div class="progress-header__controls">
+        <CollectionMultiSelect
+          v-model="selectedCollectionIds"
+          :collections="selectableCollections"
+          :categories="categories"
+          label="All collections"
+          density="compact"
+          hide-details
+          class="collection-select"
+          name="collection-filter-no-autocomplete"
+          @update:model-value="saveSelection"
+        />
         <v-btn
           :icon="syncing ? undefined : 'mdi-sync'"
           :loading="syncing"
@@ -14,191 +25,165 @@
           title="Sync latest data"
           @click="syncAndReload"
         />
-        <v-btn icon="mdi-arrow-left" variant="text" @click="goBack" />
       </div>
     </div>
 
-    <!-- Collection Filter -->
-    <div class="collection-filter-bar">
-      <CollectionMultiSelect
-        v-model="selectedCollectionIds"
-        :collections="selectableCollections"
-        :categories="categories"
-        label="Collections"
-        density="compact"
-        hide-details
-        class="collection-select"
-        name="collection-filter-no-autocomplete"
-        @update:model-value="saveSelection"
+    <div class="progress-body">
+      <!-- 1. How am I doing? -->
+      <ProgressOverview
+        :tiers="tiers"
+        :attempts="stats.totalAttempts"
+        :remaining="stats.projectedAttemptsToFinish"
       />
-    </div>
 
-    <ProgressStats :stats="stats" />
+      <!-- 2. What should I study? -->
+      <StudyNext :collections="weakCollections" :cards="hardCards" @study="goToStudy" @open-card="openCard" />
 
-    <!-- Charts -->
-    <div class="charts-container">
-      <ChartCard title="Weak vs Strong Cards">
-        <div ref="accuracyChartRef" class="chart"></div>
-      </ChartCard>
+      <!-- 3. Am I improving? / When do I study? -->
+      <div class="progress-grid">
+        <ChartCard
+          title="Strength over time"
+          subtitle="Average strength across all cards, day by day — never-studied cards count as 0"
+        >
+          <div ref="dailyStrengthChartRef" class="chart"></div>
+        </ChartCard>
 
-      <ChartCard title="Cards by Strength">
-        <div ref="strengthChartRef" class="chart"></div>
-      </ChartCard>
+        <ChartCard title="Daily revisions" subtitle="Drag across the chart to zoom into a range">
+          <template #actions>
+            <div class="date-range-filter">
+              <v-text-field
+                v-model="timelineStartDate"
+                type="date"
+                label="From"
+                density="compact"
+                variant="outlined"
+                hide-details
+                :max="timelineEndDate"
+              />
+              <v-text-field
+                v-model="timelineEndDate"
+                type="date"
+                label="To"
+                density="compact"
+                variant="outlined"
+                hide-details
+                :min="timelineStartDate"
+              />
+            </div>
+          </template>
+          <div ref="timelineChartRef" class="chart"></div>
+        </ChartCard>
 
-      <ChartCard
-        title="Peak Study Hours"
-        subtitle="Average attempts in each hour of the day (last 30 days)"
-        :empty-text="noRecentStudy"
-      >
-        <div ref="studyHoursChartRef" class="chart"></div>
-      </ChartCard>
+        <ChartCard
+          full-width
+          title="When you study"
+          subtitle="Revisions by day and hour, last 30 days — brighter means more"
+          :empty-text="noRecentStudy"
+        >
+          <div ref="studyHeatmapChartRef" class="chart chart-heatmap"></div>
+        </ChartCard>
+      </div>
 
-      <ChartCard
-        title="Most Active Days"
-        subtitle="Average attempts on each day of the week (last 30 days)"
-        :empty-text="noRecentStudy"
-      >
-        <div ref="studyDaysChartRef" class="chart"></div>
-      </ChartCard>
+      <!-- 4. Everything else, out of the way until asked for -->
+      <div class="more-toggle">
+        <v-btn
+          variant="text"
+          :append-icon="showMore ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+          class="more-toggle__btn"
+          @click="showMore = !showMore"
+        >
+          {{ showMore ? 'Fewer charts' : 'More charts' }}
+        </v-btn>
+      </div>
 
-      <ChartCard title="Study History" subtitle="Drag across the chart to zoom into a range">
-        <template #actions>
-          <div class="date-range-filter">
-            <v-text-field
-              v-model="timelineStartDate"
-              type="date"
-              label="From"
+      <div v-if="showMore" class="progress-grid">
+        <ChartCard
+          full-width
+          title="Collections compared"
+          subtitle="Strength, revisions, and card coverage per collection"
+        >
+          <template #actions>
+            <v-btn-toggle
+              v-model="collectionOverviewSortBy"
+              mandatory
               density="compact"
               variant="outlined"
-              hide-details
-              :max="timelineEndDate"
-            />
-            <v-text-field
-              v-model="timelineEndDate"
-              type="date"
-              label="To"
-              density="compact"
-              variant="outlined"
-              hide-details
-              :min="timelineStartDate"
-            />
+              class="sort-toggle"
+              @update:model-value="renderCollectionOverview"
+            >
+              <v-btn value="name" size="small">Name</v-btn>
+              <v-btn value="strength" size="small">Strength</v-btn>
+              <v-btn value="revisions" size="small">Revisions</v-btn>
+              <v-btn value="revised" size="small">Revised</v-btn>
+              <v-btn value="notRevised" size="small">Not Revised</v-btn>
+            </v-btn-toggle>
+          </template>
+          <div class="chart-hscroll">
+            <div
+              ref="collectionOverviewChartRef"
+              class="chart"
+              :style="{ width: collectionOverviewWidth }"
+            ></div>
           </div>
-        </template>
-        <div ref="timelineChartRef" class="chart"></div>
-      </ChartCard>
+        </ChartCard>
 
-      <!-- Full width: 30 day columns are cramped in half a row. -->
-      <ChartCard
-        full-width
-        title="Study Heatmap"
-        subtitle="Attempts by day of month and hour — brighter means more study (last 30 days)"
-        :empty-text="noRecentStudy"
-      >
-        <div ref="studyHeatmapChartRef" class="chart chart-heatmap"></div>
-      </ChartCard>
+        <ChartCard
+          full-width
+          title="Strength mix over time"
+          subtitle="How your cards shifted between strength levels"
+        >
+          <div ref="compositionChartRef" class="chart"></div>
+        </ChartCard>
 
-      <ChartCard
-        full-width
-        title="Collection Overview"
-        subtitle="Strength, revisions, and card coverage per collection"
-      >
-        <template #actions>
-          <v-btn-toggle
-            v-model="collectionOverviewSortBy"
-            mandatory
-            density="compact"
-            variant="outlined"
-            class="sort-toggle"
-            @update:model-value="renderCollectionOverview"
-          >
-            <v-btn value="name" size="small">Name</v-btn>
-            <v-btn value="strength" size="small">Strength</v-btn>
-            <v-btn value="revisions" size="small">Revisions</v-btn>
-            <v-btn value="revised" size="small">Revised</v-btn>
-            <v-btn value="notRevised" size="small">Not Revised</v-btn>
-          </v-btn-toggle>
-        </template>
-        <div class="chart-hscroll">
-          <div
-            ref="collectionOverviewChartRef"
-            class="chart"
-            :style="{ width: collectionOverviewWidth }"
-          ></div>
-        </div>
-      </ChartCard>
-
-      <ChartCard
-        full-width
-        title="Strength Composition Over Time"
-        subtitle="How your card distribution shifted across strength tiers over time"
-      >
-        <div ref="compositionChartRef" class="chart"></div>
-      </ChartCard>
-
-      <ChartCard
-        full-width
-        title="Average Strength Per Day"
-        subtitle="Your overall strength each day, averaged over all cards — cards never revised count as 0"
-      >
-        <div ref="dailyStrengthChartRef" class="chart"></div>
-      </ChartCard>
-
-      <ChartCard
-        full-width
-        title="Strength vs Attempts"
-        subtitle="Each dot is one card after a revision — strength tends to climb the more you revise it"
-      >
-        <template #actions>
-          <v-checkbox
-            v-model="showCardTitles"
-            label="Show card titles"
-            density="compact"
-            hide-details
-            class="flex-shrink-0"
-          />
-        </template>
-        <div ref="strengthScatterChartRef" class="chart"></div>
-      </ChartCard>
-
-      <ChartCard full-width title="Most Challenging Cards">
-        <div class="chart-scroll-container">
-          <div ref="challengingChartRef" class="chart"></div>
-        </div>
-      </ChartCard>
+        <ChartCard
+          full-width
+          title="Strength vs revisions"
+          subtitle="Each dot is one card after a revision — strength tends to climb the more you revise it"
+        >
+          <template #actions>
+            <v-checkbox
+              v-model="showCardTitles"
+              label="Show card titles"
+              density="compact"
+              hide-details
+              class="flex-shrink-0"
+            />
+          </template>
+          <div ref="strengthScatterChartRef" class="chart"></div>
+        </ChartCard>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, onMounted, onUnmounted, type Ref } from 'vue'
+import { computed, nextTick, ref, watch, onMounted, onUnmounted, type Ref } from 'vue'
 import { format, startOfDay, subDays } from 'date-fns'
-import { recentLogs } from './studyProgress/aggregation'
 import { useRouter } from 'vue-router'
 import { useTheme } from 'vuetify'
 import { syncAll } from '@/database'
 import CollectionMultiSelect from '@/shared/components/CollectionMultiSelect.vue'
+import { useStudyViewCollection } from '@/shared/composables/useStudyViewCollection'
 import ChartCard from './studyProgress/components/ChartCard.vue'
-import ProgressStats from './studyProgress/components/ProgressStats.vue'
+import ProgressOverview from './studyProgress/components/ProgressOverview.vue'
+import StudyNext from './studyProgress/components/StudyNext.vue'
 import { useProgressData } from './studyProgress/composables/useProgressData'
 import {
-  applyGlobalChartTheme,
-  createChartPalette
-} from './studyProgress/charts/chartTheme'
+  hardestCards,
+  newCardCount,
+  recentLogs,
+  strengthBuckets,
+  tierCountsWithNew,
+  weakestCollections,
+  type HardCard
+} from './studyProgress/aggregation'
+import { applyGlobalChartTheme, createChartPalette } from './studyProgress/charts/chartTheme'
 import { createChartRegistry, type ChartContext } from './studyProgress/charts/chartRegistry'
-import {
-  renderAccuracyChart,
-  renderStrengthChart
-} from './studyProgress/charts/strengthCharts'
 import { renderTimelineChart } from './studyProgress/charts/timelineChart'
-import { renderChallengingChart } from './studyProgress/charts/challengingChart'
 import { renderCompositionChart } from './studyProgress/charts/compositionChart'
 import { renderDailyStrengthChart } from './studyProgress/charts/dailyStrengthChart'
 import { renderStrengthScatterChart } from './studyProgress/charts/strengthScatterChart'
-import {
-  renderStudyDaysChart,
-  renderStudyHeatmapChart,
-  renderStudyHoursChart
-} from './studyProgress/charts/activityCharts'
+import { renderStudyHeatmapChart } from './studyProgress/charts/activityCharts'
 import {
   renderCollectionOverviewChart,
   type CollectionOverviewSort
@@ -206,6 +191,7 @@ import {
 
 const router = useRouter()
 const theme = useTheme()
+const { setStudyViewCollectionIds } = useStudyViewCollection()
 
 const {
   categories,
@@ -220,28 +206,47 @@ const {
 
 const syncing = ref(false)
 
-// The activity charts look at the last 30 days; with no study in that window
-// they'd be flat lines and an empty grid, so they say so instead.
+// --- Overview and "study next" ----------------------------------------------
+
+const tiers = computed(() =>
+  tierCountsWithNew(strengthBuckets(chartData.value.progress), newCardCount(chartData.value))
+)
+const weakCollections = computed(() =>
+  weakestCollections(selectedCollections.value, chartData.value.items, chartData.value.progress)
+)
+const hardCards = computed(() => hardestCards(chartData.value.progress, chartData.value.items))
+
+// The heatmap looks at the last 30 days; with no study in that window it
+// would be an empty grid, so it says so instead.
 const noRecentStudy = computed(() => {
   const since = startOfDay(subDays(new Date(), 29))
   return recentLogs(chartData.value.logs, since).length
     ? undefined
-    : 'No study in the last 30 days — these fill in as you study'
+    : 'No study in the last 30 days — this fills in as you study'
 })
 
-const accuracyChartRef = ref<HTMLElement>()
-const strengthChartRef = ref<HTMLElement>()
-const timelineChartRef = ref<HTMLElement>()
-const challengingChartRef = ref<HTMLElement>()
-const compositionChartRef = ref<HTMLElement>()
+const goToStudy = (collectionId: string) => {
+  setStudyViewCollectionIds([collectionId])
+  router.push({ name: 'study', params: { id: collectionId } })
+}
+
+const openCard = (card: HardCard) => {
+  router.push({ name: 'collectionItemView', params: { id: card.collectionId, itemId: card.id } })
+}
+
+// --- Charts -------------------------------------------------------------------
+
 const dailyStrengthChartRef = ref<HTMLElement>()
-const strengthScatterChartRef = ref<HTMLElement>()
-const studyHoursChartRef = ref<HTMLElement>()
-const studyDaysChartRef = ref<HTMLElement>()
 const studyHeatmapChartRef = ref<HTMLElement>()
+const timelineChartRef = ref<HTMLElement>()
+const compositionChartRef = ref<HTMLElement>()
+const strengthScatterChartRef = ref<HTMLElement>()
 const collectionOverviewChartRef = ref<HTMLElement>()
 
-// Chart-local controls.
+// Collapsed by default: the page answers the main questions without them.
+const showMore = ref(false)
+const MORE_CHART_KEYS = ['collectionOverview', 'composition', 'strengthScatter']
+
 const showCardTitles = ref(false)
 const collectionOverviewSortBy = ref<CollectionOverviewSort>('strength')
 // Width of the (scrollable) collection overview chart; fills the container when
@@ -256,7 +261,7 @@ const ctx: ChartContext = {
 }
 
 // Binds a chart's render to its container element, skipping it while the
-// element is not mounted yet.
+// element is not mounted (e.g. the collapsed "more charts").
 const draw = (el: Ref<HTMLElement | undefined>, render: (el: HTMLElement) => void) => () => {
   if (el.value) render(el.value)
 }
@@ -277,21 +282,16 @@ const renderCollectionOverview = draw(collectionOverviewChartRef, el => {
 })
 
 const chartRenderers = [
-  draw(accuracyChartRef, el => renderAccuracyChart(ctx, el, chartData.value)),
-  draw(strengthChartRef, el => renderStrengthChart(ctx, el, chartData.value)),
-  renderTimeline,
-  draw(challengingChartRef, el => renderChallengingChart(ctx, el, chartData.value)),
-  draw(compositionChartRef, el => renderCompositionChart(ctx, el, chartData.value)),
   draw(dailyStrengthChartRef, el => renderDailyStrengthChart(ctx, el, chartData.value)),
+  draw(studyHeatmapChartRef, el => renderStudyHeatmapChart(ctx, el, chartData.value)),
+  renderTimeline,
+  renderCollectionOverview,
+  draw(compositionChartRef, el => renderCompositionChart(ctx, el, chartData.value)),
   draw(strengthScatterChartRef, el =>
     renderStrengthScatterChart(ctx, el, chartData.value, {
       showCardTitles: () => showCardTitles.value
     })
-  ),
-  draw(studyHoursChartRef, el => renderStudyHoursChart(ctx, el, chartData.value)),
-  draw(studyDaysChartRef, el => renderStudyDaysChart(ctx, el, chartData.value)),
-  draw(studyHeatmapChartRef, el => renderStudyHeatmapChart(ctx, el, chartData.value)),
-  renderCollectionOverview
+  )
 ]
 
 // One chart per frame, so a full refresh never blocks the main thread.
@@ -309,6 +309,13 @@ const renderCharts = () => {
 
 watch(chartData, renderCharts)
 watch([timelineStartDate, timelineEndDate], renderTimeline)
+
+// Hiding the extra charts removes their elements, so their chart instances go
+// too; showing them again draws fresh ones into the new elements.
+watch(showMore, shown => {
+  if (shown) nextTick(renderCharts)
+  else MORE_CHART_KEYS.forEach(key => ctx.registry.destroy(key))
+})
 
 // Chart colors are baked in at creation and the render functions reuse cached
 // instances via setData, so a theme switch has to tear the charts down rather
@@ -336,60 +343,75 @@ onUnmounted(() => ctx.registry.destroyAll())
 <style scoped>
 .progress-view {
   min-height: 100vh;
-  background: transparent;
-  padding-bottom: 40px;
+  padding-bottom: 48px;
 }
 
 .progress-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px;
-  background-color: rgb(var(--v-theme-surface));
-  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  gap: 16px;
+  flex-wrap: wrap;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 24px 24px 8px;
+}
+
+.progress-header__title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .progress-header h1 {
   margin: 0;
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: 26px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
 
-.header-actions {
+.progress-header__controls {
   display: flex;
   align-items: center;
-  gap: 4px;
-}
-
-.subtitle {
-  margin: 4px 0 0;
-  font-size: 0.85rem;
-  color: rgba(var(--v-theme-on-surface), 0.5);
-}
-
-.collection-filter-bar {
-  padding: 12px 20px;
-  background: rgb(var(--v-theme-surface));
-  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.06);
+  gap: 6px;
 }
 
 .collection-select {
-  max-width: 600px;
+  width: 340px;
 }
 
-.charts-container {
+.progress-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 12px 24px 0;
+}
+
+.progress-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-  gap: 24px;
-  padding: 0 20px;
+  grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+  gap: 20px;
 }
 
 .chart {
-  min-height: 350px;
+  min-height: 320px;
 }
 
 .chart-heatmap {
   min-height: unset;
+}
+
+.more-toggle {
+  display: flex;
+  justify-content: center;
+}
+
+.more-toggle__btn {
+  text-transform: none !important;
+  letter-spacing: 0.01em !important;
+  color: rgba(var(--v-theme-on-surface), 0.7);
 }
 
 .sort-toggle {
@@ -406,18 +428,17 @@ onUnmounted(() => ctx.registry.destroyAll())
   width: 150px;
 }
 
-.chart-scroll-container {
-  max-height: 500px;
-  overflow-y: auto;
-}
-
 .chart-hscroll {
   overflow-x: auto;
 }
 
 @media (max-width: 1024px) {
-  .charts-container {
+  .progress-grid {
     grid-template-columns: 1fr;
+  }
+
+  .collection-select {
+    width: 100%;
   }
 }
 </style>

@@ -1,5 +1,6 @@
 import { parseISO } from 'date-fns'
-import type { AttemptLog, CardProgress } from '@/database/types'
+import type { AttemptLog, CardProgress, LearningItem } from '@/database/types'
+import { knownShare, tierCountsByCollection, totalOf } from '@/utils/collectionProgress'
 import {
   SCORED_TIERS,
   clampStrength,
@@ -120,4 +121,59 @@ export function replayCardStrength(
 /** Attempt logs at or after `cutoff`. */
 export function recentLogs(logs: AttemptLog[], cutoff: Date): AttemptLog[] {
   return logs.filter(log => parseISO(log.created_at) >= cutoff)
+}
+
+// --- What to study next -------------------------------------------------------
+
+export interface WeakCollection {
+  id: string
+  title: string
+  items: number
+  /** 0..1 share of items known well (good or mastered). */
+  known: number
+}
+
+/**
+ * The collections with the lowest share of items known well, weakest first.
+ * Only collections holding items count (a parent's items live in its
+ * sub-collections), and fully known ones are left out — nothing to do there.
+ */
+export function weakestCollections(
+  collections: readonly { id?: string; title: string }[],
+  items: readonly LearningItem[],
+  progress: readonly CardProgress[],
+  limit = 5
+): WeakCollection[] {
+  const strength = new Map(progress.map(p => [p.learning_item_id, p.strength_score]))
+  const counts = tierCountsByCollection(items, strength)
+  return collections
+    .flatMap(c => {
+      const tiers = c.id ? counts.get(c.id) : undefined
+      const known = tiers ? knownShare(tiers) : null
+      if (!tiers || known === null || known >= 1) return []
+      return [{ id: c.id!, title: c.title, items: totalOf(tiers), known }]
+    })
+    .sort((a, b) => a.known - b.known || b.items - a.items)
+    .slice(0, limit)
+}
+
+export interface HardCard {
+  id: string
+  collectionId: string
+  title: string
+  /** 0..1 */
+  strength: number
+}
+
+/** Studied cards not yet learned (below 'good'), weakest first. */
+export function hardestCards(progress: readonly CardProgress[], items: readonly LearningItem[], limit = 8): HardCard[] {
+  const byId = new Map(items.map(i => [i.id, i]))
+  return progress
+    .filter(p => !isAtLeastTier(p.strength_score, 'good') && byId.has(p.learning_item_id))
+    .sort((a, b) => a.strength_score - b.strength_score)
+    .slice(0, limit)
+    .map(p => {
+      const item = byId.get(p.learning_item_id)!
+      return { id: item.id!, collectionId: item.collectionId, title: item.title, strength: p.strength_score }
+    })
 }

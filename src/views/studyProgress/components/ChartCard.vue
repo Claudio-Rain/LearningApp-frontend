@@ -41,9 +41,10 @@ withDefaults(
 <style scoped>
 .chart-wrapper {
   background: rgb(var(--v-theme-surface));
-  border-radius: 8px;
-  padding: 20px;
+  border-radius: 14px;
+  padding: 20px 22px;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  min-width: 0;
 }
 
 .chart-wrapper.full-width {
@@ -51,15 +52,16 @@ withDefaults(
 }
 
 h3 {
-  margin: 0 0 4px;
-  font-size: 1.1rem;
-  color: rgba(var(--v-theme-on-surface), 0.87);
+  margin: 0 0 2px;
+  font-size: 18px;
+  font-weight: 650;
+  color: rgba(var(--v-theme-on-surface), 0.9);
 }
 
 .chart-subtitle {
   margin: 0 0 16px;
-  font-size: 0.8rem;
-  color: rgba(var(--v-theme-on-surface), 0.45);
+  font-size: 13px;
+  color: rgba(var(--v-theme-on-surface), 0.55);
 }
 
 .chart-body {

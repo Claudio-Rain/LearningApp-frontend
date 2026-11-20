@@ -7,7 +7,9 @@ import {
   newCardCount,
   recentLogs,
   replayCardStrength,
-  strengthBuckets
+  strengthBuckets,
+  weakestCollections,
+  hardestCards
 } from '@/views/studyProgress/aggregation'
 
 const log = (itemId: string, ease: number, day: number): AttemptLog => ({
@@ -105,5 +107,28 @@ describe('HOUR_LABELS', () => {
   it('labels the 24 hours in 12-hour format', () => {
     expect(HOUR_LABELS).toHaveLength(24)
     expect([HOUR_LABELS[0], HOUR_LABELS[11], HOUR_LABELS[12], HOUR_LABELS[23]]).toEqual(['12am', '11am', '12pm', '11pm'])
+  })
+})
+
+
+describe('what to study next', () => {
+  const items: LearningItem[] = [
+    { ...item('a'), collectionId: 'c1' },
+    { ...item('b'), collectionId: 'c1' },
+    { ...item('c'), collectionId: 'c2' },
+    { ...item('d'), collectionId: 'c3' },
+  ]
+  const progressRows = [progress('a', 0.9), progress('b', 0.1), progress('c', 0.05), progress('d', 0.95)]
+
+  it('ranks collections by how little is known, skipping fully known ones', () => {
+    const cols = [{ id: 'c1', title: 'One' }, { id: 'c2', title: 'Two' }, { id: 'c3', title: 'Three' }, { id: 'c4', title: 'Empty' }]
+    expect(weakestCollections(cols, items, progressRows).map(c => [c.id, c.known])).toEqual([
+      ['c2', 0],
+      ['c1', 0.5],
+    ])
+  })
+
+  it('lists studied cards below good, weakest first', () => {
+    expect(hardestCards(progressRows, items).map(c => c.id)).toEqual(['c', 'b'])
   })
 })
