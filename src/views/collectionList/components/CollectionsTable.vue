@@ -21,7 +21,7 @@
       class="rounded-lg collections-table"
       :class="compact ? 'collections-table--compact' : 'resizable-table'"
       hover
-      @click:row="(_: Event, { item }: { item: CollectionRow }) => emit('open', item.id!)"
+      @click:row="onRowClick"
     >
       <template v-for="col in RESIZABLE_COLUMNS" #[`header.${col}`]="{ column }" :key="col">
         <span>{{ column.title }}</span>
@@ -40,14 +40,28 @@
       </template>
 
       <template #item.starred="{ item }">
-        <v-btn
-          :icon="item.starred ? 'mdi-star' : 'mdi-star-outline'"
-          :color="item.starred ? 'amber-darken-2' : undefined"
-          variant="text"
-          size="small"
-          :title="item.starred ? 'Unstar' : 'Star'"
-          @click.stop="emit('update', stored(item), { starred: !item.starred })"
-        />
+        <!-- A finger can't use the browser's drag and drop, so on a touch
+             screen rows are carried by this grip instead. -->
+        <div class="star-cell">
+          <span
+            v-if="isTouchScreen"
+            class="row-grip"
+            title="Drag to move"
+            @pointerdown="onGripDown($event, item)"
+            @click.stop
+            @contextmenu.prevent.stop
+          >
+            <v-icon icon="mdi-drag" size="20" />
+          </span>
+          <v-btn
+            :icon="item.starred ? 'mdi-star' : 'mdi-star-outline'"
+            :color="item.starred ? 'amber-darken-2' : undefined"
+            variant="text"
+            size="small"
+            :title="item.starred ? 'Unstar' : 'Star'"
+            @click.stop="emit('update', stored(item), { starred: !item.starred })"
+          />
+        </div>
       </template>
 
       <template #item.title="{ item }">
@@ -197,6 +211,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useDisplay } from 'vuetify'
+import { isTouchScreen } from '@/utils/touch'
 import type { Category, Collection } from '@/database/types'
 import { parentsOf, withSubCollections } from '@/utils/subCollections'
 import { knownShare, sumTierCounts, tierSummary, totalOf, type TierCounts } from '@/utils/collectionProgress'
@@ -236,7 +251,9 @@ const INDENT = 20
 const COMPACT_INDENT = 12
 const RESIZABLE_COLUMNS = ['title', 'description', 'categoryId', 'numberOfItems', 'progress', 'actions']
 const ACTIONS_WIDTH = 124
-const STAR_WIDTH = 52
+// A touch screen fits the drag grip beside the star.
+const GRIP_WIDTH = isTouchScreen ? 40 : 0
+const STAR_WIDTH = 52 + GRIP_WIDTH
 
 // A phone gets star, title, progress and a menu button; a tablet drops only
 // the description; wider screens get every column.
@@ -257,7 +274,7 @@ const { widths, startResize } = useResizableColumns({
 const headers = computed(() => {
   if (compact.value) {
     return [
-      { title: '', key: 'starred', sortable: false, align: 'center' as const, width: 40 },
+      { title: '', key: 'starred', sortable: false, align: 'center' as const, width: 40 + GRIP_WIDTH - 4 },
       { title: 'Title', key: 'title', sortable: false },
       { title: 'Progress', key: 'progress', sortable: false, width: 84 },
       { title: '', key: 'actions', sortable: false, align: 'center' as const, width: 44 }
@@ -325,6 +342,8 @@ const nameField = ref<{ focus: () => void } | null>(null)
 
 const openMenu = (event: MouseEvent, row: CollectionRow) => {
   event.preventDefault()
+  // A long press that started a drag also fires contextmenu.
+  if (drag) return
   Object.assign(menu, { open: true, x: event.clientX, y: event.clientY, row, adding: null, title: '', saving: false })
 }
 
@@ -438,9 +457,12 @@ const showDrop = (el: HTMLElement | null, position: DropPosition | null) => {
 // expanded row's bottom edge also puts inside, since its sub-collections are
 // what shows right below it.
 const EDGE = 0.3
-const positionIn = (event: DragEvent, row: CollectionRow): DropPosition => {
-  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  const y = (event.clientY - rect.top) / rect.height
+const positionIn = (event: DragEvent, row: CollectionRow): DropPosition =>
+  positionAt(event.clientY, event.currentTarget as HTMLElement, row)
+
+const positionAt = (clientY: number, rowEl: HTMLElement, row: CollectionRow): DropPosition => {
+  const rect = rowEl.getBoundingClientRect()
+  const y = (clientY - rect.top) / rect.height
   if (y < EDGE) return 'before'
   const expanded = row.childCount > 0 && !collapsed.value.has(row.id!)
   if (y > 1 - EDGE && !expanded) return 'after'
@@ -473,7 +495,11 @@ const autoScroll = () => {
     const intoTop = top + SCROLL_EDGE - pointerY
     const intoBottom = pointerY - (bottom - SCROLL_EDGE)
     const depth = intoTop > 0 ? -intoTop : intoBottom > 0 ? intoBottom : 0
-    if (depth) scroller.scrollTop += (Math.max(-SCROLL_EDGE, Math.min(SCROLL_EDGE, depth)) / SCROLL_EDGE) * MAX_SCROLL_SPEED
+    if (depth) {
+      scroller.scrollTop += (Math.max(-SCROLL_EDGE, Math.min(SCROLL_EDGE, depth)) / SCROLL_EDGE) * MAX_SCROLL_SPEED
+      // The rows move under a finger held still, so the landing spot does too.
+      if (touchPoint) updateTouchDrop()
+    }
   }
   scrollFrame = requestAnimationFrame(autoScroll)
 }
@@ -495,23 +521,27 @@ onBeforeUnmount(stopAutoScroll)
 
 let draggedEl: HTMLElement | null = null
 
-const onDragstart = (event: DragEvent, id: string) => {
+const beginDrag = (id: string, rowEl: HTMLElement) => {
   drag = {
     id,
     parentId: parents.value.get(id) ?? null,
     inside: withSubCollections([id], props.allCollections)
   }
-  draggedEl = event.currentTarget as HTMLElement
+  draggedEl = rowEl
   startAutoScroll(draggedEl)
-  if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', id)
-  }
   setTimeout(() => {
     if (!drag) return
     draggedEl?.classList.add('row--dragging')
     showTopLevel.value = drag.parentId !== null
   })
+}
+
+const onDragstart = (event: DragEvent, id: string) => {
+  beginDrag(id, event.currentTarget as HTMLElement)
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', id)
+  }
 }
 
 const onDragover = (event: DragEvent, target: string, position: DropPosition) => {
@@ -547,8 +577,102 @@ const onDrop = (event: DragEvent, target: string, position: DropPosition) => {
   onDragend()
 }
 
+// --- Touch drag ----------------------------------------------------------------
+// The same moves from the row's grip, with pointer events: the browser's drag
+// and drop doesn't work with a finger. Same rules as above (accepts,
+// positionAt, the drop classes); the row under the finger is found by its
+// data-id. A plain element follows the finger, so nothing reactive changes
+// mid-drag here either.
+
+let touchPoint: { x: number; y: number } | null = null
+let touchDrop: { target: string; position: DropPosition } | null = null
+let ghost: HTMLElement | null = null
+let lastDropAt = 0
+
+const touchHit = (x: number, y: number) => {
+  const el = document.elementFromPoint(x, y) as HTMLElement | null
+  const zone = el?.closest<HTMLElement>('.top-level-drop')
+  if (zone) return { el: zone, target: TOP_LEVEL, position: 'inside' as DropPosition }
+  const rowEl = el?.closest<HTMLElement>('tr[data-id]')
+  const row = rowEl && rows.value.find(r => r.id === rowEl.dataset.id)
+  if (!rowEl || !row) return null
+  return { el: rowEl, target: row.id!, position: positionAt(y, rowEl, row) }
+}
+
+const updateTouchDrop = () => {
+  const hit = touchPoint && touchHit(touchPoint.x, touchPoint.y)
+  if (hit && accepts(hit.target, hit.position)) {
+    showDrop(hit.el, hit.position)
+    touchDrop = { target: hit.target, position: hit.position }
+  } else {
+    showDrop(null, null)
+    touchDrop = null
+  }
+}
+
+const moveGhost = () => {
+  if (ghost && touchPoint) ghost.style.transform = `translate(${touchPoint.x + 12}px, ${touchPoint.y - 36}px)`
+}
+
+const onTouchMove = (event: PointerEvent) => {
+  touchPoint = { x: event.clientX, y: event.clientY }
+  pointerY = event.clientY
+  moveGhost()
+  updateTouchDrop()
+}
+
+const endTouchDrag = () => {
+  window.removeEventListener('pointermove', onTouchMove)
+  window.removeEventListener('pointerup', onTouchUp)
+  window.removeEventListener('pointercancel', endTouchDrag)
+  ghost?.remove()
+  ghost = null
+  touchPoint = null
+  touchDrop = null
+  lastDropAt = Date.now()
+  onDragend()
+}
+
+const onTouchUp = () => {
+  const id = drag?.id
+  const dropped = touchDrop
+  endTouchDrag()
+  if (id && dropped) emit('move', id, targetId(dropped.target), dropped.position)
+}
+
+const onGripDown = (event: PointerEvent, row: CollectionRow) => {
+  const rowEl = (event.currentTarget as HTMLElement).closest<HTMLElement>('tr')
+  if (drag || !row.id || !rowEl) return
+  // No scrolling, text selection or row click from the press itself.
+  event.preventDefault()
+  event.stopPropagation()
+  beginDrag(row.id, rowEl)
+  touchPoint = { x: event.clientX, y: event.clientY }
+  pointerY = event.clientY
+  ghost = Object.assign(document.createElement('div'), { className: 'collection-drag-ghost', textContent: row.label })
+  document.body.append(ghost)
+  moveGhost()
+  window.addEventListener('pointermove', onTouchMove)
+  window.addEventListener('pointerup', onTouchUp)
+  window.addEventListener('pointercancel', endTouchDrag)
+}
+
+onBeforeUnmount(() => {
+  if (touchPoint) endTouchDrag()
+})
+
+// Lifting the finger at the end of a drag also lands as a click; it mustn't
+// open the collection.
+const onRowClick = (_: Event, { item }: { item: CollectionRow }) => {
+  if (Date.now() - lastDropAt < 400) return
+  emit('open', item.id!)
+}
+
 const rowProps = ({ item }: { item: CollectionRow }) => ({
-  draggable: true,
+  'data-id': item.id,
+  // On a touch screen a long press would start the browser's own drag, which
+  // fights the grip; rows move only by the grip there.
+  draggable: !isTouchScreen,
   onDragstart: (e: DragEvent) => onDragstart(e, item.id!),
   onDragover: (e: DragEvent) => onDragover(e, item.id!, positionIn(e, item)),
   onDragleave,
@@ -634,6 +758,29 @@ const rowProps = ({ item }: { item: CollectionRow }) => ({
 
 .title-text {
   min-width: 0;
+}
+
+.star-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+}
+
+/* The touch-screen drag grip, beside the star. touch-action: none so pressing
+   it carries the row instead of scrolling the page. */
+.row-grip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 36px;
+  vertical-align: middle;
+  color: rgba(var(--v-theme-on-surface), 0.45);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .title-meta {
@@ -791,5 +938,27 @@ const rowProps = ({ item }: { item: CollectionRow }) => ({
 
 .description-field :deep(input::placeholder) {
   color: rgba(var(--v-theme-on-surface), 0.25) !important;
+}
+</style>
+
+<style>
+/* The collection's name riding along under a finger while its row is carried.
+   Created by hand on <body>, so it's styled outside the scoped block. */
+.collection-drag-ghost {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 3000;
+  max-width: 260px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 0.9rem;
+  background: rgb(var(--v-theme-surface-variant));
+  color: rgb(var(--v-theme-on-surface-variant));
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
 }
 </style>

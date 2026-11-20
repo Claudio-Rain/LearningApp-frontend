@@ -129,6 +129,7 @@ import { getAllCardProgress } from '@/database'
 import type { LearningItem } from '@/database/types'
 import MathText from '@/shared/components/MathText.vue'
 import { sortByPosition } from '@/utils/itemOrder'
+import { isTouchScreen } from '@/utils/touch'
 import { ITEM_LABEL_DEFS } from '@/utils/itemLabels'
 import {
   activeFilterCount,
@@ -151,7 +152,8 @@ const emit = defineEmits<{
 }>()
 
 const headers = [
-  { title: '#', key: 'rowNumber', sortable: false, align: 'center' as const, width: '50px' },
+  // A touch screen shows the drag grip beside the number, so the column widens.
+  { title: '#', key: 'rowNumber', sortable: false, align: 'center' as const, width: isTouchScreen ? '76px' : '50px' },
   { title: 'Title', key: 'title', sortable: true },
   { title: '', key: 'actions', sortable: false, align: 'center' as const, width: '48px' },
 ]
@@ -278,12 +280,15 @@ const stopDrag = () => {
   dropAt.value = null
 }
 
+let lastDropAt = 0
+
 const onPointerUp = () => {
   const id = dragId.value
   const gap = dropAt.value
   const from = fromIndex()
   stopDrag()
   drops.value++
+  lastDropAt = Date.now()
   if (!id || gap === null || from < 0) return
   // The gap counts the dragged row itself; the target index doesn't.
   emit('reorder', id, gap > from ? gap - 1 : gap)
@@ -328,9 +333,12 @@ const rowProps = ({ item, index }: { item: LearningItem; index: number }) => ({
 // is then hidden, so the tooltip never sees the pointer leave and stays stuck
 // over the page. Touch screens get no tooltips, and a click remounts them all
 // closed (the same trick as after a drop).
-const noHover = window.matchMedia('(hover: none)').matches
+const noHover = isTouchScreen
 
 const onRowClick = (_event: unknown, { item }: { item: LearningItem }) => {
+  // Lifting the finger at the end of a drag also lands as a click; it mustn't
+  // open the row (on a phone that would swap the list for the item).
+  if (Date.now() - lastDropAt < 400) return
   drops.value++
   emit('select', item)
 }
@@ -421,6 +429,29 @@ const onRowClick = (_event: unknown, { item }: { item: LearningItem }) => {
 .item-table--reorderable :deep(tr:hover) .drag-handle {
   display: inline-flex;
   touch-action: none;
+}
+
+/* A touch screen has no hover to reveal the grip, so it shows on every row,
+   beside the number. */
+@media (hover: none) {
+  .item-table--reorderable .drag-handle {
+    display: inline-flex;
+    margin-left: 2px;
+    vertical-align: middle;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  .item-table--reorderable :deep(tr:hover) .row-number {
+    display: inline;
+  }
+
+  /* Number and grip on one line. */
+  .item-table :deep(tbody td:first-child) {
+    white-space: nowrap;
+  }
 }
 
 /* Mid-drag, every row shows its number again; only the line moves. */

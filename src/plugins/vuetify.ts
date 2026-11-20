@@ -6,6 +6,7 @@ import * as directives from 'vuetify/directives'
 import { aliases, mdi } from 'vuetify/iconsets/mdi'
 import '@mdi/font/css/materialdesignicons.css'
 import { initialThemeName } from '@/shared/composables/useAppTheme'
+import { isTouchScreen } from '@/utils/touch'
 
 // Code blocks stay light-ink-on-dark-paper in BOTH themes, so this pair is
 // absolute rather than semantic: `darkColor` is always the dark ink, and
@@ -174,15 +175,13 @@ const dark = {
   markOrange: '#E65100',
 }
 
-// A touch screen has no hover: a tap opens a tooltip that then never sees the
-// pointer leave, so it stays stuck over the page. Touch screens get none.
-const noHover = typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches
-
 export const vuetify = createVuetify({
   components,
   directives,
   defaults: {
-    VTooltip: { disabled: noHover },
+    // A touch screen has no hover: a tap opens a tooltip that then never sees
+    // the pointer leave, so it stays stuck over the page. Touch screens get none.
+    VTooltip: { disabled: isTouchScreen },
   },
   icons: {
     defaultSet: 'mdi',
