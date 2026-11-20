@@ -216,7 +216,18 @@ $latex-colors: (
       }
     }
 
+    // The "change type" chevron is noise while reading; it shows up on hover
+    // (or keyboard focus), like the unwrap button.
     &__caret {
+      width: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: opacity 0.15s ease, width 0.15s ease;
+    }
+
+    &:hover &__caret,
+    &__type:focus-visible &__caret {
+      width: 14px;
       opacity: 0.6;
     }
 
