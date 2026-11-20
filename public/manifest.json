@@ -10,7 +10,7 @@
     "128": "icons/icon-128.png"
   },
   "action": {
-    "default_popup": "index.html",
+    "default_popup": "index.html?popup",
     "default_title": "Timer",
     "default_icon": {
       "16": "icons/icon-16.png",

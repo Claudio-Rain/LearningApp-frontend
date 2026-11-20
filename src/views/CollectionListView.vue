@@ -14,17 +14,26 @@
           class="add-collection-btn mr-2"
           @click="handleAdd"
         >
-          Add Collection
+          {{ xs ? 'Add' : 'Add Collection' }}
         </v-btn>
-        <v-btn variant="text" prepend-icon="mdi-chart-line" @click="router.push({ name: 'progress' })">
-          Progress
-        </v-btn>
-        <v-btn variant="text" prepend-icon="mdi-tag-multiple" @click="categoriesDialog = true">
-          Categories
-        </v-btn>
-        <v-btn variant="text" prepend-icon="mdi-refresh" :loading="isSyncing" @click="handlePull">
-          Pull
-        </v-btn>
+        <!-- On a phone the secondary actions shrink to icons, so the header
+             stays one line. -->
+        <template v-if="xs">
+          <v-btn variant="text" icon="mdi-chart-line" title="Progress" @click="router.push({ name: 'progress' })" />
+          <v-btn variant="text" icon="mdi-tag-multiple" title="Categories" @click="categoriesDialog = true" />
+          <v-btn variant="text" icon="mdi-refresh" title="Pull" :loading="isSyncing" @click="handlePull" />
+        </template>
+        <template v-else>
+          <v-btn variant="text" prepend-icon="mdi-chart-line" @click="router.push({ name: 'progress' })">
+            Progress
+          </v-btn>
+          <v-btn variant="text" prepend-icon="mdi-tag-multiple" @click="categoriesDialog = true">
+            Categories
+          </v-btn>
+          <v-btn variant="text" prepend-icon="mdi-refresh" :loading="isSyncing" @click="handlePull">
+            Pull
+          </v-btn>
+        </template>
       </div>
     </div>
 
@@ -63,6 +72,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useDisplay } from 'vuetify'
 import { useStudyViewCollection } from '@/shared/composables/useStudyViewCollection'
 import CollectionListAssistant from '@/shared/components/CollectionListAssistant.vue'
 import type { CollectionSummary } from '@/utils/collectionListAssistant'
@@ -77,6 +87,7 @@ import { useCollectionFilter } from './collectionList/composables/useCollectionF
 import { useCollectionProgress } from './collectionList/composables/useCollectionProgress'
 
 const router = useRouter()
+const { xs } = useDisplay()
 const { setStudyViewCollectionIds } = useStudyViewCollection()
 
 const {
@@ -184,6 +195,8 @@ onMounted(async () => {
 <style scoped>
 .collections {
   padding: 24px;
+  /* Room below the table, so the assistant button never covers the last row. */
+  padding-bottom: 96px;
   max-width: 1200px;
   margin: 0 auto;
 }
@@ -236,5 +249,25 @@ onMounted(async () => {
 
 .add-collection-btn:active {
   transform: translateY(0);
+}
+
+@media (max-width: 599.98px) {
+  .collections {
+    padding: 12px 8px 88px;
+  }
+
+  .page-header {
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .page-title {
+    font-size: 1.35rem;
+  }
+
+  .add-collection-btn {
+    padding-inline: 14px;
+  }
 }
 </style>

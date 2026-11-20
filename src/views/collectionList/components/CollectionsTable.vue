@@ -16,14 +16,16 @@
       :headers="headers"
       :items="rows"
       :items-per-page="-1"
+      :hide-default-footer="compact"
       :row-props="rowProps"
-      class="rounded-lg resizable-table collections-table"
+      class="rounded-lg collections-table"
+      :class="compact ? 'collections-table--compact' : 'resizable-table'"
       hover
       @click:row="(_: Event, { item }: { item: CollectionRow }) => emit('open', item.id!)"
     >
       <template v-for="col in RESIZABLE_COLUMNS" #[`header.${col}`]="{ column }" :key="col">
         <span>{{ column.title }}</span>
-        <span class="resize-handle" @mousedown.stop="startResize($event, col)" />
+        <span v-if="!compact" class="resize-handle" @mousedown.stop="startResize($event, col)" />
       </template>
 
       <!-- One calm bar: how much of it you know well. The per-tier breakdown
@@ -49,7 +51,7 @@
       </template>
 
       <template #item.title="{ item }">
-        <div class="title-cell" :style="{ paddingLeft: `${item.depth * INDENT}px` }">
+        <div class="title-cell" :style="{ paddingLeft: `${item.depth * (compact ? COMPACT_INDENT : INDENT)}px` }">
           <!-- A wide target, so a near miss doesn't open the collection. -->
           <span
             v-if="item.childCount"
@@ -61,7 +63,22 @@
             <v-icon :icon="collapsed.has(item.id!) ? 'mdi-chevron-right' : 'mdi-chevron-down'" size="24" />
           </span>
           <span v-else class="expander-spacer" />
-          <span class="collection-title">{{ item.label }}</span>
+          <div class="title-text">
+            <span class="collection-title">{{ item.label }}</span>
+            <!-- On a phone the category and item columns don't fit, so they
+                 ride along under the title. -->
+            <div v-if="compact" class="title-meta">
+              <CollectionCategoryMenu
+                v-if="!item.isSub"
+                :current="item.categoryId ? categoryMap.get(item.categoryId) : undefined"
+                :categories="categories"
+                @assign="categoryId => emit('update', stored(item), { categoryId })"
+              />
+              <span :title="itemsTitle(item)" :class="{ 'items-empty': !item.totalItems }">
+                {{ item.totalItems }} item{{ item.totalItems === 1 ? '' : 's' }}
+              </span>
+            </div>
+          </div>
         </div>
       </template>
 
@@ -95,7 +112,18 @@
       </template>
 
       <template #item.actions="{ item }">
-        <div class="action-cell" @click.stop>
+        <!-- On a phone one button opens the row menu, which also stands in for
+             the right-click a touch screen doesn't have. -->
+        <div v-if="compact" class="action-cell" @click.stop>
+          <v-btn
+            icon="mdi-dots-vertical"
+            variant="text"
+            size="small"
+            title="More"
+            @click="(e: MouseEvent) => openMenuFrom(e.currentTarget as HTMLElement, item)"
+          />
+        </div>
+        <div v-else class="action-cell" @click.stop>
           <v-btn icon="mdi-school" variant="text" size="small" title="Study" @click="emit('study', item.id!)" />
           <v-btn icon="mdi-pencil" variant="text" size="small" @click="emit('rename', stored(item))" />
           <v-btn icon="mdi-delete" variant="text" size="small" @click="emit('delete', item.id!)" />
@@ -125,6 +153,13 @@
             prepend-icon="mdi-pencil"
             title="Rename"
             @click="runAndClose(() => emit('rename', stored(menu.row!)))"
+          />
+          <!-- The description column is hidden on a phone; it's edited from here. -->
+          <v-list-item
+            v-if="compact"
+            prepend-icon="mdi-text"
+            title="Edit description"
+            @click="runAndClose(() => editDescription(menu.row!))"
           />
           <v-list-item
             prepend-icon="mdi-delete"
@@ -161,6 +196,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { useDisplay } from 'vuetify'
 import type { Category, Collection } from '@/database/types'
 import { parentsOf, withSubCollections } from '@/utils/subCollections'
 import { knownShare, sumTierCounts, tierSummary, totalOf, type TierCounts } from '@/utils/collectionProgress'
@@ -197,9 +233,15 @@ const emit = defineEmits<{
 }>()
 
 const INDENT = 20
+const COMPACT_INDENT = 12
 const RESIZABLE_COLUMNS = ['title', 'description', 'categoryId', 'numberOfItems', 'progress', 'actions']
 const ACTIONS_WIDTH = 124
 const STAR_WIDTH = 52
+
+// A phone gets star, title, progress and a menu button; a tablet drops only
+// the description; wider screens get every column.
+const { xs, smAndDown } = useDisplay()
+const compact = xs
 
 const { widths, startResize } = useResizableColumns({
   title: 180,
@@ -212,15 +254,32 @@ const { widths, startResize } = useResizableColumns({
 
 // Rows come in tree order (the dragged order within each level), so the table
 // itself doesn't sort.
-const headers = computed(() => [
-  { title: '', key: 'starred', sortable: false, align: 'center' as const, width: STAR_WIDTH, minWidth: STAR_WIDTH },
-  { title: 'Title', key: 'title', sortable: false, width: widths.value.title },
-  { title: 'Description', key: 'description', sortable: false, width: widths.value.description },
-  { title: 'Category', key: 'categoryId', sortable: false, width: widths.value.categoryId },
-  { title: 'Items', key: 'numberOfItems', sortable: false, align: 'center' as const, width: widths.value.numberOfItems },
-  { title: 'Progress', key: 'progress', sortable: false, width: widths.value.progress },
-  { title: '', key: 'actions', sortable: false, align: 'center' as const, width: ACTIONS_WIDTH, minWidth: ACTIONS_WIDTH }
-])
+const headers = computed(() => {
+  if (compact.value) {
+    return [
+      { title: '', key: 'starred', sortable: false, align: 'center' as const, width: 40 },
+      { title: 'Title', key: 'title', sortable: false },
+      { title: 'Progress', key: 'progress', sortable: false, width: 84 },
+      { title: '', key: 'actions', sortable: false, align: 'center' as const, width: 44 }
+    ]
+  }
+  return [
+    { title: '', key: 'starred', sortable: false, align: 'center' as const, width: STAR_WIDTH, minWidth: STAR_WIDTH },
+    { title: 'Title', key: 'title', sortable: false, width: widths.value.title },
+    ...(smAndDown.value
+      ? []
+      : [{ title: 'Description', key: 'description', sortable: false, width: widths.value.description }]),
+    { title: 'Category', key: 'categoryId', sortable: false, width: widths.value.categoryId },
+    { title: 'Items', key: 'numberOfItems', sortable: false, align: 'center' as const, width: widths.value.numberOfItems },
+    { title: 'Progress', key: 'progress', sortable: false, width: widths.value.progress },
+    { title: '', key: 'actions', sortable: false, align: 'center' as const, width: ACTIONS_WIDTH, minWidth: ACTIONS_WIDTH }
+  ]
+})
+
+const editDescription = (row: CollectionRow) => {
+  const description = prompt('Description:', row.description ?? '')
+  if (description !== null) emit('update', stored(row), { description })
+}
 
 const categoryMap = computed(() => new Map(props.categories.map(c => [c.id, c])))
 
@@ -267,6 +326,12 @@ const nameField = ref<{ focus: () => void } | null>(null)
 const openMenu = (event: MouseEvent, row: CollectionRow) => {
   event.preventDefault()
   Object.assign(menu, { open: true, x: event.clientX, y: event.clientY, row, adding: null, title: '', saving: false })
+}
+
+// The row's ⋮ button: the menu opens just under it, lined up with its right edge.
+const openMenuFrom = (el: HTMLElement, row: CollectionRow) => {
+  const rect = el.getBoundingClientRect()
+  Object.assign(menu, { open: true, x: rect.right, y: rect.bottom, row, adding: null, title: '', saving: false })
 }
 
 const closeMenu = () => {
@@ -565,6 +630,43 @@ const rowProps = ({ item }: { item: CollectionRow }) => ({
 .collection-title {
   font-weight: 500;
   color: rgba(var(--v-theme-on-surface), 0.82);
+}
+
+.title-text {
+  min-width: 0;
+}
+
+.title-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  margin-top: 2px;
+  font-size: 0.8rem;
+  color: rgba(var(--v-theme-on-surface), 0.55);
+}
+
+/* --- phone layout --- */
+.collections-table--compact :deep(td),
+.collections-table--compact :deep(th) {
+  padding: 0 6px !important;
+}
+
+.collections-table--compact :deep(td) {
+  padding-block: 6px !important;
+}
+
+.collections-table--compact .collection-title {
+  overflow-wrap: anywhere;
+}
+
+.collections-table--compact .expander,
+.collections-table--compact .expander-spacer {
+  width: 28px;
+}
+
+.collections-table--compact .progress-bar {
+  min-width: 20px;
 }
 
 .top-level-drop {

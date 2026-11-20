@@ -319,6 +319,28 @@ onBeforeUnmount(() => editor.destroy())
     font-weight: 500;
   }
 
+  // On a phone the wrapped toolbar took three rows before the card even
+  // started; it becomes one row that scrolls sideways instead.
+  @media (max-width: 599.98px) {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: -4px;
+    padding: 0 4px 2px;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    .editor-group {
+      flex-wrap: nowrap;
+    }
+
+    > * {
+      flex-shrink: 0;
+    }
+  }
+
   .v-btn {
     color: rgba(var(--v-theme-on-surface), 0.7);
     border-radius: 8px;

@@ -1,6 +1,8 @@
 <template>
   <div class="filter-bar">
-    <v-chip-group v-model="selected" mandatory column>
+    <!-- Wrapping on a wide screen; on a phone one line that scrolls sideways,
+         so a long category list doesn't push the collections off screen. -->
+    <v-chip-group v-model="selected" mandatory :column="!xs">
       <template v-for="opt in options" :key="opt.value">
         <span v-if="opt.value === firstCategory" class="filter-divider" aria-hidden="true" />
         <v-chip
@@ -22,7 +24,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useDisplay } from 'vuetify'
 import type { CollectionFilter, FilterOption } from '../filters'
+
+const { xs } = useDisplay()
 
 const selected = defineModel<CollectionFilter>({ required: true })
 

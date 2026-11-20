@@ -80,6 +80,7 @@ const emit = defineEmits<{
   display: flex;
   gap: 6px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .action-btn {

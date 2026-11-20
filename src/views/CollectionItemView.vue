@@ -1,7 +1,13 @@
 <template>
-  <div class="split-view">
+  <!-- Side by side on a wide screen. On a narrow one there's room for one pane
+       at a time: the list, or the open item (when the URL names one). -->
+  <div class="split-view" :class="{ 'split-view--narrow': narrow }">
     <!-- Left panel — item list, resizable (width set inline) -->
-    <div class="split-left" :style="{ width: leftWidth + 'px', minWidth: leftWidth + 'px' }">
+    <div
+      v-show="!narrow || !showDetail"
+      class="split-left"
+      :style="narrow ? undefined : { width: leftWidth + 'px', minWidth: leftWidth + 'px' }"
+    >
       <CollectionItemHeader
         :title="collection?.title"
         :is-pulling="isPulling"
@@ -23,9 +29,14 @@
       />
     </div>
 
-    <div v-if="selectedItem" class="splitter" :class="{ dragging: isDragging }" @mousedown="startDrag" />
+    <div v-if="selectedItem && !narrow" class="splitter" :class="{ dragging: isDragging }" @mousedown="startDrag" />
 
-    <div v-if="selectedItem" class="split-right">
+    <div v-if="selectedItem && (!narrow || showDetail)" class="split-right">
+      <div v-if="narrow" class="detail-back">
+        <v-btn variant="text" size="large" prepend-icon="mdi-arrow-left" class="detail-back-btn" @click="closeDetail">
+          {{ collection?.title ?? 'Back' }}
+        </v-btn>
+      </div>
       <LearningItemPanel
         :item="selectedItem"
         @update:content="(id, content, lastModified) => applyLocalEdit(id, { content }, lastModified)"
@@ -50,8 +61,9 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useDisplay } from 'vuetify'
 import LearningItemPanel from '@/shared/components/LearningItemPanel.vue'
 import CollectionAssistant from '@/shared/components/CollectionAssistant.vue'
 import CollectionItemHeader from './collectionItem/components/CollectionItemHeader.vue'
@@ -79,9 +91,20 @@ const { isClearing, progress: clearProgress, clear: clearStudyHistory } =
   useStudyHistoryReset(collection, learningItems)
 const { leftWidth, isDragging, startDrag } = useSplitPane()
 
+// Below this the list and the editor don't both fit (the list alone is 520px).
+const { smAndDown: narrow } = useDisplay()
+// The URL names the open item only once one is picked (loading selects the
+// first item without putting it there), so on a narrow screen it decides
+// whether the list or the item shows.
+const showDetail = computed(() => !!route.params.itemId && !!selectedItem.value)
+
 const selectItem = (item: LearningItem) => {
   selectedItem.value = item
   router.replace({ name: 'collectionItemView', params: { id: collectionId, itemId: item.id } })
+}
+
+const closeDetail = () => {
+  router.replace({ name: 'collectionView', params: { id: collectionId } })
 }
 
 const handleAddLearningItem = async () => {
@@ -102,6 +125,8 @@ onMounted(() => collectionItems.load(itemId))
 .split-view {
   display: flex;
   height: calc(100vh - 60px);
+  /* The dynamic unit follows mobile browser bars coming and going. */
+  height: calc(100dvh - 60px);
   overflow: hidden;
 }
 
@@ -109,6 +134,39 @@ onMounted(() => collectionItems.load(itemId))
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* One pane at a time, each taking the full width. */
+.split-view--narrow .split-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.detail-back {
+  flex-shrink: 0;
+  padding: 8px 4px 0;
+}
+
+/* A full-size touch target: it's the only way back to the list. */
+.detail-back-btn {
+  max-width: 100%;
+  min-height: 44px;
+  padding-inline: 12px;
+  font-size: 1rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.detail-back-btn :deep(.v-btn__prepend .v-icon) {
+  font-size: 24px;
+}
+
+.detail-back-btn :deep(.v-btn__content) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
 }
 
 /* Draggable divider between the table and the editor */
@@ -133,5 +191,7 @@ onMounted(() => collectionItems.load(itemId))
   overflow-y: auto;
   /* Same as the item list: a scrollbar showing up mustn't reflow the card. */
   scrollbar-gutter: stable;
+  /* Room below the card, so the assistant button never covers its end. */
+  padding-bottom: 80px;
 }
 </style>

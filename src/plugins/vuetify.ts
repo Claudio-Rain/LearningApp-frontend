@@ -174,9 +174,16 @@ const dark = {
   markOrange: '#E65100',
 }
 
+// A touch screen has no hover: a tap opens a tooltip that then never sees the
+// pointer leave, so it stays stuck over the page. Touch screens get none.
+const noHover = typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches
+
 export const vuetify = createVuetify({
   components,
   directives,
+  defaults: {
+    VTooltip: { disabled: noHover },
+  },
   icons: {
     defaultSet: 'mdi',
     aliases,

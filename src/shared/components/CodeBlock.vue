@@ -62,6 +62,18 @@ export default {
       background-position: right 0.25rem center;
       background-size: 1.1rem;
     }
+
+    // On a phone the first line of code reaches the picker and runs under
+    // it, so the code starts below the picker instead.
+    @media (max-width: 599.98px) {
+      select {
+        font-size: 0.8rem;
+      }
+
+      pre {
+        padding-top: 2.6rem;
+      }
+    }
   }
 }
 </style>

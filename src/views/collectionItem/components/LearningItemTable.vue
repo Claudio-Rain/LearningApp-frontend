@@ -85,7 +85,13 @@
     <template #item.title="{ item }">
       <!-- Keyed by drop count: a moved row's tooltip never sees the mouse
            leave, so after each drop they're all remounted closed. -->
-      <v-tooltip :key="`${item.id}-${drops}`" location="top" open-delay="300" max-width="600" :disabled="!!dragId">
+      <v-tooltip
+        :key="`${item.id}-${drops}`"
+        location="top"
+        open-delay="300"
+        max-width="600"
+        :disabled="!!dragId || noHover"
+      >
         <template #activator="{ props: tooltipProps }">
           <MathText v-bind="tooltipProps" class="item-title" :text="item.title" />
         </template>
@@ -318,7 +324,16 @@ const rowProps = ({ item, index }: { item: LearningItem; index: number }) => ({
   ],
 })
 
-const onRowClick = (_event: unknown, { item }: { item: LearningItem }) => emit('select', item)
+// On a touch screen a tap "hovers" the title, and on a narrow screen the list
+// is then hidden, so the tooltip never sees the pointer leave and stays stuck
+// over the page. Touch screens get no tooltips, and a click remounts them all
+// closed (the same trick as after a drop).
+const noHover = window.matchMedia('(hover: none)').matches
+
+const onRowClick = (_event: unknown, { item }: { item: LearningItem }) => {
+  drops.value++
+  emit('select', item)
+}
 </script>
 
 <style scoped>
@@ -468,6 +483,8 @@ const onRowClick = (_event: unknown, { item }: { item: LearningItem }) => emit('
      don't jump narrower/wider as it comes and goes. */
   scrollbar-gutter: stable;
   border: none;
+  /* Room below the last row, so the assistant button never covers it. */
+  padding-bottom: 80px;
 }
 
 :deep(tr.selected-row) {
@@ -482,6 +499,13 @@ const onRowClick = (_event: unknown, { item }: { item: LearningItem }) => emit('
 
 :deep(tr:hover .delete-btn) {
   opacity: 1;
+}
+
+/* A touch screen has no hover to reveal it, so it stays in view, faintly. */
+@media (hover: none) {
+  :deep(.delete-btn) {
+    opacity: 0.6;
+  }
 }
 
 .item-table :deep(td),
