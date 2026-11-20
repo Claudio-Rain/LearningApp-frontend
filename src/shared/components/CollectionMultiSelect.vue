@@ -8,8 +8,6 @@
     variant="outlined"
     :density="density"
     multiple
-    chips
-    closable-chips
     clearable
     autocomplete="off"
     :custom-filter="collectionFilter"
@@ -78,11 +76,25 @@
         <v-list-item-title :class="{ 'font-weight-medium': item.raw.depth === 0 }">{{ item.raw.title }}</v-list-item-title>
       </v-list-item>
     </template>
-    <template #chip="{ item, index, props: chipProps }">
-      <v-chip v-if="index < 4" v-bind="chipProps" :text="item.title" />
-      <span v-else-if="index === 4" class="text-caption text-medium-emphasis align-self-center">
-        +{{ modelValue.length - 4 }} more
-      </span>
+    <!-- The selection, summarised: a whole category is one chip (".NET"), not
+         one per collection in it. Drawn once, from the first selected item. -->
+    <template #selection="{ index }">
+      <template v-if="index === 0">
+        <v-chip
+          v-for="chip in summary.slice(0, MAX_CHIPS)"
+          :key="chip.key"
+          size="small"
+          closable
+          class="summary-chip"
+          @click:close="removeChip(chip)"
+        >
+          <v-icon v-if="chip.color" icon="mdi-circle" size="8" :color="chip.color" start />
+          {{ chip.title }}
+        </v-chip>
+        <span v-if="summary.length > MAX_CHIPS" class="text-caption text-medium-emphasis align-self-center">
+          +{{ summary.length - MAX_CHIPS }} more
+        </span>
+      </template>
     </template>
   </v-autocomplete>
 </template>
@@ -196,6 +208,43 @@ const groupedItems = computed<GroupedItem[]>(() => {
 
 const selectedSet = computed(() => new Set(props.modelValue))
 
+// --- Selection summary --------------------------------------------------------
+
+const MAX_CHIPS = 4
+
+type SummaryChip = { key: string; title: string; color?: string; ids: string[] }
+
+/**
+ * What the field shows: one chip for a fully chosen category (or "All
+ * collections" when every category is), then one per collection chosen on
+ * its own.
+ */
+const summary = computed<SummaryChip[]>(() => {
+  const chips: SummaryChip[] = []
+  const covered = new Set<string>()
+  const full = groups.value.filter(g => g.top.length && g.top.every(id => selectedSet.value.has(id)))
+
+  if (full.length && full.length === groups.value.length) {
+    return [{ key: '__all', title: 'All collections', ids: props.collections.map(c => c.id) }]
+  }
+  for (const g of full) {
+    const ids = g.items.map(i => i.id)
+    chips.push({ key: `${GROUP_HEADER_PREFIX}${g.key}`, title: g.title, color: g.color, ids })
+    ids.forEach(id => covered.add(id))
+  }
+
+  const titles = new Map(props.collections.map(c => [c.id, c.title]))
+  for (const id of props.modelValue) {
+    if (!covered.has(id)) chips.push({ key: id, title: titles.get(id) ?? id, ids: [id] })
+  }
+  return chips
+})
+
+function removeChip(chip: SummaryChip) {
+  const drop = new Set(chip.ids)
+  emit('update:modelValue', props.modelValue.filter(id => !drop.has(id)))
+}
+
 /** Inside a chosen collection (at any depth), so already included with it. */
 function includedViaParent(id: string): boolean {
   const seen = new Set([id])
@@ -252,6 +301,10 @@ function toggleAll() {
 
 .collection-group-child :deep(.v-list-item__prepend > .v-list-item__spacer) {
   width: 8px;
+}
+
+.summary-chip {
+  margin: 2px 4px 2px 0;
 }
 
 /* Ticked because a parent is chosen, not chosen itself: shown fainter. */
