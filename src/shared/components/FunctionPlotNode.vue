@@ -362,6 +362,38 @@ const clear = () => {
   if (target.value) target.value.innerHTML = ''
 }
 
+// How far the view can go from where the plot was drawn: 3× out, 50× in, and
+// panned at most one plot-width/height past any edge. Without limits one
+// flick of the wheel threw the curve off into the thousands, nowhere in sight.
+const MIN_ZOOM = 1 / 3
+const MAX_ZOOM = 50
+
+// d3-zoom's own wheel step, minus its ×10 boost for Ctrl — and Ctrl is what
+// we ask for to zoom, so every notch was a huge jump. A trackpad pinch (also
+// sent as Ctrl + wheel) gives small deltas, so those get a gentler boost.
+const wheelDelta = (event: WheelEvent) => {
+  const unit = event.deltaMode === 1 ? 0.05 : event.deltaMode ? 1 : 0.002
+  const pinch = Math.abs(event.deltaY) < 40 ? 4 : 1
+  return -event.deltaY * unit * pinch
+}
+
+interface ZoomBehavior {
+  scaleExtent(extent: [number, number]): ZoomBehavior
+  translateExtent(extent: [[number, number], [number, number]]): ZoomBehavior
+  wheelDelta(delta: (event: WheelEvent) => number): ZoomBehavior
+}
+
+function tameZoom(c: Chart, w: number, h: number) {
+  const zoom = (c as unknown as { meta?: { zoomBehavior?: ZoomBehavior } }).meta?.zoomBehavior
+  zoom
+    ?.scaleExtent([MIN_ZOOM, MAX_ZOOM])
+    .translateExtent([
+      [-w, -h],
+      [2 * w, 2 * h],
+    ])
+    .wheelDelta(wheelDelta)
+}
+
 function draw() {
   clear()
   error.value = ''
@@ -380,6 +412,7 @@ function draw() {
   }
   try {
     chart = functionPlot({ ...built.options, target: el, width: plotWidth, height })
+    tameZoom(chart, plotWidth, height)
     chart.on('zoom', () => {
       viewMoved.value = true
     })
