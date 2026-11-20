@@ -37,6 +37,10 @@ const PLOT_GUIDE =
   `- "x: a, b" and "y: c, d" for the visible ranges (pi multiples like -2pi allowed).\n` +
   `- "tangent" for a tangent line on the first function; "area: a, b" to shade the area under ` +
   `the first function between a and b.\n` +
+  `- "slider: a = 1, -3..3 \\"amplitude\\"" adds a slider the reader drags to change a parameter ` +
+  `live (start value, then range); use the name in the functions, e.g. y = a*sin(b*x). Up to 4. ` +
+  `Use sliders when the point is how a parameter shapes the curve (amplitude, slope, growth ` +
+  `rate, a in a·x² + b, the n of a Taylor polynomial…), not for a fixed picture.\n` +
   `ALWAYS give both x and y ranges, framed tightly around what the explanation is about (a point ` +
   `and its neighbourhood, not the default -5..5 where a parabola reaches 25 and flattens everything ` +
   `else). Keep it to what the reader must see: at most 3 curves and a few labelled marks. Use at ` +

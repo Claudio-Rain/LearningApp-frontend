@@ -15,7 +15,11 @@
 //   y: -2, 4
 //   tangent
 //   area: 0, 3
+//   slider: a = 1, -3..3 "amplitude"
 //   ```
+//
+// A slider declares a parameter the functions can use (y = a*sin(x)); the
+// plot shows a slider for it and redraws as it's dragged.
 //
 // Any line that isn't a setting is a function of x. A trailing "quoted text"
 // on a function, point or line is its label. This file has no DOM and no
@@ -31,6 +35,16 @@ export interface PlotLine {
   /** 'x' is a vertical line at x = at; 'y' a horizontal one at y = at. */
   axis: 'x' | 'y'
   at: number
+  label?: string
+}
+
+/** A named constant the functions use, adjustable with a slider. */
+export interface PlotParam {
+  name: string
+  /** Where the slider starts. */
+  value: number
+  min: number
+  max: number
   label?: string
 }
 
@@ -53,6 +67,8 @@ export interface PlotSpec {
   tangent?: boolean
   /** Shade the area under the first function between these x values. */
   area?: [number, number] | null
+  /** Parameters the functions use, each with a slider under the plot. */
+  params?: PlotParam[]
 }
 
 export const DEFAULT_X_DOMAIN: [number, number] = [-5, 5]
@@ -62,6 +78,9 @@ export const MAX_FUNCTIONS = 5
 
 /** Points and guide lines together; enough for any band-and-point sketch. */
 export const MAX_MARKS = 12
+
+/** Sliders under one plot; more than this is a control panel, not a picture. */
+export const MAX_PARAMS = 4
 
 // --- expressions ------------------------------------------------------------
 
@@ -204,6 +223,41 @@ const parseRange = (text: string): [number, number] | null => {
 
 // --- text form ----------------------------------------------------------------
 
+const SLIDER_SETTING = /^(slider|param|parameter|parámetro|parametro|deslizador)\s*[:=]\s*(.+)$/i
+// "a = 1, -3..3": the name, its starting value, then the range.
+const SLIDER_BODY = /^([a-zA-Z][a-zA-Z0-9]*)\s*=\s*([^,]+),\s*(.+)$/
+
+// Names a parameter can't take: the variables, the constants, the functions.
+const RESERVED_NAMES = new Set([
+  'x', 'n', 'e', 'pi', 'sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh',
+  'sqrt', 'log', 'ln', 'exp', 'abs', 'floor', 'ceil', 'min', 'max',
+  ...Object.keys(FUNCTION_ALIASES),
+])
+
+/** "a = 1, -3..3 "label"" as a parameter, or null when it doesn't read as one. */
+const parseSlider = (text: string): PlotParam | null => {
+  const [body, label] = splitLabel(text)
+  const s = SLIDER_BODY.exec(body)
+  if (!s || RESERVED_NAMES.has(s[1]!.toLowerCase())) return null
+  const value = parseNumber(s[2]!)
+  const range = parseRange(s[3]!)
+  if (value === null || !range) return null
+  const start = Math.min(range[1], Math.max(range[0], value))
+  return { name: s[1]!, value: start, min: range[0], max: range[1], ...(label && { label }) }
+}
+
+const applySlider = (spec: PlotSpec, line: string): boolean => {
+  const m = SLIDER_SETTING.exec(line)
+  if (!m) return false
+  // A malformed or extra slider line is still a slider line: dropped, never
+  // read as a function.
+  const param = parseSlider(m[2]!)
+  const params = (spec.params ??= [])
+  if (param && params.length < MAX_PARAMS && !params.some(p => p.name === param.name)) params.push(param)
+  if (!params.length) delete spec.params
+  return true
+}
+
 const RANGE_SETTING = /^(x|y|area|área)\s*[:=]\s*(.+)$/i
 const MARK_SETTING = /^(point|punto|vline|hline)\s*[:=]\s*(.+)$/i
 const TITLE_SETTING = /^(title|título|titulo)\s*[:=]\s*(.+)$/i
@@ -250,7 +304,7 @@ const applySetting = (spec: PlotSpec, line: string): boolean => {
     spec.title = title[2]!.trim()
     return true
   }
-  return applyRange(spec, line) || applyMark(spec, line)
+  return applyRange(spec, line) || applyMark(spec, line) || applySlider(spec, line)
 }
 
 const addFunction = (spec: PlotSpec, line: string) => {
@@ -303,12 +357,19 @@ export const markLines = (spec: Pick<PlotSpec, 'points' | 'lines'>): string[] =>
   ...(spec.lines ?? []).map(l => `${l.axis === 'x' ? 'vline' : 'hline'}: ${formatNumber(l.at)}${quote(l.label)}`),
 ]
 
+/** The slider lines of a spec, one per parameter. */
+export const sliderLines = (spec: Pick<PlotSpec, 'params'>): string[] =>
+  (spec.params ?? []).map(
+    p => `slider: ${p.name} = ${formatNumber(p.value)}, ${formatNumber(p.min)}..${formatNumber(p.max)}${quote(p.label)}`
+  )
+
 /** The ```plot block body for a spec; parsePlotSpec reads it back unchanged. */
 export const plotSpecToText = (spec: PlotSpec): string => {
   const lines: string[] = []
   if (spec.title) lines.push(`title: ${spec.title}`)
   spec.functions.forEach((fn, i) => lines.push(functionLine(fn, spec.labels?.[i])))
   lines.push(...markLines(spec))
+  lines.push(...sliderLines(spec))
   if (spec.xDomain) lines.push(`x: ${formatRange(spec.xDomain)}`)
   if (spec.yDomain) lines.push(`y: ${formatRange(spec.yDomain)}`)
   if (spec.tangent) lines.push('tangent')

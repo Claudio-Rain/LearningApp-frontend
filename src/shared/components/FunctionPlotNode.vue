@@ -61,6 +61,37 @@
       </span>
     </div>
 
+    <!-- Drag a slider and the curves redraw with that value. Clicks stay here
+         too (a flashcard flips on any click). Not saved: every viewer starts
+         from the values the plot was written with. -->
+    <div v-if="params.length" class="fplot__sliders" contenteditable="false" @click.stop>
+      <label v-for="p in params" :key="p.name" class="fplot__slider">
+        <span class="fplot__slider-name">
+          <!-- eslint-disable-next-line vue/no-v-html -- see the title above -->
+          <span v-if="p.label" class="fplot__slider-label" v-html="richTextHtml(p.label)" />
+          <code>{{ p.name }} = {{ formatValue(valueOf(p), p) }}</code>
+        </span>
+        <input
+          type="range"
+          :min="p.min"
+          :max="p.max"
+          :step="stepOf(p)"
+          :value="valueOf(p)"
+          @input="setValue(p.name, $event)"
+        />
+      </label>
+      <button
+        v-if="slidersMoved"
+        type="button"
+        class="fplot__tool fplot__tool--text fplot__slider-reset"
+        title="Back to the starting values"
+        @click="resetValues"
+      >
+        <v-icon size="16">mdi-restore</v-icon>
+        <span>Reset</span>
+      </button>
+    </div>
+
     <div v-if="editing" class="fplot__form" contenteditable="false" @keydown.esc.prevent="cancel">
       <label class="fplot__field fplot__field--wide">
         <span>Title (optional, $…$ for math)</span>
@@ -77,12 +108,12 @@
         />
       </label>
       <label class="fplot__field fplot__field--wide">
-        <span>Points and guide lines (optional), one per line</span>
+        <span>Points, guide lines and sliders (optional), one per line</span>
         <textarea
           v-model="draft.marks"
-          rows="2"
+          rows="3"
           spellcheck="false"
-          placeholder="point: 1, 1 &quot;(a, L)&quot;&#10;vline: 0.7 &quot;a − δ&quot;&#10;hline: 1.5 &quot;L + ε&quot;"
+          placeholder="point: 1, 1 &quot;(a, L)&quot;&#10;hline: 1.5 &quot;L + ε&quot;&#10;slider: a = 1, -3..3 &quot;amplitude&quot;"
         />
       </label>
       <div class="fplot__row">
@@ -117,6 +148,8 @@
         Numbers accept <code>-2pi</code> or <code>pi/2</code>. Tangent and area apply to the first function.
         <code>vline</code> is vertical (x = …), <code>hline</code> horizontal (y = …).
         Write a sequence in <code>n</code> (e.g. <code>(-1)^n/n</code>) to draw it as dots at whole n.
+        <code>slider: a = 1, -3..3</code> adds a slider for <code>a</code>, to use in the functions
+        (<code>a*sin(x)</code>).
       </p>
       <div class="fplot__actions">
         <button type="button" class="fplot__btn fplot__btn--danger" @click="deleteNode()">Delete</button>
@@ -133,7 +166,16 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { NodeViewWrapper, nodeViewProps } from '@tiptap/vue-3'
 import functionPlot, { type Chart } from 'function-plot'
 import 'katex/dist/katex.min.css'
-import { formatNumber, isSequence, markLines, parseNumber, parsePlotSpec, type PlotSpec } from '@/utils/plotSpec'
+import {
+  formatNumber,
+  isSequence,
+  markLines,
+  parseNumber,
+  parsePlotSpec,
+  sliderLines,
+  type PlotParam,
+  type PlotSpec,
+} from '@/utils/plotSpec'
 import { COLORS, buildPlot, richTextHtml } from '../tiptap/plotDraw'
 
 const props = defineProps(nodeViewProps)
@@ -162,6 +204,7 @@ const saved = computed<PlotSpec>(() => {
     yDomain: a.yDomain ?? null,
     tangent: !!a.tangent,
     area: a.area ?? null,
+    params: a.params ?? undefined,
   }
 })
 
@@ -203,6 +246,7 @@ const draftSpec = computed<PlotSpec>(() => {
     yDomain: rangeFrom(draft.yFrom, draft.yTo),
     tangent: draft.tangent,
     area: rangeFrom(draft.areaFrom, draft.areaTo),
+    params: parsed?.params,
   }
 })
 
@@ -227,7 +271,7 @@ function startEdit() {
     functions: s.functions.length
       ? s.functions.map((fn, i) => (s.labels?.[i] ? `${fn} "${s.labels[i]}"` : fn)).join('\n')
       : 'x^2',
-    marks: markLines(s).join('\n'),
+    marks: [...markLines(s), ...sliderLines(s)].join('\n'),
     xFrom: fmt(s.xDomain?.[0]),
     xTo: fmt(s.xDomain?.[1]),
     yFrom: fmt(s.yDomain?.[0]),
@@ -259,6 +303,7 @@ function commit() {
     yDomain: s.yDomain ?? null,
     tangent: !!s.tangent,
     area: s.area ?? null,
+    params: s.params ?? null,
   })
 }
 
@@ -267,6 +312,40 @@ function cancel() {
   // A plot that was never filled in has nothing to go back to.
   if (!saved.value.functions.length) props.deleteNode()
 }
+
+// --- sliders -----------------------------------------------------------------
+
+const params = computed<PlotParam[]>(() => shown.value.params ?? [])
+
+// Where each slider sits now; a name missing here is at its starting value.
+const values = reactive<Record<string, number>>({})
+
+const valueOf = (p: PlotParam) => values[p.name] ?? p.value
+
+// About 200 positions across the range, on a round number.
+const stepOf = (p: PlotParam) => {
+  const raw = (p.max - p.min) / 200
+  const magnitude = 10 ** Math.floor(Math.log10(raw))
+  return [1, 2, 5, 10].map(k => k * magnitude).find(s => s >= raw) ?? raw
+}
+
+const formatValue = (v: number, p: PlotParam) => {
+  const decimals = Math.max(0, -Math.floor(Math.log10(stepOf(p))))
+  return v.toFixed(Math.min(decimals, 4))
+}
+
+function setValue(name: string, event: Event) {
+  values[name] = Number((event.target as HTMLInputElement).value)
+}
+
+const slidersMoved = computed(() => params.value.some(p => valueOf(p) !== p.value))
+
+function resetValues() {
+  for (const key of Object.keys(values)) delete values[key]
+}
+
+// A changed set of sliders (an edit, or another card) starts from its own values.
+watch(() => JSON.stringify(params.value), resetValues)
 
 // --- drawing ---------------------------------------------------------------
 
@@ -294,7 +373,7 @@ function draw() {
   // The frame is capped in CSS, so this keeps a readable ~8:5 shape.
   const plotWidth = width.value - AXIS_GUTTER
   const height = Math.round(Math.min(460, Math.max(220, width.value * 0.62)))
-  const built = buildPlot(spec, plotWidth, height)
+  const built = buildPlot(spec, plotWidth, height, { ...values })
   if ('error' in built) {
     error.value = built.error
     return
@@ -318,6 +397,7 @@ const scheduleDraw = () => {
 }
 
 watch(shown, scheduleDraw, { deep: true })
+watch(values, scheduleDraw)
 
 let observer: ResizeObserver | null = null
 
@@ -488,6 +568,50 @@ onBeforeUnmount(() => {
     display: inline-flex;
     align-items: center;
     gap: 6px;
+  }
+
+  &__sliders {
+    max-width: 760px;
+    margin: 10px auto 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 10px 24px;
+  }
+
+  &__slider {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1 1 200px;
+    min-width: 0;
+    font-size: 0.85rem;
+
+    input[type='range'] {
+      width: 100%;
+      accent-color: rgb(var(--v-theme-primary));
+      cursor: pointer;
+    }
+  }
+
+  &__slider-name {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+
+    code {
+      font-size: 0.9em;
+      font-variant-numeric: tabular-nums;
+      color: rgba(var(--v-theme-on-surface), 0.75);
+    }
+  }
+
+  &__slider-label {
+    color: rgba(var(--v-theme-on-surface), 0.85);
+  }
+
+  &__slider-reset {
+    flex: 0 0 auto;
   }
 
   &__swatch {

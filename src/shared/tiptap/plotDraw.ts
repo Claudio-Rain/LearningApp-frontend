@@ -25,11 +25,19 @@ const MARGIN = { left: 40, right: 20, top: 20, bottom: 20 }
 type Fn = (x: number) => number
 type Range = [number, number]
 
-/** f(v) for an expression in x, or in n for a sequence. */
-const evaluator = (fn: string, variable: 'x' | 'n'): Fn => {
-  const meta = { fn, scope: SCOPE }
+type Scope = Record<string, number>
+
+/** f(v) for an expression in x, or in n for a sequence, with these constants. */
+const evaluator = (fn: string, variable: 'x' | 'n', scope: Scope): Fn => {
+  const meta = { fn, scope }
   return v => EvalBuiltIn(meta, 'fn', { [variable]: v }) as number
 }
+
+/** The constants plus each slider's value: `values` where set, else its start. */
+const scopeFor = (spec: PlotSpec, values: Scope = {}): Scope => ({
+  ...SCOPE,
+  ...Object.fromEntries((spec.params ?? []).map(p => [p.name, values[p.name] ?? p.value])),
+})
 
 /** The whole numbers a sequence is drawn at inside the visible x range. */
 const integersIn = ([lo, hi]: Range): number[] => {
@@ -154,7 +162,7 @@ const scales = (x: Range, y: Range, w: number, h: number) => ({
 
 type Scales = ReturnType<typeof scales>
 
-const BASE = { graphType: 'polyline', sampler: 'builtIn', scope: SCOPE } as const
+const BASE = { graphType: 'polyline', sampler: 'builtIn' } as const
 
 // function-plot's text datum, positioned from a placed spot. `fill` can be
 // 'currentColor' (follows the theme); `color` must stay a real colour for d3.
@@ -250,11 +258,16 @@ export type PlotBuild =
   | { error: string }
   | { options: Omit<FunctionPlotOptions, 'target' | 'width' | 'height'> }
 
-/** Everything function-plot needs for a plot of this outer size, except the target. */
-export const buildPlot = (spec: PlotSpec, width: number, height: number): PlotBuild => {
+/**
+ * Everything function-plot needs for a plot of this outer size, except the
+ * target. `values` are the sliders' current positions (missing = their start).
+ */
+export const buildPlot = (spec: PlotSpec, width: number, height: number, values: Scope = {}): PlotBuild => {
   const fns = spec.functions.map(normalizeExpression)
   const sequence = spec.functions.map(isSequence)
-  const fs = fns.map((fn, i) => evaluator(fn, sequence[i] ? 'n' : 'x'))
+  const variable = (i: number) => (sequence[i] ? 'n' : 'x')
+  const scope = scopeFor(spec, values)
+  const fs = fns.map((fn, i) => evaluator(fn, variable(i), scope))
   const error = findBadExpression(spec.functions, fs)
   if (error) return { error }
 
@@ -264,7 +277,11 @@ export const buildPlot = (spec: PlotSpec, width: number, height: number): PlotBu
     ...(spec.points ?? []).map(p => p.y),
     ...(spec.lines ?? []).filter(l => l.axis === 'y').map(l => l.at),
   ]
-  const yDomain = spec.yDomain ?? fitYDomain(sampleValues(fs, sequence, xDomain), extraY)
+  // Fitted at the sliders' starting values, so dragging one moves the curve
+  // over still axes instead of rescaling the whole plot under it.
+  const startFs = fns.map((fn, i) => evaluator(fn, variable(i), scopeFor(spec)))
+  const yDomain = spec.yDomain ?? fitYDomain(sampleValues(startFs, sequence, xDomain), extraY)
+  const base = { ...BASE, scope }
 
   const w = width - MARGIN.left - MARGIN.right
   const h = height - MARGIN.top - MARGIN.bottom
@@ -276,12 +293,12 @@ export const buildPlot = (spec: PlotSpec, width: number, height: number): PlotBu
     if (sequence[i]) return sequenceDatum(fs[i]!, xDomain, color)
     const label = plainLabel(spec.labels?.[i] ?? '')
     // `title` prefixes the pointer readout with the curve's name.
-    return { ...BASE, fn, color, ...(label && { title: label }) } as FunctionPlotDatum
+    return { ...base, fn, color, ...(label && { title: label }) } as FunctionPlotDatum
   })
   // Tangent and area only make sense on a continuous first function.
   const continuousFirst = !sequence[0]
   if (spec.area && continuousFirst) {
-    data.push({ ...BASE, fn: fns[0], closed: true, range: spec.area, skipTip: true, color: COLORS[0] })
+    data.push({ ...base, fn: fns[0], closed: true, range: spec.area, skipTip: true, color: COLORS[0] })
   }
   if (spec.tangent && continuousFirst) {
     // Start inside the shaded area if there is one, else a bit right of centre.

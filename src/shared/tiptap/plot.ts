@@ -2,12 +2,12 @@
 //
 // One block atom, `functionPlot`, whose attrs are a PlotSpec (see
 // utils/plotSpec.ts): the expressions and their names, a title, labelled
-// points and guide lines, plus optional ranges, a pointer-following tangent
-// and a shaded area. FunctionPlotNode.vue draws and edits it.
+// points and guide lines, plus optional ranges, a pointer-following tangent,
+// a shaded area and sliders for parameters the expressions use. FunctionPlotNode.vue draws and edits it.
 
 import { Node, VueNodeViewRenderer, mergeAttributes } from '@tiptap/vue-3'
 import FunctionPlotNode from '../components/FunctionPlotNode.vue'
-import { plotSpecToText, type PlotLine, type PlotPoint, type PlotSpec } from '@/utils/plotSpec'
+import { plotSpecToText, type PlotLine, type PlotParam, type PlotPoint, type PlotSpec } from '@/utils/plotSpec'
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -49,6 +49,7 @@ export const FunctionPlot = Node.create({
     yDomain: jsonAttr<[number, number] | null>('yDomain', null),
     tangent: jsonAttr<boolean>('tangent', false),
     area: jsonAttr<[number, number] | null>('area', null),
+    params: jsonAttr<PlotParam[] | null>('params', null),
   }),
 
   parseHTML: () => [{ tag: 'div[data-type="function-plot"]' }],

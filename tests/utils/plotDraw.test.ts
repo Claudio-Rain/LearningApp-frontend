@@ -109,3 +109,20 @@ describe('buildPlot label placement', () => {
     expect(buildPlot(parsePlotSpec('sin x +')!, 760, 460)).toHaveProperty('error')
   })
 })
+
+describe('buildPlot sliders', () => {
+  const spec = parsePlotSpec('y = a*x\nslider: a = 1, -3..3\nx: 0, 1')!
+
+  it('plots with the slider value, and complains when a name is undeclared', () => {
+    expect('options' in buildPlot(spec, 400, 300, { a: 2 })).toBe(true)
+    expect('error' in buildPlot(parsePlotSpec('y = a*x')!, 400, 300)).toBe(true)
+  })
+
+  it('keeps the y range of the starting values while a slider moves', () => {
+    const at = (a: number) => {
+      const built = buildPlot(spec, 400, 300, { a })
+      return 'options' in built ? built.options.yAxis?.domain : null
+    }
+    expect(at(3)).toEqual(at(1))
+  })
+})

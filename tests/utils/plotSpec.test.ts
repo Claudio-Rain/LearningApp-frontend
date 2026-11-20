@@ -167,3 +167,28 @@ describe('```plot blocks', () => {
     expect(extractText(doc).trim()).toBe('```plot\ny = x^2\ntangent\n```')
   })
 })
+
+describe('sliders', () => {
+  it('reads a slider with its start value, range and label', () => {
+    const spec = parsePlotSpec('y = a*sin(x)\nslider: a = 1, -3..3 "amplitude"')
+    expect(spec?.functions).toEqual(['a*sin(x)'])
+    expect(spec?.params).toEqual([{ name: 'a', value: 1, min: -3, max: 3, label: 'amplitude' }])
+  })
+
+  it('takes pi multiples and Spanish, and clamps the start into the range', () => {
+    expect(parsePlotSpec('sin(k*x)\ndeslizador: k = 9, 0, 2pi')?.params).toEqual([
+      { name: 'k', value: 2 * Math.PI, min: 0, max: 2 * Math.PI },
+    ])
+  })
+
+  it('drops sliders on reserved or repeated names, and malformed ones, without making them functions', () => {
+    const spec = parsePlotSpec('x\nslider: x = 1, 0..2\nslider: pi = 1, 0..2\nslider: a = 1, 0..2\nslider: a = 2, 0..3\nslider: b = oops')
+    expect(spec?.functions).toEqual(['x'])
+    expect(spec?.params?.map(p => p.name)).toEqual(['a'])
+  })
+
+  it('goes back to text unchanged', () => {
+    const text = 'y = a*x^2 + b\nslider: a = 1, -2..2 "a"\nslider: b = 0, -pi..pi'
+    expect(plotSpecToText(parsePlotSpec(text)!)).toBe(text)
+  })
+})
