@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mergeOrder, planMove, planOrder, sortByPosition, type PositionWrite } from '@/utils/itemOrder'
+import { mergeOrder, planAppend, planInsertAfter, planMove, planOrder, sortByPosition, type PositionWrite } from '@/utils/itemOrder'
 import { runToolCall } from '@/utils/collectionAssistant/toolHandlers'
 import type { AssistantHandlers, Proposal } from '@/utils/collectionAssistant/types'
 
@@ -138,5 +138,84 @@ describe('the assistant reorder tool', () => {
     const { outcome, proposals } = run({ ids: ['a', 'b'] })
     expect(outcome.ok).toBe(false)
     expect(proposals).toHaveLength(0)
+  })
+})
+
+describe('planAppend', () => {
+  // A batch added the way the assistant does: positions from the plan, in order.
+  const append = (items: Item[], newTitles: string[]) => {
+    const { writes, positions } = planAppend(sortByPosition(items), newTitles.length)
+    const added = newTitles.map((title, k) => ({ id: `new-${k}`, title, position: positions[k] }))
+    return titles(apply([...apply(items, writes), ...added], []))
+  }
+
+  it('keeps a new batch in its given order at the end of an unplaced list', () => {
+    expect(append(unplaced, ['Zebra', 'Aardvark', 'Mango'])).toEqual([
+      'Apple', 'Banana', 'Cherry', 'Date', 'Zebra', 'Aardvark', 'Mango',
+    ])
+  })
+
+  it('numbers an unplaced list in its current (alphabetical) order first', () => {
+    const { writes } = planAppend(sortByPosition(unplaced), 1)
+    expect(writes).toEqual([
+      { id: 'a', position: 1 },
+      { id: 'b', position: 2 },
+      { id: 'c', position: 3 },
+      { id: 'd', position: 4 },
+    ])
+  })
+
+  it('appends after the highest position of a placed list, with no extra writes', () => {
+    const placed: Item[] = [
+      { id: 'x', title: 'X', position: 2.5 },
+      { id: 'y', title: 'Y', position: 7 },
+    ]
+    expect(planAppend(sortByPosition(placed), 2)).toEqual({ writes: [], positions: [8, 9] })
+  })
+
+  it('starts at 1 in an empty collection', () => {
+    expect(planAppend([], 2)).toEqual({ writes: [], positions: [1, 2] })
+  })
+})
+
+describe('planInsertAfter', () => {
+  // Insert a batch the way the assistant does and return the new list order.
+  const insert = (items: Item[], afterId: string, newTitles: string[]) => {
+    const { writes, positions } = planInsertAfter(sortByPosition(items), afterId, newTitles.length)
+    const added = newTitles.map((title, k) => ({ id: `new-${k}`, title, position: positions[k] }))
+    return titles(apply([...apply(items, writes), ...added], []))
+  }
+
+  it('puts the batch right after the anchor, in its given order', () => {
+    expect(insert(placed, 'b', ['Y', 'X'])).toEqual(['A', 'B', 'Y', 'X', 'C', 'D'])
+  })
+
+  it('moves no existing item when the gap has room', () => {
+    const { writes, positions } = planInsertAfter(sortByPosition(placed), 'b', 3)
+    expect(writes).toEqual([])
+    expect(positions).toEqual([2.25, 2.5, 2.75])
+  })
+
+  it('goes after the last item when the anchor is last', () => {
+    expect(insert(placed, 'd', ['Y', 'X'])).toEqual(['A', 'B', 'C', 'D', 'Y', 'X'])
+  })
+
+  it('numbers an unplaced list around the batch', () => {
+    // Unplaced lists show alphabetically: Apple, Banana, Cherry, Date.
+    expect(insert(unplaced, 'a', ['Zebra', 'Aardvark'])).toEqual([
+      'Apple', 'Zebra', 'Aardvark', 'Banana', 'Cherry', 'Date',
+    ])
+  })
+
+  it('renumbers when the gap is too thin to split', () => {
+    const tight: Item[] = [
+      { id: 'a', title: 'A', position: 1 },
+      { id: 'b', title: 'B', position: 1 + 1e-12 },
+    ]
+    expect(insert(tight, 'a', ['N'])).toEqual(['A', 'N', 'B'])
+  })
+
+  it('appends when the anchor is not in the list', () => {
+    expect(insert(placed, 'missing', ['N'])).toEqual(['A', 'B', 'C', 'D', 'N'])
   })
 })

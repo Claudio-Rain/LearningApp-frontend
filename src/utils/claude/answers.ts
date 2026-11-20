@@ -20,7 +20,13 @@ export const streamAnswer = async (
     : `Answer or explain this learning item clearly and concisely: "${title}"`
 
   await streamText(
-    { max_tokens: 2048, system: RICH_FORMAT_GUIDE, messages: [{ role: 'user', content: prompt }] },
+    {
+      max_tokens: 2048,
+      // Sonnet 5.5 defaults to `high`; explaining one card doesn't need it.
+      output_config: { effort: 'medium' },
+      system: RICH_FORMAT_GUIDE,
+      messages: [{ role: 'user', content: prompt }],
+    },
     onToken
   )
 }

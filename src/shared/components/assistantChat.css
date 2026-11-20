@@ -335,6 +335,91 @@
   padding: 4px 2px;
 }
 
+/* "After <card>" line on a create proposal. */
+.proposal-placement {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: -2px 0 6px;
+  font-size: calc(0.72 * var(--chat-text, 1rem));
+  color: rgba(var(--v-theme-on-surface), 0.55);
+}
+
+.placement-anchor {
+  font-weight: 500;
+  color: rgba(var(--v-theme-on-surface), 0.8);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Cost controls between the conversation and the input. */
+.assistant-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  font-size: calc(0.72 * var(--chat-text, 1rem));
+  color: rgba(var(--v-theme-on-surface), 0.55);
+  flex-shrink: 0;
+}
+
+.effort-toggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.meta-label {
+  margin-right: 4px;
+}
+
+.effort-option {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  font-size: inherit;
+}
+
+.effort-option:hover:not(:disabled) {
+  background: rgba(var(--v-theme-on-surface), 0.06);
+}
+
+.effort-option.active {
+  border-color: rgba(var(--v-theme-primary), 0.5);
+  background: rgba(var(--v-theme-primary), 0.12);
+  color: rgb(var(--v-theme-primary));
+}
+
+.effort-option:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.cache-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+  cursor: help;
+}
+
+.cache-status.warm {
+  color: rgb(var(--v-theme-success));
+}
+
+.cache-status.expiring {
+  color: rgb(var(--v-theme-warning));
+}
+
+.cache-status.expired,
+.cache-status.none {
+  color: rgba(var(--v-theme-on-surface), 0.42);
+}
+
 .assistant-input {
   display: flex;
   align-items: flex-end;

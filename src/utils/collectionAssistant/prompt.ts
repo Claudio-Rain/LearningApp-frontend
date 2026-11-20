@@ -81,24 +81,20 @@ export const renderItemsBlock = (items: AssistantItem[]): string =>
     })
     .join('\n\n')
 
-export const buildSystem = (
-  collection: { title: string; description?: string },
-  itemCount: number,
-  // When present, the collection was small enough to embed in full: the model
-  // reads items straight from here and has no read tools. When null, the model
-  // must fetch items through list_items / read_item.
-  itemsBlock: string | null,
-  // Derived from the collection's own card sizes — see maxProposalsPerMessage.
-  maxProposals: number,
-  otherCollections: CollectionRef[] = [],
-): string =>
+/**
+ * The fixed instructions. Nothing here may depend on the collection's current
+ * contents: this heads the cached prefix, and any change to it re-bills the
+ * whole conversation. Live data goes in `buildContext` instead.
+ *
+ * `embedded` says whether the collection is given in full (no read tools) or
+ * must be fetched through list_items / read_item. It flips only when the
+ * collection crosses MAX_EMBED_CHARS, which changes the tools anyway.
+ */
+export const buildSystem = (embedded: boolean): string =>
   `You are a study assistant embedded in a flashcard app, helping the user work with one collection of learning items (flashcards).\n\n` +
-  `Collection: "${collection.title}"` +
-  (collection.description ? `\nDescription: ${collection.description}` : '') +
-  `\nIt currently has ${itemCount} learning item${itemCount === 1 ? '' : 's'}.\n\n` +
-  (otherCollections.length
-    ? `Other collections:\n${otherCollections.map((c) => `- ${c.id}: ${c.title}`).join('\n')}\n\n`
-    : '') +
+  `The collection's current state (its title, item count, batch limit, the user's other collections` +
+  (embedded ? `, and every item in full` : '') +
+  `) arrives in system messages during the conversation. It is refreshed whenever it changes, so the most recent one is current and replaces anything earlier.\n\n` +
   `Each learning item is a flashcard with a title (the question/front) and content (the answer/back).\n\n` +
   `Each item also carries two optional 1-5 labels the user can set, and you can read and propose:\n` +
   labelRules() +
@@ -109,19 +105,49 @@ export const buildSystem = (
   `- Label items by priority and difficulty when asked.\n` +
   `- Reorder the list when asked (e.g. "put X first", "order them from basic to advanced"). Items are given in the list's current order, top first.\n\n` +
   `Rules:\n` +
-  (itemsBlock
-    ? `- The full collection is given below. Base every answer on the actual item content there — read it carefully rather than guessing from titles.\n`
+  (embedded
+    ? `- The full collection is given in the latest state message. Base every answer on the actual item content there — read it carefully rather than guessing from titles.\n`
     : `- Use list_items to see the collection before reasoning about it as a whole. The list only has short previews, so before you judge difficulty, compare, or answer questions about what an item actually says, call read_item to get its full content.\n`) +
   `- NEVER claim you created, edited, or deleted anything. The propose_* tools only show the user an approval card — the user makes the final change. After proposing, briefly tell the user to review the card.\n` +
+  `- A user message may start with an <open_card> note: the card the user has open in the editor beside this chat, with its id. "This card", "this question", "here" and requests with no other target ("add another diagram", "make the answer shorter") mean that card. Work on it by its id, ${embedded ? 'reading it from the collection' : 'calling read_item if you need its content'}, instead of searching by title. Ignore the note when the user is clearly talking about something else.\n` +
   `- When the user asks for "N exercises/questions", propose exactly N with propose_create_items.\n` +
+  `- When new items belong with existing ones ("more questions about git stash"), set after_id to the last of those related items so the new ones land next to them. Leave it out when they don't relate to anything in particular.\n` +
   `- Card titles are plain text by default. Use markdown in a title only when the question is genuinely about code: inline \`code\` for an identifier, or a single fenced code block for a snippet the user must read to answer it. Keep those short, and never put headings, lists, tables or images in a title — a title still has to read as one line in lists and notifications.\n` +
   `- Card content is rich, not plain text: the app renders LaTeX math, interactive function plots and Mermaid diagrams, so never draw graphs or diagrams as ASCII art. In item content: ${RICH_FORMAT_GUIDE} Titles may hold inline $...$ math too, but never a plot or a diagram.\n` +
-  `- Put every edit you are making into ONE propose_update_items call so the user approves them all at once — never call it repeatedly with a single item each. Cover the whole request in that one call whenever you can; the user approves the batch in one click, so a bigger batch is better for them, and splitting a request across messages costs them more. Only if a request touches more than ${maxProposals} items, do ${maxProposals} per message (more than that overruns the reply limit and the whole batch is lost), say how many are left, and continue when the user asks.\n` +
+  `- Put every edit you are making into ONE propose_update_items call so the user approves them all at once — never call it repeatedly with a single item each. Cover the whole request in that one call whenever you can; the user approves the batch in one click, so a bigger batch is better for them, and splitting a request across messages costs them more. Only if a request touches more items than the batch limit in the state message, do that many per message (more than that overruns the reply limit and the whole batch is lost), say how many are left, and continue when the user asks.\n` +
   `- To set labels, use propose_label_items, NOT propose_update_items — it leaves the card's text alone, and the batch limit above does not apply to it, so label every item you mean to label in one call.\n` +
   `- To change the order, use propose_reorder_items (one call for the whole new order), never propose_update_items — the order isn't part of a card's text.\n` +
   `- Priority is relative to a goal, and you may not know the user's. If they ask for priorities without saying what they are working toward, ask once what their focus is, then label against it.\n` +
   `- Use the whole range when labeling a set of items. If nearly everything comes out the same level, the labels tell the user nothing.\n` +
-  `- Keep chat replies concise and friendly. Use markdown.` +
+  `- Keep chat replies concise and friendly. Use markdown.`
+
+/**
+ * The note that opens a user message while a card is open in the editor, so
+ * "add a diagram here" has a target. It rides in the user turn rather than the
+ * state message: it changes on every click, and a few tokens per message cost
+ * less than re-sending the collection snapshot each time the selection moves.
+ */
+export const renderOpenCard = (item: { id: string; title: string }): string =>
+  `<open_card id="${item.id}">${item.title}</open_card>`
+
+/** The collection's live state, sent as a system message whenever it changes. */
+export const buildContext = (
+  collection: { title: string; description?: string },
+  itemCount: number,
+  // Present when the collection is small enough to embed in full.
+  itemsBlock: string | null,
+  // Derived from the collection's own card sizes — see maxProposalsPerMessage.
+  maxProposals: number,
+  otherCollections: CollectionRef[] = [],
+): string =>
+  `Current state of the collection.\n\n` +
+  `Collection: "${collection.title}"` +
+  (collection.description ? `\nDescription: ${collection.description}` : '') +
+  `\nIt currently has ${itemCount} learning item${itemCount === 1 ? '' : 's'}.\n` +
+  `Batch limit for propose_update_items: ${maxProposals} item${maxProposals === 1 ? '' : 's'} per message.\n\n` +
+  (otherCollections.length
+    ? `Other collections:\n${otherCollections.map((c) => `- ${c.id}: ${c.title}`).join('\n')}\n\n`
+    : '') +
   (itemsBlock
-    ? `\n\n---\nFull collection (${itemCount} item${itemCount === 1 ? '' : 's'}):\n\n${itemsBlock}`
+    ? `---\nFull collection (${itemCount} item${itemCount === 1 ? '' : 's'}):\n\n${itemsBlock}`
     : '')

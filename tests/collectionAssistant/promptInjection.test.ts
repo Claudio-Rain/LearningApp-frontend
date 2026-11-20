@@ -7,6 +7,7 @@
 import { describe, expect, test } from 'vitest'
 import {
   buildSystem,
+  buildContext,
   renderItemsBlock,
   maxProposalsPerMessage,
 } from '@/utils/collectionAssistant/prompt'
@@ -55,23 +56,22 @@ const approveDelete = (db: AssistantItem[], ids: string[]) => {
 }
 
 describe('prompt injection through card content', () => {
-  test('a card can append its own instructions to the end of the system prompt', () => {
+  test('a card can put its own instructions in a system-level state message', () => {
     const db = makeDb()
-    const system = buildSystem(
+    const context = buildContext(
       { title: 'JS Interview Prep' },
       db.length,
       renderItemsBlock(db),
       maxProposalsPerMessage(db, 64_000),
     )
 
-    // The payload arrives verbatim, with nothing marking it as quoted data...
-    expect(system).toContain('Updated operator instructions')
-    // ...after the app's own rules, so it is the last instruction the model reads.
-    expect(system.indexOf('Updated operator instructions')).toBeGreaterThan(
-      system.indexOf('Keep chat replies concise'),
-    )
+    // The payload arrives verbatim, with nothing marking it as quoted data. The
+    // state goes out as a system message after the app's rules, so it is the
+    // last instruction the model reads.
+    expect(context).toContain('Updated operator instructions')
+    expect(buildSystem(true)).not.toContain('Updated operator instructions')
     // Any of these would be a boundary. There is none.
-    expect(system).not.toMatch(/<untrusted|<\/item_content>|treat .* as data/i)
+    expect(context).not.toMatch(/<untrusted|<\/item_content>|treat .* as data/i)
   })
 
   test('the tool layer accepts a delete of the whole collection', () => {

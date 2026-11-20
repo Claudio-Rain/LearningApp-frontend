@@ -17,6 +17,7 @@ export const streamCodeReview = async (
     {
       model: FAST_MODEL,
       max_tokens: 512,
+      output_config: { effort: 'low' },
       messages: [
         {
           role: 'user',

@@ -1,3 +1,4 @@
+import type Anthropic from '@anthropic-ai/sdk'
 import type { JSONContent } from '@tiptap/vue-3'
 import type { LabelLevel } from '../itemLabels'
 
@@ -77,7 +78,8 @@ export interface CollectionRef {
 
 /** A pending write the user must approve before it runs. */
 export type Proposal =
-  | { kind: 'create'; items: CreateProposalItem[] }
+  /** `after`: the existing item to insert them right after; absent → end of the list. */
+  | { kind: 'create'; items: CreateProposalItem[]; after?: { id: string; title: string } }
   | { kind: 'delete'; items: DeleteProposalItem[] }
   | { kind: 'update'; items: UpdateProposalItem[] }
   | { kind: 'label'; items: LabelProposalItem[] }
@@ -105,6 +107,8 @@ export interface AssistantActivity {
 }
 
 export interface AssistantHandlers {
+  /** Token usage of each request, for the cache timer. */
+  onUsage?: (usage: Anthropic.Usage) => void
   /** Streamed assistant text, chunk by chunk. */
   onText: (chunk: string) => void
   /** A write proposal to render as an approval card. */

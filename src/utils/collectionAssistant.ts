@@ -19,6 +19,7 @@
 // this browser and is sent directly from it.
 
 export { runAssistantTurn } from './collectionAssistant/run'
+export { renderOpenCard } from './collectionAssistant/prompt'
 export type {
   AssistantItem,
   CreateProposalItem,

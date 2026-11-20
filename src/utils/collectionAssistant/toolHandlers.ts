@@ -88,9 +88,22 @@ const proposeCreate = (input: any, handlers: AssistantHandlers): ToolOutcome => 
   if (items.length === 0) {
     return failed('No valid items to create were provided.', 'No items to add')
   }
-  handlers.onProposal({ kind: 'create', items })
+  // An anchor that isn't in this collection must not block the proposal: the
+  // items still go in, at the end, and the model is told so.
+  const afterId = input?.after_id ? String(input.after_id) : undefined
+  const anchor = afterId ? handlers.getItems().find((it) => it.id === afterId) : undefined
+  handlers.onProposal({
+    kind: 'create',
+    items,
+    ...(anchor ? { after: { id: anchor.id, title: anchor.title } } : {}),
+  })
+  const placement = anchor
+    ? ` They will go right after "${anchor.title}".`
+    : afterId
+      ? ` after_id "${afterId}" matched no item in this collection, so they will go at the end of the list.`
+      : ''
   return ok(
-    `Showed the user an approval card to add ${items.length} item${plural(items.length)}. Awaiting their review.`,
+    `Showed the user an approval card to add ${items.length} item${plural(items.length)}.${placement} Awaiting their review.`,
     `Suggested ${items.length} new item${plural(items.length)}`,
   )
 }

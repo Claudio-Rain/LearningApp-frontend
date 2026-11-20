@@ -17,12 +17,13 @@ import type { CollectionItems } from './useCollectionItems'
  * becomes rich when the model actually used code in the question.
  */
 export function useAssistantActions(collectionItems: CollectionItems) {
-  const applyCreate = async (items: { title: string; content: string }[]) =>
+  const applyCreate = async (items: { title: string; content: string }[], afterId?: string) =>
     collectionItems.addItems(
       items.map(item => ({
         ...titleFieldsFromMarkdown(item.title),
         content: item.content ? markdownToTiptap(item.content) : undefined
-      }))
+      })),
+      afterId
     )
 
   const applyLabels = async (id: string, patch: ItemLabelPatch) => collectionItems.setLabels(id, patch)

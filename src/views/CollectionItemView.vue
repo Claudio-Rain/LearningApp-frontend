@@ -38,6 +38,7 @@
       v-if="collection"
       :collection="collection"
       :items="learningItems"
+      :open-item="selectedItem"
       :apply-create="applyCreate"
       :apply-delete="applyDelete"
       :apply-update="applyUpdate"

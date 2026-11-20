@@ -17,7 +17,7 @@ import {
 } from '@/database'
 import type { Collection, ItemEditPatch, ItemLabelPatch, LearningItem } from '@/database/types'
 import { toLabelPatch } from '@/utils/itemLabels'
-import { planMove, planOrder, sortByPosition, type PositionWrite } from '@/utils/itemOrder'
+import { planAppend, planInsertAfter, planMove, planOrder, sortByPosition, type PositionWrite } from '@/utils/itemOrder'
 
 export type CollectionItems = ReturnType<typeof useCollectionItems>
 
@@ -87,17 +87,29 @@ export function useCollectionItems(collectionId: string, options: { onMissing: (
     await load()
   }
 
+  /**
+   * Add a batch in the order it was given (the assistant's proposal), right
+   * after `afterId` when given and still in the list, otherwise at the end —
+   * never sorted alphabetically among the rest.
+   */
   const addItems = async (
-    items: { title: string; titleContent?: JSONContent; content?: JSONContent }[]
+    items: { title: string; titleContent?: JSONContent; content?: JSONContent }[],
+    afterId?: string
   ) => {
     if (!collection.value || items.length === 0) return
     const now = formatISO(new Date())
-    for (const item of items) {
+    const sorted = sortByPosition(learningItems.value)
+    const { writes, positions } = afterId
+      ? planInsertAfter(sorted, afterId, items.length)
+      : planAppend(sorted, items.length)
+    if (writes.length > 0) await setLearningItemPositions(writes)
+    for (const [k, item] of items.entries()) {
       await createLearningItem({
         collectionId: collection.value.id!,
         title: item.title,
         titleContent: item.titleContent,
         content: item.content,
+        position: positions[k],
         dateCreated: now,
         lastModified: now
       })

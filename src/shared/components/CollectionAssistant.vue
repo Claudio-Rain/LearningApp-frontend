@@ -75,6 +75,14 @@
                 <v-icon size="16" color="primary">mdi-plus-circle-outline</v-icon>
                 Add {{ selectedCount(m) }} item{{ selectedCount(m) === 1 ? '' : 's' }}
               </div>
+              <!-- Where the batch lands, so it can be judged before approving -->
+              <div class="proposal-placement">
+                <v-icon size="12">mdi-arrow-collapse-down</v-icon>
+                <template v-if="m.proposal.after">
+                  After <MathText tag="span" class="placement-anchor" :text="m.proposal.after.title" />
+                </template>
+                <template v-else>At the end of the list</template>
+              </div>
               <ul class="proposal-list">
                 <li v-for="(it, j) in m.proposal.items" :key="j">
                   <input
@@ -243,6 +251,29 @@
         <div v-if="error" class="assistant-error">{{ error }}</div>
       </div>
 
+      <!-- Cost controls: how hard the model thinks, and how long the cache lives -->
+      <div class="assistant-meta">
+        <div class="effort-toggle" role="radiogroup" aria-label="Effort">
+          <span class="meta-label">Effort</span>
+          <button
+            v-for="e in EFFORTS" :key="e.value"
+            type="button" role="radio"
+            class="effort-option" :class="{ active: effort === e.value }"
+            :aria-checked="effort === e.value"
+            :disabled="loading"
+            :title="effortTitle(e)"
+            @click="setEffort(e.value)"
+          >
+            {{ e.label }}
+          </button>
+        </div>
+        <v-spacer />
+        <span v-if="lastUsage" class="cache-status" :class="cacheState" :title="cacheTitle">
+          <v-icon size="13">mdi-database-clock-outline</v-icon>
+          {{ cacheLabel }}
+        </span>
+      </div>
+
       <form class="assistant-input" @submit.prevent="send()">
         <v-textarea
           v-model="draft"
@@ -262,7 +293,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick } from 'vue'
+import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import type Anthropic from '@anthropic-ai/sdk'
@@ -271,8 +302,10 @@ import { getApiKey, setApiKey } from '../../utils/claude'
 import { ITEM_LABEL_DEFS, ITEM_LABEL_KINDS, labelMeta, labelText } from '../../utils/itemLabels'
 import { titlePreviewFromMarkdown } from '../../utils/itemTitle'
 import MathText from './MathText.vue'
+import { CACHE_TTL_MS, type Effort } from '../../utils/assistantLoop'
 import {
   runAssistantTurn,
+  renderOpenCard,
   type Proposal,
   type AssistantItem,
   type AssistantActivity,
@@ -289,7 +322,9 @@ const props = defineProps<{
   collection: Collection
   collections: Collection[]
   items: LearningItem[]
-  applyCreate: (items: { title: string; content: string }[]) => Promise<void>
+  /** The card open in the editor beside the chat: what "this card" means. */
+  openItem?: LearningItem | null
+  applyCreate: (items: { title: string; content: string }[], afterId?: string) => Promise<void>
   applyDelete: (ids: string[]) => Promise<void>
   applyUpdate: (id: string, patch: { title?: string; content?: string }) => Promise<void>
   applyLabels: (id: string, patch: ItemLabelPatch) => Promise<void>
@@ -338,6 +373,93 @@ const scrollEl = ref<HTMLElement | null>(null)
 
 // Anthropic message history, preserved across turns so the model keeps context.
 const apiMessages: Anthropic.MessageParam[] = []
+
+// ── Effort ─────────────────────────────────────────────────────────────────
+// Remembered across sessions: it's a preference about cost vs. card quality.
+
+const EFFORT_KEY = 'collectionAssistant.effort'
+
+const EFFORTS: { value: Effort; label: string; hint: string }[] = [
+  { value: 'low', label: 'Low', hint: 'Cheapest. Fine for quick questions and labeling.' },
+  { value: 'medium', label: 'Med', hint: 'Thinks less than High. Cards can come out shallower.' },
+  { value: 'high', label: 'High', hint: 'Best cards. Thinking is billed as output, so it costs the most.' },
+]
+
+const storedEffort = localStorage.getItem(EFFORT_KEY)
+const effort = ref<Effort>(
+  EFFORTS.some((e) => e.value === storedEffort) ? (storedEffort as Effort) : 'high',
+)
+
+const setEffort = (value: Effort) => {
+  effort.value = value
+  localStorage.setItem(EFFORT_KEY, value)
+}
+
+// ── Cache timer ────────────────────────────────────────────────────────────
+// Every request that writes or reads the cache restarts its lifetime, so the
+// cache is warm until CACHE_TTL_MS after the last such request.
+
+const lastUsage = ref<Anthropic.Usage | null>(null)
+const cacheUntil = ref(0)
+const now = ref(Date.now())
+let ticker: ReturnType<typeof setInterval> | undefined
+
+// The label only shows whole minutes, so a coarse tick is plenty.
+onMounted(() => {
+  ticker = setInterval(() => (now.value = Date.now()), 10_000)
+})
+onBeforeUnmount(() => clearInterval(ticker))
+
+const cachedTokens = (u: Anthropic.Usage) =>
+  (u.cache_read_input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0)
+
+const onUsage = (usage: Anthropic.Usage) => {
+  lastUsage.value = usage
+  // A prefix below the model's minimum is never cached, so there is no timer.
+  cacheUntil.value = cachedTokens(usage) > 0 ? Date.now() + CACHE_TTL_MS : 0
+}
+
+const cacheRemainingMs = computed(() => Math.max(0, cacheUntil.value - now.value))
+
+const cacheState = computed(() => {
+  if (cacheUntil.value === 0) return 'none'
+  if (cacheRemainingMs.value === 0) return 'expired'
+  return cacheRemainingMs.value < 60_000 ? 'expiring' : 'warm'
+})
+
+const cacheLabel = computed(() => {
+  if (cacheState.value === 'none') return 'Not cached'
+  if (cacheState.value === 'expired') return 'Cache expired'
+  // Whole minutes only: a ticking seconds counter reads as pressure to type.
+  if (cacheState.value === 'expiring') return 'Cache < 1 min'
+  return `Cache ${Math.ceil(cacheRemainingMs.value / 60_000)} min`
+})
+
+const tokens = (n: number | null | undefined) => (n ?? 0).toLocaleString()
+
+const cacheTitle = computed(() => {
+  const u = lastUsage.value
+  if (!u) return ''
+  const lead =
+    cacheState.value === 'warm' || cacheState.value === 'expiring'
+      ? 'Send your next message before the timer runs out and the conversation so far is read from the cache, at a fraction of the price.'
+      : cacheState.value === 'expired'
+        ? 'The cache has expired: the next message pays full price for the whole conversation again.'
+        : 'The conversation is still too short to be cached.'
+  return (
+    `${lead}\n\nLast request:\n` +
+    `• ${tokens(u.cache_read_input_tokens)} tokens read from cache\n` +
+    `• ${tokens(u.cache_creation_input_tokens)} written to cache\n` +
+    `• ${tokens(u.input_tokens)} uncached input\n` +
+    `• ${tokens(u.output_tokens)} output (includes thinking)`
+  )
+})
+
+const effortTitle = (e: (typeof EFFORTS)[number]) =>
+  e.hint +
+  (e.value !== effort.value && (cacheState.value === 'warm' || cacheState.value === 'expiring')
+    ? '\nSwitching now means the next message rebuilds the cache.'
+    : '')
 
 const suggestions = [
   'Summarize this collection',
@@ -460,7 +582,18 @@ const send = async (preset?: string) => {
   error.value = ''
   draft.value = ''
   messages.value.push({ role: 'user', text })
-  apiMessages.push({ role: 'user', content: text })
+  // Tell the model which card is open, so "add a diagram here" has a target.
+  // Only the model sees the note; the bubble shows what the user typed.
+  const openCard = props.openItem
+  apiMessages.push({
+    role: 'user',
+    content: openCard?.id
+      ? [
+          { type: 'text', text: renderOpenCard({ id: openCard.id, title: openCard.title }) },
+          { type: 'text', text },
+        ]
+      : text,
+  })
   loading.value = true
   scrollToBottom()
 
@@ -469,9 +602,10 @@ const send = async (preset?: string) => {
       onText: appendText,
       onProposal: pushProposal,
       onActivity: pushActivity,
+      onUsage,
       getItems,
       getOtherCollections,
-    })
+    }, effort.value)
     closeStreamingBubble()
   } catch (err) {
     console.error('Assistant turn failed:', err)
@@ -487,8 +621,8 @@ const count = (n: number, noun: string) => `${n} ${noun}${n === 1 ? '' : 's'}`
 // Each of these runs one approved batch and returns what to show on the card.
 // The write loops are sequential on purpose: they hit the same collection, and
 // a failure partway through should leave the earlier writes saved.
-const runCreate = async (items: CreateProposalItem[]) => {
-  await props.applyCreate(items)
+const runCreate = async (items: CreateProposalItem[], afterId?: string) => {
+  await props.applyCreate(items, afterId)
   return `Added ${count(items.length, 'item')}`
 }
 
@@ -523,7 +657,10 @@ const runMove = async (items: MoveProposalItem[], target: MoveTarget) => {
 const runProposal = async (m: ProposalMessage): Promise<string> => {
   // Create items have no id, so their checkbox key is their index.
   if (m.proposal.kind === 'create') {
-    return runCreate(m.proposal.items.filter((_, j) => m.selected[String(j)]))
+    return runCreate(
+      m.proposal.items.filter((_, j) => m.selected[String(j)]),
+      m.proposal.after?.id,
+    )
   }
   if (m.proposal.kind === 'reorder') {
     await props.applyReorder(m.proposal.ids, m.proposal.place)
@@ -555,6 +692,8 @@ const clearChat = () => {
   messages.value = []
   apiMessages.length = 0
   error.value = ''
+  lastUsage.value = null
+  cacheUntil.value = 0
 }
 </script>
 

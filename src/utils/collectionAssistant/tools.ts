@@ -75,6 +75,13 @@ export const WRITE_TOOLS: Anthropic.Tool[] = [
             additionalProperties: false,
           },
         },
+        after_id: {
+          type: 'string',
+          description:
+            'Optional. The id of an existing item the new ones should be placed right after, ' +
+            'so they land next to the cards they belong with (e.g. more git stash questions go ' +
+            'after the last git stash card). Omit to add them at the end of the list.',
+        },
       },
       required: ['items'],
       additionalProperties: false,

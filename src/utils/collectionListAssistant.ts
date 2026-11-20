@@ -56,6 +56,13 @@ const line = (c: CollectionSummary): string =>
   `- ${c.id}: ${c.starred ? '★ ' : ''}${c.title} — ${c.itemCount} card${c.itemCount === 1 ? '' : 's'}` +
   (c.categoryTitle ? ` · ${c.categoryTitle}` : '')
 
+// Fixed, so it can head the cached prefix. The list itself changes on every
+// rename and is sent as a state message instead.
+const COLLECTION_LIST_SYSTEM =
+  "The user's collections arrive in system messages, one per line as `id: title — card count`. " +
+  'A new list is sent whenever it changes, so the most recent one is current.'
+
+/** The user's collections, one per line: the live state for this assistant. */
 export function buildCollectionListSystem(collections: CollectionSummary[]): string {
   return collections.map(line).join('\n')
 }
@@ -100,7 +107,8 @@ export const runCollectionListTurn = async (
 ): Promise<void> => {
   await runAgentTurn(
     {
-      system: buildCollectionListSystem(handlers.getCollections()),
+      system: COLLECTION_LIST_SYSTEM,
+      context: buildCollectionListSystem(handlers.getCollections()),
       tools: COLLECTION_LIST_TOOLS,
       runTool: (name, input) => runCollectionListTool(name, input, handlers),
     },

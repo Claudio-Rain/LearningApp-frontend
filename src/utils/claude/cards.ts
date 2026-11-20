@@ -3,7 +3,7 @@
 
 import type { JSONContent } from '@tiptap/vue-3'
 import { extractText } from './text'
-import { createText } from './client'
+import { createText, FAST_MODEL } from './client'
 import type { SplitProposal } from './types'
 
 /**
@@ -33,8 +33,11 @@ export const proposeCardSplit = async (
     `Reply with ONLY a JSON array of exactly ${splits} objects shaped like ` +
     `{"question": "...", "answer": "..."} — no prose, no code fences.`
 
+  // A support task: reorganizing material that's already on the card.
   const text = await createText({
+    model: FAST_MODEL,
     max_tokens: 4096,
+    output_config: { effort: 'low' },
     system,
     messages: [{ role: 'user', content: `Split the card into ${splits} part${splits === 1 ? '' : 's'} now.` }],
   })
@@ -80,8 +83,12 @@ export const rewriteAsStandaloneQuestion = async (
     `question — no quotes, no explanation. You may wrap an identifier or short snippet in markdown ` +
     `inline \`code\`; use nothing else from markdown.`
 
+  // Mechanical rewrite of one sentence. The budget leaves room for thinking,
+  // which counts against it; the reply itself is one line.
   const text = await createText({
-    max_tokens: 200,
+    model: FAST_MODEL,
+    max_tokens: 1024,
+    output_config: { effort: 'low' },
     system,
     messages: [{ role: 'user', content: question }],
   })

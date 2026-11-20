@@ -25,6 +25,18 @@ const MAX_STEPS = 8
 // size safe (a non-streaming request would risk an HTTP timeout).
 export const MAX_TOKENS = 64_000
 
+// Sonnet 5.5 defaults to `high`. Picking study sets or renaming collections
+// doesn't need that much thinking, and thinking bills as output. Assistants that
+// write content (the collection assistant) override it — see AgentDefinition.
+const DEFAULT_EFFORT = 'medium'
+
+export type Effort = 'low' | 'medium' | 'high'
+
+// How long a cache entry lives after the last request that wrote or read it.
+// Matches `cache_control: { type: 'ephemeral' }` (no ttl), which is what the
+// loop below sends. Change both together.
+export const CACHE_TTL_MS = 5 * 60 * 1000
+
 /** What one tool call did: `result` for the model, `label`/`ok` for the user. */
 export interface ToolOutcome {
   result: string
@@ -35,12 +47,24 @@ export interface ToolOutcome {
 /**
  * Everything that makes one assistant different from another.
  *
- * `system` and `tools` are built fresh per turn, so an assistant can re-read its
- * data and re-decide what to offer (the collection assistant drops its read
- * tools when the whole collection fits in the prompt).
+ * `system` must stay byte-identical across turns: it heads the cached prefix,
+ * so any change re-bills the whole conversation at full price. Live data (the
+ * collection's cards, the page's selections…) goes in `context` instead.
+ *
+ * `tools` are built per turn (the collection assistant drops its read tools when
+ * the whole collection fits), but they head the prefix too, so they should only
+ * change rarely.
  */
 export interface AgentDefinition {
   system: string
+  /**
+   * A snapshot of the live state the model should see. Sent as a mid-conversation
+   * system message, and only when it differs from the last snapshot sent, so the
+   * cached history ahead of it stays valid.
+   */
+  context?: string
+  /** How hard the model thinks. Defaults to `medium`; card writing wants `high`. */
+  effort?: Effort
   tools: Anthropic.Tool[]
   /** Run one tool call. Returning `ok: false` shows a failed step and tells the model. */
   runTool: (name: string, input: unknown) => ToolOutcome
@@ -51,6 +75,8 @@ export interface AgentHandlers {
   onText: (chunk: string) => void
   /** Progress steps: upsert by `activity.id`. */
   onActivity: (activity: AssistantActivity) => void
+  /** Token usage of each request in the loop, as soon as it finishes. */
+  onUsage?: (usage: Anthropic.Usage) => void
 }
 
 /**
@@ -133,12 +159,21 @@ export const runAgentTurn = async (
 
   const feed = createActivityFeed(handlers.onActivity)
 
+  // Appended right after the user's new message, which is where the API
+  // accepts a system message.
+  const snapshot =
+    agent.context !== undefined && agent.context !== lastSnapshot(messages)
+      ? ({ role: 'system', content: agent.context } as const)
+      : undefined
+  if (snapshot) messages.push(snapshot)
+
   try {
     let step = 0
     for (; step < MAX_STEPS; step++) {
       const stream = client.messages.stream({
         model: MODEL,
         max_tokens: MAX_TOKENS,
+        output_config: { effort: agent.effort ?? DEFAULT_EFFORT },
         system,
         tools: agent.tools,
         messages: withConversationBreakpoint(messages),
@@ -155,6 +190,7 @@ export const runAgentTurn = async (
         uncached: message.usage.input_tokens,
         output: message.usage.output_tokens,
       })
+      handlers.onUsage?.(message.usage)
       messages.push({ role: 'assistant', content: message.content })
 
       // Only the block the model was mid-way through can be truncated; every
@@ -180,9 +216,22 @@ export const runAgentTurn = async (
       feed.fail('mdi-flag-outline', `Stopped after ${MAX_STEPS} steps — ask me to continue`)
     }
   } catch (err) {
+    // A system message must end the history or be followed by an assistant
+    // turn. If the first request failed, the user's next message would land
+    // right after it and every later request would 400, so take it back out.
+    if (snapshot && messages[messages.length - 1] === snapshot) messages.pop()
     feed.failAll("Didn't finish")
     throw err
   }
+}
+
+/** The text of the most recent snapshot sent in this conversation, if any. */
+const lastSnapshot = (messages: Anthropic.MessageParam[]): string | undefined => {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i]
+    if (m?.role === 'system' && typeof m.content === 'string') return m.content
+  }
+  return undefined
 }
 
 // Thinking blocks are the content types that can't carry a breakpoint; marking
@@ -200,11 +249,17 @@ const isCacheable = (block: Anthropic.ContentBlockParam): block is CacheableBloc
  * request reads the whole history back instead of re-sending it at full price.
  * Copies only the message it touches — leaving the caller's history unmarked is
  * what keeps a long turn under the four-breakpoint-per-request cap.
+ *
+ * A trailing state snapshot (a system message) is skipped: the breakpoint goes
+ * on the user message before it, and the snapshot gets cached from the next
+ * step on, once a later message carries the breakpoint.
  */
 const withConversationBreakpoint = (
   messages: Anthropic.MessageParam[],
 ): Anthropic.MessageParam[] => {
-  const last = messages[messages.length - 1]
+  let index = messages.length - 1
+  while (index >= 0 && messages[index]?.role === 'system') index--
+  const last = messages[index]
   if (!last) return messages
 
   const blocks: Anthropic.ContentBlockParam[] =
@@ -216,7 +271,7 @@ const withConversationBreakpoint = (
   if (!tail || !isCacheable(tail)) return messages
 
   blocks[blocks.length - 1] = { ...tail, cache_control: { type: 'ephemeral' } }
-  return [...messages.slice(0, -1), { ...last, content: blocks }]
+  return [...messages.slice(0, index), { ...last, content: blocks }, ...messages.slice(index + 1)]
 }
 
 const formatChars = (n: number): string =>

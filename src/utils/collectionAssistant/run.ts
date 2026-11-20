@@ -2,10 +2,11 @@
 // wiring to the shared agentic loop in `@/utils/assistantLoop`.
 
 import type Anthropic from '@anthropic-ai/sdk'
-import { runAgentTurn, MAX_TOKENS, type ToolOutcome } from '../assistantLoop'
+import { runAgentTurn, MAX_TOKENS, type Effort, type ToolOutcome } from '../assistantLoop'
 import { READ_TOOLS, WRITE_TOOLS } from './tools'
 import {
   buildSystem,
+  buildContext,
   renderItemsBlock,
   maxProposalsPerMessage,
   MAX_EMBED_CHARS,
@@ -25,6 +26,10 @@ export const runAssistantTurn = async (
   collection: { title: string; description?: string },
   messages: Anthropic.MessageParam[],
   handlers: AssistantHandlers,
+  // This assistant writes the cards themselves; at `medium` they came out
+  // noticeably shallower, so it defaults to the model's full `high`. The chat
+  // lets the user pick per conversation.
+  effort: Effort = 'high',
 ): Promise<void> => {
   // Decide once per turn: if the whole collection fits, embed it in the system
   // prompt and drop the read tools; otherwise fall back to preview + read tools.
@@ -34,16 +39,19 @@ export const runAssistantTurn = async (
 
   await runAgentTurn(
     {
-      system: buildSystem(
+      system: buildSystem(embed),
+      effort,
+      context: buildContext(
         collection,
         items.length,
         embed ? itemsBlock : null,
         maxProposalsPerMessage(items, MAX_TOKENS),
-        handlers.getOtherCollections(),      ),
+        handlers.getOtherCollections(),
+      ),
       tools: embed ? WRITE_TOOLS : [...READ_TOOLS, ...WRITE_TOOLS],
       runTool: (name, input): ToolOutcome => runToolCall(name, input, handlers),
     },
     messages,
-    { onText: handlers.onText, onActivity: handlers.onActivity },
+    { onText: handlers.onText, onActivity: handlers.onActivity, onUsage: handlers.onUsage },
   )
 }

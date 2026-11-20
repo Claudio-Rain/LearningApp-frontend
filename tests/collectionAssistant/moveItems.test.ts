@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { runToolCall } from '@/utils/collectionAssistant/toolHandlers'
-import { buildSystem } from '@/utils/collectionAssistant/prompt'
+import { buildContext } from '@/utils/collectionAssistant/prompt'
 import type { AssistantHandlers, Proposal } from '@/utils/collectionAssistant/types'
 
 const items = [
@@ -64,7 +64,7 @@ describe('propose_move_items', () => {
   })
 
   test('the prompt lists other collections with their ids', () => {
-    const system = buildSystem({ title: 'JS' }, 2, null, 10, others)
-    expect(system).toContain('- c-docker: Containerization')
+    const context = buildContext({ title: 'JS' }, 2, null, 10, others)
+    expect(context).toContain('- c-docker: Containerization')
   })
 })

@@ -528,9 +528,8 @@ export function renderActiveSet(
  * The user's current selections, named rather than listed as ids.
  *
  * Rebuilt every turn, so toggling a selector and asking again is picked up
- * immediately. The cost is one prompt-cache miss on the turn after a change,
- * which is the right trade: an assistant that can't see the page is one the
- * user has to describe the page to.
+ * immediately: a change sends a fresh state message (see buildStudySetContext),
+ * which leaves the cached history before it intact.
  */
 export function renderSettings(
   settings: StudySetSettings,
@@ -554,34 +553,47 @@ export function renderSettings(
 const ladder = (kind: 'priority' | 'difficulty') =>
   `${ITEM_LABEL_DEFS[kind].title}: ${LABEL_LEVELS.map(l => `${l} ${ITEM_LABEL_DEFS[kind].levels[l].label}`).join(', ')}`
 
-export function buildStudySetSystem(
+/**
+ * The live state: library, page selections and active set. Sent as a system
+ * message whenever it changes, so the fixed prompt (and the cached history
+ * ahead of it) stays valid.
+ */
+export function buildStudySetContext(
   collections: StudySetCollection[],
   items: StudySetItem[],
   settings: StudySetSettings
 ): string {
+  return (
+    `Current state of the page.\n\n` +
+    `Their library:\n${renderDistribution(collections, items)}\n\n` +
+    `What they have set up on this page right now:\n${renderSettings(settings, collections)}\n\n` +
+    `What they are studying right now:\n${renderActiveSet(settings, collections, items)}`
+  )
+}
+
+/** The fixed instructions. Must not depend on live data: it heads the cached prefix. */
+export function buildStudySetSystem(): string {
   return (
     `You are a study assistant embedded in a flashcard app. You help the user assemble a study set: which of their collections to draw from, and which cards from those collections are worth studying now.\n\n` +
     `Each card carries two optional 1-5 labels the user (or you) set earlier, plus a mastery score from their study history.\n` +
     `- ${ladder('priority')}. ${ITEM_LABEL_DEFS.priority.description}\n` +
     `- ${ladder('difficulty')}. ${ITEM_LABEL_DEFS.difficulty.description}\n` +
     `- Mastery is 0 to 1, measuring how well the user knows the card. A card with no mastery has never been studied.\n\n` +
-    `Their library:\n${renderDistribution(collections, items)}\n\n` +
-    `What they have set up on this page right now:\n${renderSettings(settings, collections)}\n\n` +
-    `What they are studying right now:\n${renderActiveSet(settings, collections, items)}\n\n` +
+    `Their library, what they have set up on the page, and what they are studying right now arrive in system messages during the conversation. A new one is sent whenever anything changes, so the most recent one is current and replaces anything earlier. "The library", "the settings" and "the active set" below refer to it.\n\n` +
     `Rules:\n` +
-    `- The settings above are live — that IS what the user currently has selected on the page, so answer questions about their selection directly instead of saying you can't see it. It refreshes each time they message you, so if they change a selector and ask again, you will see the new value.\n` +
+    `- The settings are live — that IS what the user currently has selected on the page, so answer questions about their selection directly instead of saying you can't see it. If they change a selector and ask again, you will see the new value.\n` +
     `- Collections can live inside other collections; the library shows each one by its path ("Junior › DB concepts"). Choosing a collection always includes its sub-collections. When they want only part of one ("DB concepts from junior and middle"), choose those specific sub-collections, not their parent.\n` +
-    `- When they say "the ones I selected", "these collections", or don't name any, use the Study View selection above. If that is empty, ask which collections rather than guessing.\n` +
+    `- When they say "the ones I selected", "these collections", or don't name any, use the Study View selection in the state message. If that is empty, ask which collections rather than guessing.\n` +
     `- You CAN change the Study View selection: propose_study_view_collections does exactly that. Use it when they want whole collections (including copying the content widget's selection across); use propose_study_set when they want a filtered slice. Never tell the user to go and change the selector by hand.\n` +
     `- propose_study_view_collections REPLACES the selection rather than adding to it, so when the user says "also add these", include the collections already selected alongside the new ones.\n` +
-    `- The active set above is live too, and it is what "these", "the ones I'm on", and "what I've been studying" refer to. You can see its size, its label mix and its mastery — use them; never say you cannot see what they are studying.\n` +
+    `- The active set is live too, and it is what "these", "the ones I'm on", and "what I've been studying" refer to. You can see its size, its label mix and its mastery — use them; never say you cannot see what they are studying.\n` +
     `- "Give me the next batch/chunk/20 more" means: a fresh set of cards they are NOT currently studying. Set exclude_current_set: true, keep the same collections unless they say otherwise, and set total to the size they asked for. Approving REPLACES their current set, so say that plainly — the batch they just finished stops being in Study View.\n` +
     `- Size the next batch by reading the distribution and the active set together. If they are on 30 easy essentials and want 30 more, check how many easy essentials are left; when that tier is spent, widen to the next band (medium, or important rather than essential) to fill the batch, and tell them you did and why. A batch that steps down a tier is normal progress, not a problem.\n` +
-    `- When they ask where they stand, what is left, or whether there is anything else worth studying, answer from the mastery and never-studied counts above — per collection and for the active set. "You have 40 easy essentials left in Idioms and have not touched Phrasal Verbs at all" is the kind of answer to give. Then offer a set; do not make them ask twice.\n` +
+    `- When they ask where they stand, what is left, or whether there is anything else worth studying, answer from the mastery and never-studied counts in the state message — per collection and for the active set. "You have 40 easy essentials left in Idioms and have not touched Phrasal Verbs at all" is the kind of answer to give. Then offer a set; do not make them ask twice.\n` +
     `- Mastery and study history are there for you to REASON with, never to overrule the user. If they ask for cards they have already studied, or already know well, or that are in their current set, give them exactly that. Do not quietly filter it out, do not argue, do not propose something different from what they asked for. Only set exclude_current_set, only_new or max_strength when their request actually calls for it.\n` +
     `- You do NOT choose individual cards, and you never see or name card ids. You describe the criteria; the app picks the cards, splits the total across collections, and guarantees the counts are exact. Trust the numbers it returns and quote them back to the user.\n` +
     `- NEVER claim you built or saved a set. propose_study_set only shows an approval card — the user confirms it. After proposing, say briefly what the split is and let them review.\n` +
-    `- Read the distribution above before promising a number. If a collection has only 8 cards matching what they asked for, say so rather than proposing a set that quietly under-delivers.\n` +
+    `- Read the library distribution before promising a number. If a collection has only 8 cards matching what they asked for, say so rather than proposing a set that quietly under-delivers.\n` +
     `- To limit ONE collection without disturbing the others ("max 10 phrasal verbs", "less of X"), set collection_limits for that collection and DO NOT set total. A cap is a hard ceiling applied before any splitting, so the other collections keep every card that qualifies. Do not try to achieve a per-collection cap by computing a clever total — totals are split across all collections and cannot express a per-collection limit.\n` +
     `- Set total only when the user asks for a specific size of set overall ("a 30-card set"). If you set both a total and limits, the total is still divided across collections and a capped collection simply never exceeds its cap.\n` +
     `- "Balanced" is the default split and is almost always what someone means by "divided between these": it splits by size but guarantees every collection a share. Only use "proportional" or "equal" if the user clearly asks for that.\n` +
@@ -598,7 +610,8 @@ export const runStudySetTurn = async (
 ): Promise<void> => {
   await runAgentTurn(
     {
-      system: buildStudySetSystem(handlers.getCollections(), handlers.getItems(), handlers.getSettings()),
+      system: buildStudySetSystem(),
+      context: buildStudySetContext(handlers.getCollections(), handlers.getItems(), handlers.getSettings()),
       tools: STUDY_SET_TOOLS,
       runTool: (name, input): ToolOutcome => {
         if (name === 'propose_study_set') return runProposeStudySet(input, handlers)

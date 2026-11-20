@@ -6,6 +6,10 @@ import { streamText, createText } from './client'
 import { RICH_FORMAT_GUIDE } from './format'
 import type { ChatMessage } from './types'
 
+// Short Q&A about one card: deep thinking doesn't pay for itself here, and it
+// bills as output.
+const CHAT_EFFORT = 'low'
+
 // The card's front/back ride along as the system prompt so every turn stays
 // grounded in the card being studied.
 const cardSystem = (title: string, body: string): string =>
@@ -27,7 +31,12 @@ export const streamCardChat = async (
   onToken: (chunk: string) => void
 ): Promise<void> => {
   await streamText(
-    { max_tokens: 1024, system: cardSystem(title, extractText(content)), messages },
+    {
+      max_tokens: 1024,
+      output_config: { effort: CHAT_EFFORT },
+      system: cardSystem(title, extractText(content)),
+      messages,
+    },
     onToken
   )
 }
@@ -42,4 +51,9 @@ export const cardChatMarkdown = async (
   body: string,
   messages: ChatMessage[]
 ): Promise<string> =>
-  createText({ max_tokens: 1024, system: cardSystem(title, body), messages })
+  createText({
+    max_tokens: 1024,
+    output_config: { effort: CHAT_EFFORT },
+    system: cardSystem(title, body),
+    messages,
+  })
