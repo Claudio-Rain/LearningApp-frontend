@@ -3,35 +3,15 @@ import { getAllLearningItems } from '@/database'
 import type { LearningItem } from '@/database'
 import { useExcludedItems } from '@/shared/composables/useExcludedItems'
 import { withSubCollections } from '@/utils/subCollections'
-import { ITEM_LABEL_DEFS, LABEL_LEVELS, toLabelLevel } from '@/utils/itemLabels'
-import type { ItemLabelKind } from '@/utils/itemLabels'
-import { STRENGTH_TIERS, STRENGTH_TIER_META, strengthTier } from '@/utils/strength'
+import { toLabelLevel } from '@/utils/itemLabels'
+import { strengthTier } from '@/utils/strength'
 import type { StrengthTier } from '@/utils/strength'
+import { matchesLabel } from '@/utils/itemFilters'
 import { useCollectionCatalog } from './useCollectionCatalog'
 
 export type ExclusionItem = LearningItem & { collectionTitle: string; strengthScore: number }
 
 export type SortSpec = { key: string; order: 'asc' | 'desc' }
-
-/** Filter value standing in for "this item has never been labeled". */
-export const UNLABELED = 0
-
-/** Options for a label filter: every level, plus the unlabeled bucket. */
-export function labelFilterOptions(kind: ItemLabelKind) {
-  const def = ITEM_LABEL_DEFS[kind]
-  return [
-    ...LABEL_LEVELS.map(level => ({ value: level as number, title: `${level} · ${def.levels[level].label}` })),
-    { value: UNLABELED, title: def.unsetLabel }
-  ]
-}
-
-/**
- * Options for the strength filter — the whole ladder, 'new' included, since an
- * unstudied card is a thing you'd want to filter *to*, not an absent value.
- */
-export function strengthFilterOptions() {
-  return STRENGTH_TIERS.map(tier => ({ value: tier, title: STRENGTH_TIER_META[tier].label }))
-}
 
 /**
  * Backing state for the Excluded Items table: which collections it draws from,
@@ -70,14 +50,6 @@ export function useExclusionTable() {
       return { id: c.id, title: label, categoryId: c.categoryId }
     })
   })
-
-  // A label matches when its level is selected, or when it is unlabeled and the
-  // unlabeled bucket is selected.
-  const matchesLabel = (value: number | undefined, selected: number[]) => {
-    if (!selected.length) return true
-    const level = toLabelLevel(value)
-    return selected.includes(level ?? UNLABELED)
-  }
 
   // Prefix match on title (case-insensitive): typing "L1" shows titles starting
   // with "L1". Combined with the label filters, which are ANDed with it.

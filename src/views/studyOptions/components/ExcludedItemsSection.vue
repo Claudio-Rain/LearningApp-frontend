@@ -163,11 +163,8 @@ import CollectionMultiSelect from '@/shared/components/CollectionMultiSelect.vue
 import { ITEM_LABEL_DEFS, ITEM_LABEL_KINDS, labelMeta } from '@/utils/itemLabels'
 import { strengthMeta } from '@/utils/strength'
 import { useCollectionCatalog } from '../composables/useCollectionCatalog'
-import {
-  labelFilterOptions,
-  strengthFilterOptions,
-  useExclusionTable,
-} from '../composables/useExclusionTable'
+import { labelFilterOptions, strengthFilterOptions } from '@/utils/itemFilters'
+import { useExclusionTable } from '../composables/useExclusionTable'
 import { useStudyViewForm } from '../composables/useStudyViewForm'
 
 const { categories, loadingCollections, load: loadCatalog } = useCollectionCatalog()

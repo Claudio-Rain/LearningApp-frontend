@@ -1,23 +1,77 @@
 <template>
+  <!-- Label/strength filters in plain sight, the search tucked behind a
+       magnifier. They narrow the view only; the # column keeps each item's
+       place in the full list. -->
+  <div v-if="items.length > 0" class="item-filters">
+    <div class="item-filters__row">
+      <v-select
+        v-for="f in selectFilters"
+        :key="f.key"
+        v-model="filters[f.key]"
+        :items="f.options"
+        :label="f.label"
+        :prepend-inner-icon="f.icon"
+        variant="outlined"
+        density="compact"
+        multiple
+        hide-details
+        class="item-filters__select"
+      >
+        <!-- One short line however many are picked: "Weak +2". -->
+        <template #selection="{ item, index }">
+          <span v-if="index === 0" class="item-filters__value">{{ item.title }}</span>
+          <span v-else-if="index === 1" class="item-filters__more">+{{ filters[f.key].length - 1 }}</span>
+        </template>
+      </v-select>
+      <v-btn
+        :icon="searchOpen ? 'mdi-magnify-close' : 'mdi-magnify'"
+        size="small"
+        :variant="filters.query ? 'tonal' : 'text'"
+        :color="filters.query ? 'primary' : undefined"
+        :title="searchOpen ? 'Close search' : 'Search questions and answers'"
+        @click="toggleSearch"
+      />
+    </div>
+    <v-text-field
+      v-if="searchOpen"
+      ref="searchField"
+      v-model="filters.query"
+      placeholder="Search questions and answers"
+      prepend-inner-icon="mdi-magnify"
+      variant="outlined"
+      density="compact"
+      hide-details
+      clearable
+      class="item-filters__search"
+      @click:clear="filters.query = ''"
+      @keydown.esc="toggleSearch"
+    />
+    <div v-if="filtering" class="item-filters__summary">
+      Showing {{ shown.length }} of {{ items.length }} · reordering is off while filtering
+      <button type="button" class="item-filters__clear" @click="clearFilters">Clear filters</button>
+    </div>
+  </div>
+
   <!-- Rows are in the user's own order (see utils/itemOrder.ts) and can be
-       dragged into place. Sorting by the Title header is a temporary view;
-       dragging is off while it's on, since a drop there would mean nothing. -->
+       dragged into place. Sorting by the Title header or filtering is a
+       temporary view; dragging is off then, since a drop would mean nothing. -->
   <v-data-table
     v-if="items.length > 0"
     v-model:sort-by="sortBy"
     :headers="headers"
-    :items="sorted"
+    :items="shown"
     :items-per-page="-1"
     hide-default-footer
     density="comfortable"
     class="item-table"
     :class="{ 'item-table--dragging': dragId, 'item-table--reorderable': canDrag }"
     hover
+    no-data-text="No items match these filters"
     :row-props="rowProps"
     @click:row="onRowClick"
   >
-    <template #item.rowNumber="{ item, index }">
-      <span class="row-number">{{ index + 1 }}</span>
+    <template #item.rowNumber="{ item }">
+      <span class="row-number">{{ placeOf(item) }}</span>
       <span
         v-if="canDrag"
         class="drag-handle"
@@ -64,10 +118,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, reactive, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { getAllCardProgress } from '@/database'
 import type { LearningItem } from '@/database/types'
 import MathText from '@/shared/components/MathText.vue'
 import { sortByPosition } from '@/utils/itemOrder'
+import { ITEM_LABEL_DEFS } from '@/utils/itemLabels'
+import {
+  activeFilterCount,
+  emptyItemFilters,
+  filterItems,
+  labelFilterOptions,
+  strengthFilterOptions,
+} from '@/utils/itemFilters'
 
 const props = defineProps<{
   items: LearningItem[]
@@ -89,7 +152,57 @@ const headers = [
 
 const sortBy = ref<{ key: string; order: 'asc' | 'desc' }[]>([])
 const sorted = computed(() => sortByPosition(props.items))
-const canDrag = computed(() => sortBy.value.length === 0)
+
+// --- filters ----------------------------------------------------------------
+
+const filters = reactive(emptyItemFilters())
+
+const selectFilters = [
+  { key: 'strength', label: 'How well you know it', icon: 'mdi-chart-line', options: strengthFilterOptions() },
+  {
+    key: 'priority',
+    label: ITEM_LABEL_DEFS.priority.title,
+    icon: ITEM_LABEL_DEFS.priority.icon,
+    options: labelFilterOptions('priority'),
+  },
+  {
+    key: 'difficulty',
+    label: ITEM_LABEL_DEFS.difficulty.title,
+    icon: ITEM_LABEL_DEFS.difficulty.icon,
+    options: labelFilterOptions('difficulty'),
+  },
+] as const
+
+// The search hides behind the magnifier; closing it also clears it, so a
+// hidden search can never be quietly filtering the list.
+const searchOpen = ref(false)
+const searchField = ref<{ focus: () => void } | null>(null)
+const toggleSearch = () => {
+  searchOpen.value = !searchOpen.value
+  if (searchOpen.value) nextTick(() => searchField.value?.focus())
+  else filters.query = ''
+}
+
+// Study progress, for the "how well you know it" filter. Read once when the
+// list opens; it only changes while studying, which happens elsewhere.
+const strengthById = ref(new Map<string, number>())
+onMounted(async () => {
+  const progress = await getAllCardProgress()
+  strengthById.value = new Map(progress.map(p => [p.learning_item_id, p.strength_score]))
+})
+
+const shown = computed(() => filterItems(sorted.value, filters, id => strengthById.value.get(id)))
+const filtering = computed(() => activeFilterCount(filters) > 0)
+const clearFilters = () => {
+  Object.assign(filters, emptyItemFilters())
+  searchOpen.value = false
+}
+
+// Each row's number is its place in the whole list, also while filtered.
+const places = computed(() => new Map(sorted.value.map((item, i) => [item.id, i + 1])))
+const placeOf = (item: LearningItem) => places.value.get(item.id) ?? ''
+
+const canDrag = computed(() => sortBy.value.length === 0 && !filtering.value)
 
 // --- drag and drop ----------------------------------------------------------
 //
@@ -216,6 +329,62 @@ const onRowClick = (_event: unknown, { item }: { item: LearningItem }) => emit('
   cursor: pointer;
   display: flex;
   flex-direction: column;
+}
+
+.item-filters {
+  flex-shrink: 0;
+  padding: 0 16px 8px;
+}
+
+.item-filters__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.item-filters__row {
+  flex-wrap: wrap;
+}
+
+/* Three across when there's room, wrapping on a narrow list. */
+.item-filters__select {
+  flex: 1 1 150px;
+  min-width: 0;
+}
+
+.item-filters__value {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item-filters__more {
+  margin-left: 4px;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+}
+
+.item-filters__search {
+  margin-top: 8px;
+}
+
+.item-filters__summary {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+}
+
+.item-filters__clear {
+  margin-left: 6px;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: rgb(var(--v-theme-primary));
+  font: inherit;
+  cursor: pointer;
+}
+
+.item-filters__clear:hover {
+  text-decoration: underline;
 }
 
 .row-number {
