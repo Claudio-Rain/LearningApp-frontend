@@ -76,6 +76,9 @@
         @flip="isFlipped = !isFlipped"
         @rate="rate"
       />
+      <div v-else-if="loading" class="empty-state">
+        <v-progress-circular indeterminate size="32" width="3" color="grey" />
+      </div>
       <div v-else class="empty-state">
         <v-icon size="40" color="grey-lighten-1">mdi-book-open-outline</v-icon>
         <p>No items to study</p>
@@ -141,6 +144,8 @@ const { studyTimerSeconds } = useStudyTimer()
 
 // --- Panels and dialogs ----------------------------------------------------
 
+// Until the local cards are read: a spinner, not "No items to study".
+const loading = ref(true)
 const addDialog = ref(false)
 const deleteDialog = ref(false)
 const excludeDialog = ref(false)
@@ -296,15 +301,37 @@ watch(collectionIds, async (ids, oldIds) => {
   timer.start()
 })
 
+// The first card comes from what's already on this device, so it shows at
+// once; the pull from Firebase runs behind it and is folded in when it lands.
+// Waiting for the pull first left a blank "No items to study" screen for as
+// long as the network took.
+const pullInBackground = async () => {
+  if (!navigator.onLine || !collectionIds.value.length) return
+  try {
+    const ids = withSubCollections(collectionIds.value, await getCollections())
+    await Promise.all([...[...ids].map(id => pullLearningItems(id)), pullCardProgress()])
+  } catch (error) {
+    console.error('Background pull failed:', error)
+    return
+  }
+  if (route.name !== 'study') return
+  // Nothing was here yet (first visit on this device): start from the pull.
+  // Otherwise fold it in without moving the user off their card.
+  if (studyQueue.value.length === 0) await restartSession()
+  else await session.refresh()
+}
+
 onMounted(async () => {
   startSyncEngine()
-  if (navigator.onLine && collectionIds.value.length) {
-    const ids = withSubCollections(collectionIds.value, await getCollections())
-    await Promise.all([...ids].map(id => pullLearningItems(id)))
-    await pullCardProgress()
+  try {
+    await session.loadData()
+    timer.start()
+    const pulling = pullInBackground()
+    // With nothing on this device yet, keep the spinner until the pull lands.
+    if (studyQueue.value.length === 0) await pulling
+  } finally {
+    loading.value = false
   }
-  await session.loadData()
-  timer.start()
 })
 </script>
 

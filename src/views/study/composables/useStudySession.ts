@@ -83,6 +83,37 @@ export function useStudySession(collectionIds: Ref<string[]>) {
     studyQueue.value = buildStudyQueue(learningItems.value, progressMap)
   }
 
+  /**
+   * Fold in what a background sync brought, without disturbing the session:
+   * cards already queued take their fresh content in place (keeping the
+   * progress snapshot the queue was built with), cards that weren't there are
+   * appended at the end, and the current card and position stay put.
+   */
+  const refresh = async () => {
+    if (!collectionIds.value.length) return
+    const allCollections = await getCollections()
+    studiedIds.value = withSubCollections(collectionIds.value, allCollections)
+    const items = (await getAllLearningItems()).filter(i => studiedIds.value.has(i.collectionId))
+    const fresh = mergeCollectionItems([items], excludedItemIds.value)
+
+    const progressMap = new Map<string, CardProgress>()
+    for (const progress of await getAllCardProgress()) {
+      progressMap.set(progress.learning_item_id, progress)
+    }
+
+    const byId = new Map(fresh.map(item => [item.id, item]))
+    for (const queued of studyQueue.value) {
+      const item = queued.id ? byId.get(queued.id) : undefined
+      if (item) Object.assign(queued, item)
+    }
+    const queuedIds = new Set(studyQueue.value.map(i => i.id))
+    const added = fresh.filter(item => !queuedIds.has(item.id))
+    if (added.length) studyQueue.value.push(...buildStudyQueue(added, progressMap))
+
+    learningItems.value = fresh
+    cardProgressMap.value = progressMap
+  }
+
   /** Reload from the store and start over at the first card. */
   const restart = async () => {
     await loadData()
@@ -195,6 +226,7 @@ export function useStudySession(collectionIds: Ref<string[]>) {
     currentAttempts,
     summary,
     loadData,
+    refresh,
     restart,
     goTo,
     prev,
