@@ -1,11 +1,10 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
-import CollectionItemView from '@/views/CollectionItemView.vue'
 import CollectionListView from '../views/CollectionListView.vue'
-import BulkInsertView from '../views/BulkInsertView.vue'
-import HtmlBulkInsertView from '../views/HtmlBulkInsertView.vue'
-import StudyView from '../views/StudyView.vue'
-import StudyProgressView from '../views/StudyProgressView.vue'
-import StudyOptionsView from '../views/StudyOptionsView.vue'
+
+// Only the landing view ships in the entry bundle. Every other view is its own
+// chunk, fetched when its route is first visited, so opening the app does not
+// download the editor, the charts or the bulk-insert tools up front.
+const CollectionItemView = () => import('@/views/CollectionItemView.vue')
 
 const routes = [
   { path: '/', redirect: '/collections' },
@@ -29,28 +28,28 @@ const routes = [
   {
     path: '/study/:id?',
     name: 'study',
-    component: StudyView,
+    component: () => import('../views/StudyView.vue'),
     props: true
   },
   {
     path: '/progress',
     name: 'progress',
-    component: StudyProgressView
+    component: () => import('../views/StudyProgressView.vue')
   },
   {
     path: '/study-options',
     name: 'studyOptions',
-    component: StudyOptionsView
+    component: () => import('../views/StudyOptionsView.vue')
   },
   {
     path: '/bulk-insert',
     name: 'bulkInsert',
-    component: BulkInsertView
+    component: () => import('../views/BulkInsertView.vue')
   },
   {
     path: '/html-bulk-insert',
     name: 'htmlBulkInsert',
-    component: HtmlBulkInsertView
+    component: () => import('../views/HtmlBulkInsertView.vue')
   }
 ]
 

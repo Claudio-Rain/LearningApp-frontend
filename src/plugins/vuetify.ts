@@ -1,8 +1,11 @@
 // src/plugins/vuetify.ts
 import 'vuetify/styles'
 import { createVuetify } from 'vuetify'
-import * as components from 'vuetify/components'
-import * as directives from 'vuetify/directives'
+// Components and directives are not registered here: vite-plugin-vuetify
+// imports each one where a template uses it, so only those reach the bundle.
+// <v-app> renders the `v-layout` classes without importing their CSS (it lives
+// with VLayout, which no template uses), so that file is pulled in by hand.
+import 'vuetify/lib/components/VLayout/VLayout.css'
 import { aliases, mdi } from 'vuetify/iconsets/mdi'
 import '@mdi/font/css/materialdesignicons.css'
 import { initialThemeName } from '@/shared/composables/useAppTheme'
@@ -176,8 +179,6 @@ const dark = {
 }
 
 export const vuetify = createVuetify({
-  components,
-  directives,
   defaults: {
     // A touch screen has no hover: a tap opens a tooltip that then never sees
     // the pointer leave, so it stays stuck over the page. Touch screens get none.
